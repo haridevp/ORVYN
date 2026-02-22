@@ -33,12 +33,24 @@ An AI-powered penetration testing framework that automates reconnaissance, vulne
 
 ## 🚀 Tech Stack
 
-- **Language**: Python 3.11+
-- **AI/ML**: scikit-learn, PyTorch / TensorFlow
-- **Networking**: Scapy, Nmap, Shodan API
-- **Exploitation**: Metasploit (via pymetasploit3)
-- **Frontend**: React / Streamlit (TBD)
-- **Database**: SQLite / PostgreSQL
+### Frontend
+- **React.js** — Component-based UI with dynamic state management
+- **Tailwind CSS** — Utility-first CSS for rapid, responsive styling
+
+### Backend
+- **FastAPI** — High-performance async Python REST API
+- **Celery + Redis** — Distributed task queue for long-running scans
+
+### Database & Storage
+- **PostgreSQL** — Relational data (users, scans, vulnerabilities)
+- **ChromaDB** — Vector store for RAG-based knowledge retrieval
+
+### AI/ML & Security
+- **LangChain + Ollama** — Local LLM orchestration for behavioral analysis
+- **Nmap** — Network scanning and reconnaissance
+- **OWASP ZAP** — Web application vulnerability scanning
+
+### DevOps
 - **CI/CD**: GitHub Actions
 
 ---
