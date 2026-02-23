@@ -6,13 +6,6 @@ An AI-powered penetration testing framework that automates reconnaissance, vulne
 
 ---
 
-## 📋 Project Status
-
-| Sprint | Period | Status |
-|--------|--------|--------|
-| Sprint 1 | Sem 6 – Week 1–2 | 🔄 In Progress |
-| Sprint 2 | Sem 6 – Week 3–4 | ⏳ Planned |
-| Sprint 3 | Sem 6 – Week 5–6 | ⏳ Planned |
 
 🗂️ **[View Full Backlog](docs/BACKLOG.md)** | 🗓️ **[Sprint Plan](docs/SPRINTS.md)** | 🗺️ **[Roadmap](docs/ROADMAP.md)** | 👥 **[Team](docs/TEAM.md)**
 
