@@ -2,48 +2,69 @@ name: AI Pentest CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
+  pull_request:
+    branches: [develop, main]
+    types: [opened, synchronize, reopened, closed]
 
 jobs:
-  build:
+  ci:
+    if: github.event_name == 'push' || github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Setup Python properly
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      # Install dependencies
       - name: Install Dependencies
         run: |
           pip install -r src/backend/requirements.txt
           pip install pytest
 
-      # Run tests
       - name: Run Tests
-        run: pytest || true # (prevents failure if no tests yet)
+        run: pytest
 
-      # Build Docker images
       - name: Build Docker Images
         run: docker compose build
 
-      # Start services
-      - name: Start Containers
+      - name: Start Containers for Validation
         run: docker compose up -d
 
-      # Wait for API to start
       - name: Wait for API
         run: sleep 10
 
-      # Test API
       - name: Health Check
-        run: curl http://localhost:8000
+        run: curl --fail http://localhost:8000/health
 
-      # Stop everything
       - name: Shutdown
+        if: always()
+        run: docker compose down
+
+  cd:
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Main After Merge
+        uses: actions/checkout@v4
+
+      - name: Build Docker Images
+        run: docker compose build
+
+      - name: Start Containers
+        run: docker compose up -d
+
+      - name: Wait for API
+        run: sleep 10
+
+      - name: Deployment Health Check
+        run: curl --fail http://localhost:8000/health
+
+      - name: Shutdown
+        if: always()
         run: docker compose down

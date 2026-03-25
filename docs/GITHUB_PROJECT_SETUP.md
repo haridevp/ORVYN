@@ -19,7 +19,7 @@ Follow these steps to create a Kanban-style Agile board on GitHub.
 | Column Name | Description |
 |------------|-------------|
 | 📥 **Backlog** | All items not yet in a sprint |
-| 🗓️ **Sprint Ready** | Items planned for current sprint |
+| 📝 **To Do** | Items committed for the current sprint |
 | 🔄 **In Progress** | Actively being worked on |
 | 👀 **In Review** | PR opened, awaiting review |
 | ✅ **Done** | Merged and complete |
@@ -70,6 +70,7 @@ For each item in `docs/BACKLOG.md`:
 3. Fill in title, description, acceptance criteria
 4. Add appropriate **Labels**, **Milestone**, and **Assignee**
 5. Add to the Project board in **Backlog** column
+6. At sprint planning, move committed cards from **Backlog** to **To Do**
 
 ---
 
@@ -100,3 +101,21 @@ End of sprint:
   → Move uncompleted items back to Backlog
   → Plan next sprint
 ```
+
+## Sprint View Guidance
+
+Use the board as the sprint source of truth:
+- `Backlog` stores all unscheduled issues
+- `To Do` stores only the cards committed for the active sprint
+- `In Progress` means coding or testing has started
+- `In Review` means a PR is open and linked to the issue
+- `Done` means merged into `develop`
+- `Blocked` means work cannot continue without a decision or dependency
+
+For each sprint card, keep these fields updated:
+- story or issue number
+- assignee
+- sprint milestone
+- priority label
+- estimate in story points
+- linked branch or PR

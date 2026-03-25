@@ -21,17 +21,17 @@
 
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r src/backend/requirements.txt
    ```
 
 ---
 
 ## 🌿 Branching & Workflow
 
-1. **Always branch off `dev`**, never `main`:
+1. **Always branch off `develop`**, never `main`:
    ```bash
-   git checkout dev
-   git pull origin dev
+   git checkout develop
+   git pull origin develop
    git checkout -b feature/your-feature-name
    ```
 
@@ -60,7 +60,7 @@
    git push origin feature/your-feature-name
    ```
 
-2. Open a PR on GitHub from your branch → `dev`
+2. Open a PR on GitHub from your branch -> `develop`
 3. Fill in the **PR template** completely
 4. Assign at least **1 reviewer** from the team
 5. Add the appropriate **labels** and **milestone**
@@ -84,14 +84,15 @@
   ```bash
   pytest tests/
   ```
-- CI will run tests automatically on every PR
+- CI runs on `develop` pushes and pull requests
+- Deployment validation runs after a reviewed merge into `main`
 
 ---
 
 ## 📋 Picking Up Tasks
 
 1. Go to the **GitHub Project Board**
-2. Pick an issue from **Sprint Ready** column
+2. Pick an issue from **To Do** in the active sprint view
 3. Assign yourself to the issue
 4. Move the card to **In Progress**
 5. Create a branch and start coding!
