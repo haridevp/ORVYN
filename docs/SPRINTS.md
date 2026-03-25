@@ -4,6 +4,27 @@
 
 ---
 
+## GitHub Kanban Usage
+
+Active sprint execution is tracked in GitHub Projects using this flow:
+- `Backlog` for unscheduled issues
+- `To Do` for sprint-committed cards
+- `In Progress` for active implementation
+- `In Review` for PR-linked cards awaiting approval
+- `Done` for work merged into `develop`
+- `Blocked` for dependency or decision blockers
+
+Each sprint item should include:
+- GitHub issue number
+- user story ID
+- assignee
+- story points
+- milestone
+- linked branch or PR
+- card status on the Kanban board
+
+---
+
 ## 📐 Sprint Template
 
 Copy and fill this for each new sprint:
@@ -22,6 +43,11 @@ Copy and fill this for each new sprint:
 - ✅ Went well: ...
 - 🔧 To improve: ...
 - ❌ Blocked: ...
+
+**Kanban Details**:
+- Board view: Active Sprint
+- Cards moved from `Backlog` to `To Do` during sprint planning
+- Each issue must link to its branch or PR before moving to `In Review`
 ```
 
 ---
@@ -33,13 +59,21 @@ Copy and fill this for each new sprint:
 
 | Issue # | Story ID | Description | Assignee | Points | Status |
 |---------|----------|-------------|----------|--------|--------|
-| #1 | US-001 | Configure GitHub repo with GitHub Actions CI | Member 1 | 5 | 🔄 In Progress |
-| #2 | US-002 | Write dev environment setup guide (README) | Member 2 | 3 | 🔲 To Do |
+| #1 | US-001 | Configure GitHub repo with GitHub Actions CI | Member 1 | 5 | ✅ Done |
+| #2 | US-002 | Write dev environment setup guide (README) | Member 2 | 3 | ✅ Done |
 | #3 | US-003 | Define project folder structure | Member 1 | 2 | ✅ Done |
-| #4 | US-005 | Nmap integration for port scanning | Member 2 | 8 | 🔲 To Do |
+| #4 | US-005 | Nmap integration for port scanning | Member 2 | 8 | 🔄 In Progress |
 
-**Velocity**: 0 / 18 points  
-**Retrospective Notes**: *(to be filled at end of sprint)*
+**Velocity**: 10 / 18 points  
+**Retrospective Notes**:
+- ✅ Went well: repo structure, CI/CD workflow, and Docker base setup were established early
+- 🔧 To improve: issue ownership and PR linking should be updated more consistently in the board
+- ❌ Blocked: scanner integration still depends on the next technical spike
+
+**Kanban Details**:
+- Cards committed to Sprint 1 were moved to `To Do` at planning time
+- Completed setup work is in `Done`
+- Recon implementation card remains in `In Progress` while integration code is added
 
 ---
 
@@ -56,6 +90,10 @@ Copy and fill this for each new sprint:
 
 **Velocity**: — / 16 points
 
+**Kanban Details**:
+- Move only ready recon tasks into `To Do`
+- Link each recon issue to its feature branch before review
+
 ---
 
 ## ⏳ Sprint 3 — 24 Mar 2026 to 06 Apr 2026
@@ -70,6 +108,10 @@ Copy and fill this for each new sprint:
 
 **Velocity**: — / 21 points
 
+**Kanban Details**:
+- Security scanner tasks remain in `Backlog` until recon outputs are stable
+- Review cards should include evidence screenshots or sample JSON output
+
 ---
 
 ## ⏳ Sprint 4 — 07 Apr 2026 to 20 Apr 2026
@@ -83,6 +125,10 @@ Copy and fill this for each new sprint:
 | #14 | US-007 | Subdomain enumeration | Member 2 | 5 | 🔲 To Do |
 
 **Velocity**: — / 18 points
+
+**Kanban Details**:
+- Demo-related cards should be tagged with sprint milestone and `priority: high`
+- Report tasks should link generated artifacts in the issue comments before closure
 
 ---
 

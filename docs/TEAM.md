@@ -39,9 +39,9 @@
 ## 🌿 Git Branching Strategy
 
 ```
-main          ← stable, always deployable
+main          ← stable, reviewed, deployment-ready
 │
-├── dev       ← integration branch (merge PRs here)
+├── develop   ← integration branch (merge PRs here)
 │   ├── feature/recon-nmap-scan      (Member 2)
 │   ├── feature/vuln-scanner-cve     (Member 2)
 │   ├── feature/exploit-engine       (Member 3)
@@ -57,7 +57,7 @@ main          ← stable, always deployable
 - `research/<short-description>` — research spike
 
 ### PR Rules
-1. All PRs go to `dev`, never directly to `main`
+1. All PRs go to `develop`, never directly to `main`
 2. At least **1 reviewer** must approve before merging
 3. Link the GitHub issue in your PR description
 4. PR template must be filled out completely

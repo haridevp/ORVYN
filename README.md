@@ -1,90 +1,97 @@
-# 🔐 AI-Automated-Penetration-Testing
+# AI-Automated-Penetration-Testing
 
-> **Final Year Project** | Semester 6–8 | Team of 4
+> Final Year Project | Semester 6-8 | Team of 4
 
-An AI-powered penetration testing framework that automates reconnaissance, vulnerability scanning, exploitation, and report generation using machine learning models.
+An AI-assisted penetration testing platform that coordinates scan requests, asynchronous worker execution, and validation-ready reporting. The current repository contains the project foundation, delivery workflow, and API proof-of-architecture for the larger system planned in the review deck.
 
----
+[Full Backlog](docs/BACKLOG.md) | [Sprint Plan](docs/SPRINTS.md) | [Roadmap](docs/ROADMAP.md) | [Team](docs/TEAM.md)
 
+## Current Status
 
-🗂️ **[View Full Backlog](docs/BACKLOG.md)** | 🗓️ **[Sprint Plan](docs/SPRINTS.md)** | 🗺️ **[Roadmap](docs/ROADMAP.md)** | 👥 **[Team](docs/TEAM.md)**
+Implemented in this repository today:
+- FastAPI backend skeleton with health, scan submission, scan lookup, report preview, and architecture-proof endpoints
+- Celery worker skeleton for asynchronous scan execution
+- Dockerfiles for backend and worker
+- `docker-compose.yml` with backend, worker, Redis, and PostgreSQL services
+- GitHub Actions workflow aligned to `develop` for CI and merge-to-`main` for deployment validation
+- Agile planning artifacts: backlog, sprint board guidance, roadmap, team roles, and issue templates
 
----
+Planned next layers:
+- React/Tailwind dashboard
+- Scanner integrations for Nmap, ZAP, and Nuclei
+- PostgreSQL persistence and migrations
+- RAG validation using LangChain, ChromaDB, and Ollama
+- Authentication, role-based access, and report export
 
-## 🧩 Modules
+## Modules
 
-| Module | Description | Owner |
-|--------|-------------|-------|
-| 🔍 **Reconnaissance** | Automated network/host discovery | TBD |
-| 🛡️ **Vulnerability Scanner** | AI-assisted CVE detection | TBD |
-| 💥 **Exploitation Engine** | Automated payload generation & execution | TBD |
-| 🤖 **AI/ML Core** | Models for decision-making & prioritization | TBD |
-| 📊 **Report Generator** | Auto-generate pentest reports | TBD |
-| 🖥️ **Dashboard / UI** | Web UI for control & visualization | TBD |
+| Module | Status | Notes |
+|--------|--------|-------|
+| Reconnaissance | Planned | Nmap/Nuclei integration tracked in backlog |
+| Vulnerability Scanner | Planned | API and worker flow prepared for scanner orchestration |
+| AI Validation | Planned | RAG validation stack documented, not implemented yet |
+| Reporting | In Progress | Report preview endpoint and result schema stub added |
+| Backend API | Implemented Foundation | FastAPI endpoints and request/response models present |
+| Queue / Worker | Implemented Foundation | Celery task skeleton present |
+| Dashboard / UI | Planned | React/Tailwind phase starts in later sprint |
+| DevOps | Implemented Foundation | Docker Compose and GitHub Actions in repo |
 
----
+## Tech Stack
 
-## 🚀 Tech Stack
+Current repo:
+- FastAPI for API routing
+- Celery with Redis for asynchronous execution
+- PostgreSQL container for persistence layer setup
+- Docker Compose for local orchestration
+- GitHub Actions for CI/CD
 
-### Frontend
-- **React.js** — Component-based UI with dynamic state management
-- **Tailwind CSS** — Utility-first CSS for rapid, responsive styling
+Planned integration stack:
+- React and Tailwind CSS for dashboard UI
+- LangChain, Ollama, and ChromaDB for validation and retrieval
+- Nmap, OWASP ZAP, and Nuclei for scan evidence collection
 
-### Backend
-- **FastAPI** — High-performance async Python REST API
-- **Celery + Redis** — Distributed task queue for long-running scans
+## Workflow
 
-### Database & Storage
-- **PostgreSQL** — Relational data (users, scans, vulnerabilities)
-- **ChromaDB** — Vector store for RAG-based knowledge retrieval
+- Feature and docs branches are merged into `develop`
+- CI runs on `develop` pushes and pull requests
+- Validated changes are merged from `develop` into `main`
+- Deployment validation runs after the merge to `main`
 
-### AI/ML & Security
-- **LangChain + Ollama** — Local LLM orchestration for behavioral analysis
-- **Nmap** — Network scanning and reconnaissance
-- **OWASP ZAP** — Web application vulnerability scanning
+## API Proof
 
-### DevOps
-- **CI/CD**: GitHub Actions
+Current backend endpoints:
+- `GET /`
+- `GET /health`
+- `GET /architecture/proof`
+- `POST /scans`
+- `GET /scans/{scan_id}`
+- `GET /reports/{scan_id}`
 
----
+These endpoints provide the architecture proof expected in the panel review while deeper scanner, database, and RAG integrations are still under active development.
 
-## 👥 Team
+## Project Structure
 
-| Member | Role |
-|--------|------|
-| Member 1 | Project Lead / AI Core |
-| Member 2 | Reconnaissance & Scanning |
-| Member 3 | Exploitation Engine |
-| Member 4 | UI / Dashboard / Reports |
-
----
-
-## 📁 Project Structure
-
-```
+```text
 AI-Automated-Penetration-Testing/
-├── .github/
-│   ├── ISSUE_TEMPLATE/       # Issue templates for tasks, bugs, stories
-│   └── pull_request_template.md
-├── docs/
-│   ├── BACKLOG.md            # Full product backlog
-│   ├── SPRINTS.md            # Sprint history & planning
-│   ├── ROADMAP.md            # Semester-wise roadmap
-│   ├── TEAM.md               # Team roles & responsibilities
-│   └── GITHUB_PROJECT_SETUP.md
-├── src/                      # Source code (to be added)
-├── tests/                    # Unit & integration tests
-└── README.md
+|-- .github/
+|   |-- ISSUE_TEMPLATE/
+|   `-- workflows/
+|-- docs/
+|   |-- BACKLOG.md
+|   |-- GITHUB_PROJECT_SETUP.md
+|   |-- ROADMAP.md
+|   |-- SPRINTS.md
+|   `-- TEAM.md
+|-- src/
+|   |-- backend/
+|   `-- worker/
+`-- tests/
 ```
 
----
+## Contributing
 
-## 🧑‍💻 Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branching, PR rules, and sprint board usage.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to pick up tasks, branch naming, and PR rules.
+## License
 
----
-
-## 📄 License
-
-Academic project — All rights reserved.
+Academic project. All rights reserved.
