@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ScannerName } from "../types";
+import { IconPlay } from "./Icons";
 
 const ALL_SCANNERS: { id: ScannerName; label: string }[] = [
   { id: "nuclei", label: "Nuclei" },
@@ -30,7 +31,7 @@ export function ScanForm({ onStart, disabled }: Props) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-[var(--shadow-card)]"
+      className="rounded-xl border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-[var(--shadow-card)]"
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
         <label className="flex-1">
@@ -86,9 +87,16 @@ export function ScanForm({ onStart, disabled }: Props) {
         <button
           type="submit"
           disabled={disabled || scanners.length === 0}
-          className="rounded-md bg-[var(--series-blue)] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-md bg-[var(--series-blue)] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {disabled ? "Scanning..." : "Start Scan"}
+          {disabled ? (
+            "Scanning..."
+          ) : (
+            <>
+              <IconPlay size={13} />
+              Start Scan
+            </>
+          )}
         </button>
       </div>
     </form>

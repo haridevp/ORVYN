@@ -81,7 +81,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto rounded-lg border border-[var(--border)] px-3 py-3 text-xs text-[var(--text-muted)]">
+      <div className="mt-auto rounded-xl border border-[var(--border)] px-3 py-3 text-xs text-[var(--text-muted)]">
         <p className="font-medium text-[var(--text-secondary)]">Module 2</p>
         <p className="mt-0.5">Multi-Scanner Integration &amp; Vulnerability Correlation</p>
       </div>

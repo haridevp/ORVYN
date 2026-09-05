@@ -12,7 +12,7 @@ export function SeverityBreakdownCard({ distribution }: { distribution: Severity
   const total = ORDER.reduce((sum, s) => sum + distribution[s], 0);
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-[var(--shadow-card)]">
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-[var(--shadow-card)]">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text-secondary)]">Severity Breakdown</h2>
         <p className="text-xs text-[var(--text-muted)]">

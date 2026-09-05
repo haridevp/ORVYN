@@ -1,12 +1,7 @@
 import { useState } from "react";
 import type { CorrelatedFinding } from "../types";
 import { SEVERITY_STYLE } from "./Badge";
-
-const TOOL_LABEL: Record<string, string> = {
-  nuclei: "Nuclei",
-  zap: "OWASP ZAP",
-  nikto: "Nikto",
-};
+import { ToolMonogram } from "./ToolBadge";
 
 function ScoreBadge({ finding }: { finding: CorrelatedFinding }) {
   const color = SEVERITY_STYLE[finding.severity].color;
@@ -49,9 +44,11 @@ function Row({ finding }: { finding: CorrelatedFinding }) {
               </span>
             )}
           </div>
-          <p className="mt-0.5 truncate text-xs text-[var(--text-muted)]">
-            {finding.contributing_tools.map((t) => TOOL_LABEL[t] ?? t).join(", ")}
-          </p>
+          <div className="mt-1 flex items-center gap-1">
+            {finding.contributing_tools.map((t) => (
+              <ToolMonogram key={t} tool={t} size={15} />
+            ))}
+          </div>
         </div>
 
         <svg
@@ -91,7 +88,7 @@ function Row({ finding }: { finding: CorrelatedFinding }) {
 
 export function CorrelatedFindingsTable({ findings }: { findings: CorrelatedFinding[] }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-[var(--shadow-card)]">
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-[var(--shadow-card)]">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[var(--text-secondary)]">Consolidated Findings</h2>
         <span className="text-xs text-[var(--text-muted)]">{findings.length} total</span>

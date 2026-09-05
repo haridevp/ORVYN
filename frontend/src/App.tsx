@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { API_BASE_URL, ApiUnreachableError, checkApiHealth, getScanResults, getScanStatus, startScan } from "./api";
 import { CorrelatedFindingsTable } from "./components/CorrelatedFindingsTable";
+import { EmptyState } from "./components/EmptyState";
+import { IconActivity, IconFlame, IconLayers, IconServer, IconTarget } from "./components/Icons";
 import { RawFindingsPanel } from "./components/RawFindingsPanel";
 import { ScanForm } from "./components/ScanForm";
 import { ScannerProgressList } from "./components/ScannerProgressList";
@@ -18,6 +20,19 @@ const STATUS_LABEL: Record<string, string> = {
   completed: "Completed",
   error: "Error",
 };
+
+function SkeletonStatRow() {
+  return (
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-3 lg:grid-cols-5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="animate-pulse-soft bg-[var(--surface-1)] px-5 py-4">
+          <div className="h-3 w-16 rounded bg-[var(--gridline)]" />
+          <div className="mt-3 h-6 w-10 rounded bg-[var(--gridline)]" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function App() {
   const [apiState, setApiState] = useState<ApiState>("checking");
@@ -82,7 +97,7 @@ export default function App() {
       <Sidebar />
 
       <div className="min-w-0 flex-1">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-6 py-5">
+        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-1)]/85 px-6 py-5 backdrop-blur">
           <div>
             <h1 className="text-lg font-semibold text-[var(--text-primary)]">Security Dashboard</h1>
             <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
@@ -91,16 +106,19 @@ export default function App() {
             </p>
           </div>
           {status && (
-            <div className="text-right">
-              <p className="text-xs text-[var(--text-muted)]">Target</p>
-              <p className="font-mono text-sm text-[var(--text-primary)]">{status.target}</p>
+            <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-page)] py-1.5 pl-3 pr-3.5">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${isRunning ? "animate-pulse-soft bg-[var(--series-blue)]" : "bg-[var(--status-good)]"}`}
+              />
+              <IconTarget size={13} className="text-[var(--text-muted)]" />
+              <span className="font-mono text-sm text-[var(--text-primary)]">{status.target}</span>
             </div>
           )}
         </header>
 
         <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6">
           {isDemoMode && (
-            <div className="rounded-lg border border-[var(--status-warning)]/40 bg-[var(--status-warning)]/10 px-4 py-3 text-sm">
+            <div className="rounded-xl border border-[var(--status-warning)]/40 bg-[var(--status-warning)]/10 px-4 py-3 text-sm">
               <strong>Demo data</strong> — no backend reachable at{" "}
               <code className="font-mono">{API_BASE_URL}</code>. Run the API via{" "}
               <code className="font-mono">docker compose up</code> and reload, or pass{" "}
@@ -109,26 +127,52 @@ export default function App() {
           )}
 
           {error && (
-            <div className="rounded-lg border border-[var(--status-critical)]/40 bg-[var(--status-critical)]/10 px-4 py-3 text-sm text-[var(--status-critical)]">
+            <div className="rounded-xl border border-[var(--status-critical)]/40 bg-[var(--status-critical)]/10 px-4 py-3 text-sm text-[var(--status-critical)]">
               {error}
             </div>
           )}
 
           <ScanForm onStart={handleStart} disabled={isDemoMode || !!isRunning} />
 
-          {status && (
+          {!status && <EmptyState />}
+
+          {status && isRunning && !results && <SkeletonStatRow />}
+
+          {status && results && (
             <StatRow
               stats={[
-                { label: "Overall Status", value: STATUS_LABEL[status.overall_status] },
-                { label: "Total Findings", value: totalFindings },
+                {
+                  label: "Overall Status",
+                  value: STATUS_LABEL[status.overall_status],
+                  icon: <IconActivity size={13} />,
+                  iconColor: "var(--status-good)",
+                },
+                {
+                  label: "Total Findings",
+                  value: totalFindings,
+                  icon: <IconTarget size={13} />,
+                  iconColor: "var(--series-blue)",
+                },
                 {
                   label: "Critical + High",
                   value: criticalHigh,
                   note: criticalHigh > 0 ? "needs attention" : undefined,
                   noteColor: "var(--status-critical)",
+                  icon: <IconFlame size={13} />,
+                  iconColor: "var(--status-critical)",
                 },
-                { label: "Duplicate Groups", value: results?.duplicate_groups ?? 0 },
-                { label: "Scanners Run", value: status.scanners.length },
+                {
+                  label: "Duplicate Groups",
+                  value: results.duplicate_groups,
+                  icon: <IconLayers size={13} />,
+                  iconColor: "var(--status-warning)",
+                },
+                {
+                  label: "Scanners Run",
+                  value: status.scanners.length,
+                  icon: <IconServer size={13} />,
+                  iconColor: "var(--text-muted)",
+                },
               ]}
             />
           )}
