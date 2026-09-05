@@ -3,13 +3,26 @@ from typing import Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from job_manager import job_manager
+from schemas import ScanResultsResponse, ScanStartRequest, ScanStatusResponse
 
 
 app = FastAPI(
     title="AI Automated Penetration Testing API",
-    version="0.2.0",
-    description="Architecture-proof API skeleton for the AI pentesting platform.",
+    version="0.3.0",
+    description="Multi-scanner orchestration API for the AI pentesting platform.",
+)
+
+# Dashboard is a static SPA (GitHub Pages / local dev server) hosted on a
+# different origin than this API, so it needs CORS to call /scan/* directly.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
 )
 
 
@@ -61,7 +74,14 @@ def health():
 @app.get("/architecture/proof")
 def architecture_proof():
     return {
-        "layers": ["FastAPI API", "Celery worker", "Redis broker", "PostgreSQL storage"],
+        "layers": [
+            "FastAPI API",
+            "Multi-scanner job manager (Nuclei/ZAP/Nikto)",
+            "Result normalizer + correlation engine",
+            "Celery worker",
+            "Redis broker",
+            "PostgreSQL storage",
+        ],
         "implemented_endpoints": [
             "GET /",
             "GET /health",
@@ -69,8 +89,12 @@ def architecture_proof():
             "POST /scans",
             "GET /scans/{scan_id}",
             "GET /reports/{scan_id}",
+            "POST /scan/start",
+            "GET /scan/status/{scan_id}",
+            "GET /scan/results/{scan_id}",
+            "GET /scan/{scan_id}",
         ],
-        "planned_integrations": ["Nmap", "OWASP ZAP", "Nuclei", "RAG validator"],
+        "planned_integrations": ["OpenVAS", "RAG validator", "MCP tool layer"],
     }
 
 
@@ -111,3 +135,43 @@ def get_report(scan_id: str):
         "target": scan["target"],
         "validation_status": "pending-rag-validation",
     }
+
+
+# ---------------------------------------------------------------------------
+# Module 2 - Multi-Scanner Integration & Vulnerability Correlation
+# ---------------------------------------------------------------------------
+# These endpoints supersede the single-scanner /scans stub above: a scan job
+# fans out to every selected scanner concurrently, tracks per-scanner status,
+# and exposes both raw and correlated (de-duplicated) findings.
+
+
+@app.post("/scan/start", status_code=202, response_model=ScanStatusResponse)
+async def start_scan(request: ScanStartRequest):
+    if not request.scanners:
+        raise HTTPException(status_code=400, detail="At least one scanner must be selected")
+    job = await job_manager.start_scan(request)
+    return job.to_status_response()
+
+
+@app.get("/scan/status/{scan_id}", response_model=ScanStatusResponse)
+def get_scan_status(scan_id: str):
+    job = job_manager.get(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return job.to_status_response()
+
+
+@app.get("/scan/results/{scan_id}", response_model=ScanResultsResponse)
+def get_scan_results(scan_id: str):
+    job = job_manager.get(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return job.to_results_response()
+
+
+@app.get("/scan/{scan_id}", response_model=ScanStatusResponse)
+def get_scan_job(scan_id: str):
+    job = job_manager.get(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return job.to_status_response()

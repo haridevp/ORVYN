@@ -4,7 +4,13 @@ from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-sys.path.append(str(Path(__file__).resolve().parents[2] / "src" / "security_rag_engine"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src" / "security_rag_engine"))
+
+# See tests/security_rag_engine/test_history.py for why this cache eviction
+# is necessary: backend and security_rag_engine both use bare intra-package
+# imports (e.g. `import schemas`) and share sys.path in the same pytest run.
+for _name in ("schemas", "config", "database", "historical_engine", "knowledge_loader", "mcp_bridge", "memory_service", "models_db", "rag_pipeline"):
+    sys.modules.pop(_name, None)
 
 from src.security_rag_engine.main import app
 from src.security_rag_engine.schemas import ScannerFinding

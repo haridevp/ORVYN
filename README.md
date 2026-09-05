@@ -9,46 +9,49 @@ An AI-assisted penetration testing platform that coordinates scan requests, asyn
 ## Current Status
 
 Implemented in this repository today:
-- FastAPI backend skeleton with health, scan submission, scan lookup, report preview, and architecture-proof endpoints
-- Celery worker skeleton for asynchronous scan execution
-- Dockerfiles for backend and worker
-- `docker-compose.yml` with backend, worker, Redis, and PostgreSQL services
-- GitHub Actions workflow aligned to `develop` for CI and merge-to-`main` for deployment validation
+- **Multi-scanner orchestration API** (`/scan/start`, `/scan/status/{id}`, `/scan/results/{id}`, `/scan/{id}`): fans a scan out to Nuclei, ZAP, and Nikto concurrently, tracks per-scanner status, and never lets one scanner's failure sink the job
+- **Result normalizer + correlation engine**: de-duplicates findings reported by multiple tools, raises confidence when tools corroborate each other, and flags conflicting severity ratings
+- Each scanner wrapper (`src/backend/scanners/`) calls the real binary via subprocess if it's installed, and falls back to realistic simulated findings otherwise - so the API/UI/correlation engine are exercised end-to-end even without Nuclei/ZAP/Nikto installed locally
+- Findings are enriched with CWE/OWASP Top 10:2025 references (`src/backend/references.py`)
+- **React + Tailwind dashboard** (`frontend/`): scan form, live per-scanner progress, severity distribution, consolidated/correlated findings with corroboration and conflicting-severity indicators, and per-scanner raw results - with a demo-data fallback when no backend is reachable
+- `security_rag_engine` service: Module 3/4 RAG pipeline, historical scan memory, and MCP bridge scaffolding
+- Celery worker skeleton for asynchronous scan execution, Dockerfiles for backend/worker, `docker-compose.yml` with backend/worker/Redis/Postgres and an opt-in OWASP Juice Shop demo target
+- GitHub Actions: CI on `develop`/PRs, deployment validation on merge-to-`main`, and a GitHub Pages deploy workflow for the dashboard
 - Agile planning artifacts: backlog, sprint board guidance, roadmap, team roles, and issue templates
 
 Planned next layers:
-- React/Tailwind dashboard
-- Scanner integrations for Nmap, ZAP, and Nuclei
-- PostgreSQL persistence and migrations
-- RAG validation using LangChain, ChromaDB, and Ollama
+- Real Nuclei/ZAP/Nikto binaries wired into CI/Docker (wrappers already support it - see `src/backend/scanners/`)
+- Additional scanner coverage (OpenVAS) and MCP tool integration
+- RAG-grounded AI triage wired into the dashboard's consolidated findings view
 - Authentication, role-based access, and report export
 
 ## Modules
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| Reconnaissance | Planned | Nmap/Nuclei integration tracked in backlog |
-| Vulnerability Scanner | Planned | API and worker flow prepared for scanner orchestration |
-| AI Validation | Planned | RAG validation stack documented, not implemented yet |
+| Reconnaissance | Planned | Nmap integration tracked in backlog |
+| Multi-Scanner Vulnerability Assessment | Implemented | Nuclei/ZAP/Nikto orchestration, correlation engine, unified finding schema |
+| AI Validation / RAG | In Progress | `security_rag_engine` triage + history pipeline implemented; not yet wired into the dashboard |
 | Reporting | In Progress | Report preview endpoint and result schema stub added |
-| Backend API | Implemented Foundation | FastAPI endpoints and request/response models present |
-| Queue / Worker | Implemented Foundation | Celery task skeleton present |
-| Dashboard / UI | Planned | React/Tailwind phase starts in later sprint |
-| DevOps | Implemented Foundation | Docker Compose and GitHub Actions in repo |
+| Backend API | Implemented | FastAPI multi-scanner job orchestration + legacy architecture-proof endpoints |
+| Queue / Worker | Implemented Foundation | Celery task skeleton present; scan orchestration currently runs via async FastAPI background tasks |
+| Dashboard / UI | Implemented | React/Tailwind multi-scanner dashboard, deployable to GitHub Pages |
+| DevOps | Implemented Foundation | Docker Compose, GitHub Actions CI/CD, GitHub Pages deploy |
 
 ## Tech Stack
 
 Current repo:
-- FastAPI for API routing
+- FastAPI for API routing and multi-scanner job orchestration
+- React, TypeScript, Vite, and Tailwind CSS for the dashboard
 - Celery with Redis for asynchronous execution
 - PostgreSQL container for persistence layer setup
 - Docker Compose for local orchestration
-- GitHub Actions for CI/CD
+- GitHub Actions for CI/CD and GitHub Pages deployment
 
 Planned integration stack:
-- React and Tailwind CSS for dashboard UI
-- LangChain, Ollama, and ChromaDB for validation and retrieval
-- Nmap, OWASP ZAP, and Nuclei for scan evidence collection
+- LangChain, Ollama, and ChromaDB for validation and retrieval (scaffolded in `security_rag_engine`)
+- OpenVAS for network/infrastructure coverage
+- MCP-based tool integration (HexStrike/Vorota/RedaMon - under evaluation)
 
 ## Workflow
 
@@ -63,11 +66,34 @@ Current backend endpoints:
 - `GET /`
 - `GET /health`
 - `GET /architecture/proof`
-- `POST /scans`
-- `GET /scans/{scan_id}`
-- `GET /reports/{scan_id}`
+- `POST /scans` / `GET /scans/{scan_id}` / `GET /reports/{scan_id}` (legacy single-scanner stub)
+- `POST /scan/start` - start a multi-scanner job (`target`, `scanners`, `profile`)
+- `GET /scan/status/{scan_id}` - per-scanner progress + overall status
+- `GET /scan/results/{scan_id}` - raw findings, correlated findings, severity distribution
+- `GET /scan/{scan_id}` - scan summary
 
-These endpoints provide the architecture proof expected in the panel review while deeper scanner, database, and RAG integrations are still under active development.
+## Running Locally
+
+Backend:
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -r src/backend/requirements.txt
+cd src/backend && uvicorn main:app --reload
+```
+
+Dashboard:
+```bash
+cd frontend
+npm install
+npm run dev   # http://localhost:5173, talks to http://localhost:8000 by default
+```
+
+Point the dashboard at a different backend with `VITE_API_BASE_URL` (build time) or `?api=http://host:8000` (runtime, handy for a deployed GitHub Pages build).
+
+Optional local scan target (no third-party site required):
+```bash
+docker compose --profile demo-target up demo-target   # OWASP Juice Shop on :3000
+```
 
 ## Project Structure
 
@@ -75,15 +101,22 @@ These endpoints provide the architecture proof expected in the panel review whil
 AI-Automated-Penetration-Testing/
 |-- .github/
 |   |-- ISSUE_TEMPLATE/
-|   `-- workflows/
+|   `-- workflows/       # CI/CD + GitHub Pages deploy
 |-- docs/
 |   |-- BACKLOG.md
 |   |-- GITHUB_PROJECT_SETUP.md
 |   |-- ROADMAP.md
 |   |-- SPRINTS.md
 |   `-- TEAM.md
+|-- frontend/            # React + Tailwind multi-scanner dashboard
 |-- src/
 |   |-- backend/
+|   |   |-- scanners/    # Nuclei/ZAP/Nikto wrappers (real binary + simulated fallback)
+|   |   |-- correlation.py
+|   |   |-- job_manager.py
+|   |   |-- references.py
+|   |   `-- schemas.py
+|   |-- security_rag_engine/
 |   `-- worker/
 `-- tests/
 ```

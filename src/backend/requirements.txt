@@ -3,3 +3,5 @@ uvicorn
 celery
 redis
 psycopg2-binary
+pytest
+httpx

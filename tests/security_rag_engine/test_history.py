@@ -6,7 +6,15 @@ from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-sys.path.append(str(Path(__file__).resolve().parents[2] / "src" / "security_rag_engine"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src" / "security_rag_engine"))
+
+# src/backend and src/security_rag_engine both use bare intra-package imports
+# (e.g. `import schemas`) so they can run flat inside their own Docker image.
+# When both live on sys.path in the same pytest session, whichever test file
+# imports first "wins" the bare name for the rest of the run. Evict any stale
+# cached module so this file always gets *this* package's version.
+for _name in ("schemas", "config", "database", "historical_engine", "knowledge_loader", "mcp_bridge", "memory_service", "models_db", "rag_pipeline"):
+    sys.modules.pop(_name, None)
 
 from src.security_rag_engine.models_db import Base
 from src.security_rag_engine.memory_service import MemoryService, compute_fingerprint
