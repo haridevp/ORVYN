@@ -30,32 +30,28 @@ export function ScanForm({ onStart, disabled }: Props) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-5"
+      className="rounded-lg border border-[var(--border)] bg-[var(--surface-1)] p-5 shadow-[var(--shadow-card)]"
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
         <label className="flex-1">
-          <span className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
-            Target
-          </span>
+          <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Target</span>
           <input
             type="text"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
             placeholder="scanme.nmap.org or http://localhost:3000"
-            className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--series-blue)]"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--surface-page)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--series-blue)]"
             minLength={3}
             required
           />
         </label>
 
         <label>
-          <span className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
-            Profile
-          </span>
+          <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Profile</span>
           <select
             value={profile}
             onChange={(e) => setProfile(e.target.value)}
-            className="rounded-md border border-[var(--border)] bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] outline-none"
+            className="w-full rounded-md border border-[var(--border)] bg-[var(--surface-page)] px-3 py-2.5 text-sm text-[var(--text-primary)] outline-none lg:w-auto"
           >
             <option value="recon">Recon</option>
             <option value="web">Web</option>
@@ -63,34 +59,37 @@ export function ScanForm({ onStart, disabled }: Props) {
           </select>
         </label>
 
+        <div>
+          <span className="mb-1.5 block text-xs font-medium text-[var(--text-muted)]">Scanners</span>
+          <div className="flex flex-wrap gap-1.5">
+            {ALL_SCANNERS.map(({ id, label }) => {
+              const checked = scanners.includes(id);
+              return (
+                <button
+                  type="button"
+                  key={id}
+                  onClick={() => toggleScanner(id)}
+                  aria-pressed={checked}
+                  className={`rounded-md border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    checked
+                      ? "border-[var(--series-blue)] bg-[var(--series-blue-wash)] text-[var(--series-blue)]"
+                      : "border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-page)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <button
           type="submit"
           disabled={disabled || scanners.length === 0}
-          className="rounded-md bg-[var(--series-blue)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-md bg-[var(--series-blue)] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {disabled ? "Scanning..." : "Start Scan"}
         </button>
-      </div>
-
-      <div className="mt-4">
-        <span className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">
-          Scanners
-        </span>
-        <div className="flex flex-wrap gap-3">
-          {ALL_SCANNERS.map(({ id, label }) => (
-            <label
-              key={id}
-              className="flex items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
-            >
-              <input
-                type="checkbox"
-                checked={scanners.includes(id)}
-                onChange={() => toggleScanner(id)}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
       </div>
     </form>
   );

@@ -4,11 +4,20 @@ import { CorrelatedFindingsTable } from "./components/CorrelatedFindingsTable";
 import { RawFindingsPanel } from "./components/RawFindingsPanel";
 import { ScanForm } from "./components/ScanForm";
 import { ScannerProgressList } from "./components/ScannerProgressList";
-import { SeverityDistributionChart } from "./components/SeverityDistributionChart";
+import { SeverityBreakdownCard } from "./components/SeverityBreakdownCard";
+import { Sidebar } from "./components/Sidebar";
+import { StatRow } from "./components/StatRow";
 import { DEMO_RESULTS, DEMO_STATUS } from "./demoData";
 import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./types";
 
 type ApiState = "checking" | "online" | "offline";
+
+const STATUS_LABEL: Record<string, string> = {
+  queued: "Queued",
+  running: "Running",
+  completed: "Completed",
+  error: "Error",
+};
 
 export default function App() {
   const [apiState, setApiState] = useState<ApiState>("checking");
@@ -63,48 +72,81 @@ export default function App() {
   const isDemoMode = apiState === "offline";
   const isRunning = status?.overall_status === "running" || status?.overall_status === "queued";
 
+  const criticalHigh = results
+    ? results.severity_distribution.critical + results.severity_distribution.high
+    : 0;
+  const totalFindings = results ? results.raw_findings.length : 0;
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <header className="mb-6">
-        <h1 className="text-xl font-semibold">Multi-Scanner Vulnerability Dashboard</h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Orchestrates Nuclei, OWASP ZAP, and Nikto, then correlates findings across tools before
-          AI triage.
-        </p>
-      </header>
+    <div className="flex min-h-screen bg-[var(--surface-page)]">
+      <Sidebar />
 
-      {isDemoMode && (
-        <div className="mb-6 rounded-lg border border-[var(--status-warning)]/40 bg-[var(--status-warning)]/10 px-4 py-3 text-sm">
-          <strong>Demo data</strong> — no backend reachable at{" "}
-          <code className="font-mono">{API_BASE_URL}</code>. Run the API via{" "}
-          <code className="font-mono">docker compose up</code> and reload, or pass{" "}
-          <code className="font-mono">?api=http://your-host:8000</code> in the URL.
-        </div>
-      )}
+      <div className="min-w-0 flex-1">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface-1)] px-6 py-5">
+          <div>
+            <h1 className="text-lg font-semibold text-[var(--text-primary)]">Security Dashboard</h1>
+            <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
+              Orchestrates Nuclei, OWASP ZAP, and Nikto, then correlates findings across tools
+              before AI triage.
+            </p>
+          </div>
+          {status && (
+            <div className="text-right">
+              <p className="text-xs text-[var(--text-muted)]">Target</p>
+              <p className="font-mono text-sm text-[var(--text-primary)]">{status.target}</p>
+            </div>
+          )}
+        </header>
 
-      {error && (
-        <div className="mb-6 rounded-lg border border-[var(--status-critical)]/40 bg-[var(--status-critical)]/10 px-4 py-3 text-sm text-[var(--status-critical)]">
-          {error}
-        </div>
-      )}
+        <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6">
+          {isDemoMode && (
+            <div className="rounded-lg border border-[var(--status-warning)]/40 bg-[var(--status-warning)]/10 px-4 py-3 text-sm">
+              <strong>Demo data</strong> — no backend reachable at{" "}
+              <code className="font-mono">{API_BASE_URL}</code>. Run the API via{" "}
+              <code className="font-mono">docker compose up</code> and reload, or pass{" "}
+              <code className="font-mono">?api=http://your-host:8000</code> in the URL.
+            </div>
+          )}
 
-      <div className="mb-6">
-        <ScanForm onStart={handleStart} disabled={isDemoMode || !!isRunning} />
+          {error && (
+            <div className="rounded-lg border border-[var(--status-critical)]/40 bg-[var(--status-critical)]/10 px-4 py-3 text-sm text-[var(--status-critical)]">
+              {error}
+            </div>
+          )}
+
+          <ScanForm onStart={handleStart} disabled={isDemoMode || !!isRunning} />
+
+          {status && (
+            <StatRow
+              stats={[
+                { label: "Overall Status", value: STATUS_LABEL[status.overall_status] },
+                { label: "Total Findings", value: totalFindings },
+                {
+                  label: "Critical + High",
+                  value: criticalHigh,
+                  note: criticalHigh > 0 ? "needs attention" : undefined,
+                  noteColor: "var(--status-critical)",
+                },
+                { label: "Duplicate Groups", value: results?.duplicate_groups ?? 0 },
+                { label: "Scanners Run", value: status.scanners.length },
+              ]}
+            />
+          )}
+
+          {status && <ScannerProgressList scanners={status.scanners} />}
+
+          {results && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <CorrelatedFindingsTable findings={results.correlated_findings} />
+              </div>
+              <SeverityBreakdownCard distribution={results.severity_distribution} />
+            </div>
+          )}
+
+          {results && <RawFindingsPanel findings={results.raw_findings} />}
+        </main>
       </div>
-
-      {status && (
-        <div className="mb-6">
-          <ScannerProgressList scanners={status.scanners} />
-        </div>
-      )}
-
-      {results && (
-        <div className="flex flex-col gap-6">
-          <SeverityDistributionChart distribution={results.severity_distribution} />
-          <CorrelatedFindingsTable findings={results.correlated_findings} />
-          <RawFindingsPanel findings={results.raw_findings} />
-        </div>
-      )}
     </div>
   );
 }
