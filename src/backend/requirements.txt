@@ -5,3 +5,5 @@ redis
 psycopg2-binary
 pytest
 httpx
+rich
+requests

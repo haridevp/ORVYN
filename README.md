@@ -95,6 +95,17 @@ Optional local scan target (no third-party site required):
 docker compose --profile demo-target up demo-target   # OWASP Juice Shop on :3000
 ```
 
+CLI (same scanner/correlation engine as the API and dashboard - see `src/backend/cli.py`):
+```bash
+cd src/backend
+python cli.py scan scanme.nmap.org                       # runs scanners locally, no server needed
+python cli.py scan scanme.nmap.org --scanners nuclei,zap  # pick a subset
+python cli.py scan scanme.nmap.org --json                 # machine-readable output
+python cli.py scan scanme.nmap.org --api http://localhost:8000   # hit a running backend instead
+python cli.py status <scan_id> --api http://localhost:8000
+python cli.py results <scan_id> --api http://localhost:8000 --json
+```
+
 ## Project Structure
 
 ```text
@@ -112,6 +123,7 @@ AI-Automated-Penetration-Testing/
 |-- src/
 |   |-- backend/
 |   |   |-- scanners/    # Nuclei/ZAP/Nikto wrappers (real binary + simulated fallback)
+|   |   |-- cli.py       # `python cli.py scan <target>` - local or --api mode
 |   |   |-- correlation.py
 |   |   |-- job_manager.py
 |   |   |-- references.py
