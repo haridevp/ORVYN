@@ -5,8 +5,9 @@ named 'security_knowledge'.
 Uses upsert (not add) so re-running the pipeline is idempotent — safe to
 refresh sources later without duplicate errors.
 """
-
 import os
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+
 import chromadb
 from sentence_transformers import SentenceTransformer
 
