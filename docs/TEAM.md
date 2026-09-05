@@ -8,7 +8,7 @@
 
 | # | Name | GitHub | Role | Responsible Modules |
 |---|------|--------|------|---------------------|
-| 1 | _(Add Name)_ | @username | Project Lead / AI Core | AI/ML Core, Integration |
+| 1 | vistanoop | @vistanoop | Full Stack | Backend API, Multi-Scanner Orchestration, Dashboard |
 | 2 | _(Add Name)_ | @username | Recon & Scanning | Reconnaissance, Vuln Scanner |
 | 3 | _(Add Name)_ | @username | Exploitation | Exploitation Engine |
 | 4 | _(Add Name)_ | @username | Frontend & Reports | Dashboard, Report Generator |
