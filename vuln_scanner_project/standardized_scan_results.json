@@ -1,0 +1,479 @@
+[
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:22",
+    "vulnerability": "ssh-auth-methods",
+    "severity": "info",
+    "description": "SSH Auth Methods - Detection",
+    "evidence": "[\"publickey\",\"password\"]",
+    "reference": "https://nmap.org/nsedoc/scripts/ssh-auth-methods.html"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:22",
+    "vulnerability": "ssh-password-auth",
+    "severity": "info",
+    "description": "SSH Password-based Authentication",
+    "evidence": "javascript",
+    "reference": "https://nmap.org/nsedoc/scripts/ssh-auth-methods.html"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:22",
+    "vulnerability": "ssh-server-enumeration",
+    "severity": "info",
+    "description": "SSH Server Software Enumeration",
+    "evidence": "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.13",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:22",
+    "vulnerability": "ssh-sha1-hmac-algo",
+    "severity": "info",
+    "description": "SSH SHA-1 HMAC Algorithms Enabled",
+    "evidence": "javascript",
+    "reference": "https://forums.ivanti.com/s/article/How-to-disable-SSH-SHA-1-HMAC-algorithms?language=en_US"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "deprecated-tls",
+    "severity": "info",
+    "description": "Deprecated TLS Detection",
+    "evidence": "tls11",
+    "reference": "https://ssl-config.mozilla.org/#config=intermediate"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "deprecated-tls",
+    "severity": "info",
+    "description": "Deprecated TLS Detection",
+    "evidence": "tls10",
+    "reference": "https://ssl-config.mozilla.org/#config=intermediate"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "tls-version",
+    "severity": "info",
+    "description": "TLS Version - Detect",
+    "evidence": "tls10",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "weak-cipher-suites",
+    "severity": "low",
+    "description": "Weak Cipher Suites Detection",
+    "evidence": "[tls10 TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA]",
+    "reference": "https://www.acunetix.com/vulnerabilities/web/tls-ssl-weak-cipher-suites/, http://ciphersuite.info"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "tls-version",
+    "severity": "info",
+    "description": "TLS Version - Detect",
+    "evidence": "tls11",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "weak-cipher-suites",
+    "severity": "low",
+    "description": "Weak Cipher Suites Detection",
+    "evidence": "[tls11 TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA]",
+    "reference": "https://www.acunetix.com/vulnerabilities/web/tls-ssl-weak-cipher-suites/, http://ciphersuite.info"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "tls-version",
+    "severity": "info",
+    "description": "TLS Version - Detect",
+    "evidence": "tls12",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "tls-version",
+    "severity": "info",
+    "description": "TLS Version - Detect",
+    "evidence": "tls13",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "content-security-policy",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "permissions-policy",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "x-content-type-options",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "referrer-policy",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "cross-origin-embedder-policy",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "cross-origin-opener-policy",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "strict-transport-security",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "x-frame-options",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "x-permitted-cross-domain-policies",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-missing-security-headers",
+    "severity": "info",
+    "description": "HTTP Missing Security Headers",
+    "evidence": "cross-origin-resource-policy",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "ssl-issuer",
+    "severity": "info",
+    "description": "Detect SSL Certificate Issuer",
+    "evidence": "pd",
+    "reference": "N/A"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "mismatched-ssl-certificate",
+    "severity": "info",
+    "description": "Mismatched SSL Certificate",
+    "evidence": "CN: scanme",
+    "reference": "https://www.invicti.com/web-vulnerability-scanner/vulnerabilities/ssl-certificate-name-hostname-mismatch/"
+  },
+  {
+    "tool": "Nuclei",
+    "target": "scanme.sh:443",
+    "vulnerability": "self-signed-ssl",
+    "severity": "low",
+    "description": "Self Signed SSL Certificate",
+    "evidence": "ssl",
+    "reference": "https://www.rapid7.com/db/vulnerabilities/ssl-self-signed-certificate/"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "info",
+    "description": "[999967] /: Web Server returns a valid response with junk HTTP methods which may cause false positives.",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-999967"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "low",
+    "description": "[013587] /: Suggested security header missing: referrer-policy. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-013587"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "low",
+    "description": "[013587] /: Suggested security header missing: strict-transport-security. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-013587"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "low",
+    "description": "[013587] /: Suggested security header missing: content-security-policy. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-013587"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "low",
+    "description": "[013587] /: Suggested security header missing: x-content-type-options. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-013587"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "low",
+    "description": "[013587] /: Suggested security header missing: permissions-policy. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-013587"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "low",
+    "description": "[999993] /: Hostname 'scanme.sh' does not match certificate names (CN: scanme, SAN: none). See: https://cwe.mitre.org/data/definitions/297.html",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-999993"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "medium",
+    "description": "[007303] /JAMonAdmin.jsp: JAMon - Java Application Monitor Admin interface identified. Versions 2.7 and earlier contain XSS vulnerabilities. See: https://nvd.nist.gov/vuln/detail/CVE-2013-6235",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-007303"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "low",
+    "description": "[007342] /: X-Frame-Options header is deprecated and was replaced with the Content-Security-Policy HTTP header with the frame-ancestors directive. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Frame-Options",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-007342"
+  },
+  {
+    "tool": "Nikto",
+    "target": "https://scanme.sh",
+    "vulnerability": "Nikto Web Finding",
+    "severity": "medium",
+    "description": "[007352] /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/",
+    "evidence": "Host: scanme.sh:443 (HTTPS)",
+    "reference": "Nikto-007352"
+  },
+  {
+    "tool": "OWASP ZAP",
+    "target": "https://scanme.sh",
+    "vulnerability": "Strict-Transport-Security Header Not Set",
+    "severity": "low",
+    "description": "<p>HTTP Strict Transport Security (HSTS) is a web security policy mechanism whereby a web server declares that complying user agents (such as a web browser) are to interact with it using only secure HTTPS connections (i.e. HTTP layered over TLS/SSL). HSTS is an IETF standards track protocol and is specified in RFC 6797.</p>",
+    "evidence": "<p>Ensure that your web server, application server, load balancer, etc. is configured to enforce Strict-Transport-Security.</p>",
+    "reference": "<p>Ensure that your web server, application server, load balancer, etc. is configured to enforce Strict-Transport-Security.</p>"
+  },
+  {
+    "tool": "OWASP ZAP",
+    "target": "https://scanme.sh",
+    "vulnerability": "X-Content-Type-Options Header Missing",
+    "severity": "low",
+    "description": "<p>The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'. This allows older versions of Internet Explorer and Chrome to perform MIME-sniffing on the response body, potentially causing the response body to be interpreted and displayed as a content type other than the declared content type. Current (early 2014) and legacy versions of Firefox will use the declared content type (if one is set), rather than performing MIME-sniffing.</p>",
+    "evidence": "<p>Ensure that the application/web server sets the Content-Type header appropriately, and that it sets the X-Content-Type-Options header to 'nosniff' for all web pages.</p><p>If possible, ensure that the end user uses a standards-compliant and modern web browser that does not perform MIME-sniffing at all, or that can be directed by the web application/web server to not perform MIME-sniffing.</p>",
+    "reference": "<p>Ensure that the application/web server sets the Content-Type header appropriately, and that it sets the X-Content-Type-Options header to 'nosniff' for all web pages.</p><p>If possible, ensure that the end user uses a standards-compliant and modern web browser that does not perform MIME-sniffing at all, or that can be directed by the web application/web server to not perform MIME-sniffing.</p>"
+  },
+  {
+    "tool": "OWASP ZAP",
+    "target": "https://scanme.sh",
+    "vulnerability": "Re-examine Cache-control Directives",
+    "severity": "informational",
+    "description": "<p>The cache-control header has not been set properly or is missing, allowing the browser and proxies to cache content. For static assets like css, js, or image files this might be intended, however, the resources should be reviewed to ensure that no sensitive content will be cached.</p>",
+    "evidence": "<p>For secure content, ensure the cache-control HTTP header is set with \"no-cache, no-store, must-revalidate\". If an asset should be cached consider setting the directives \"public, max-age, immutable\".</p>",
+    "reference": "<p>For secure content, ensure the cache-control HTTP header is set with \"no-cache, no-store, must-revalidate\". If an asset should be cached consider setting the directives \"public, max-age, immutable\".</p>"
+  },
+  {
+    "tool": "Nmap",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-phpmyadmin-dir-traversal",
+    "severity": "info",
+    "description": "http-phpmyadmin-dir-traversal:\nVULNERABLE:\nphpMyAdmin grab_globals.lib.php subform Parameter Traversal Local File Inclusion\nState: UNKNOWN (unable to test)\nIDs:  CVE:CVE-2005-3299\nPHP file inclusion vulnerability in grab_globals.lib.php in phpMyAdmin 2.6.4 and 2.6.4-pl1 allows remote attackers to include local files via the $__redirect parameter, possibly involving the subform array.\nDisclosure date: 2005-10-nil\nExtra information:\n../../../../../etc/passwd :\nok\nReferences:\nhttp://www.exploit-db.com/exploits/1244/\nhttps://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2005-3299",
+    "evidence": "Host: scanme.sh",
+    "reference": "https://nmap.org/nsedoc/scripts/http-phpmyadmin-dir-traversal.html"
+  },
+  {
+    "tool": "Nmap",
+    "target": "https://scanme.sh",
+    "vulnerability": "http-slowloris-check",
+    "severity": "medium",
+    "description": "http-slowloris-check:\nVULNERABLE:\nSlowloris DOS attack\nState: LIKELY VULNERABLE\nIDs:  CVE:CVE-2007-6750\nSlowloris tries to keep many connections to the target web server open and hold\nthem open as long as possible.  It accomplishes this by opening connections to\nthe target web server and sending a partial request. By doing so, it starves\nthe http server's resources causing Denial Of Service.\nDisclosure date: 2009-09-17\nReferences:\nhttps://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2007-6750\nhttp://ha.ckers.org/slowloris/",
+    "evidence": "Host: scanme.sh",
+    "reference": "https://nmap.org/nsedoc/scripts/http-slowloris-check.html"
+  },
+  {
+    "tool": "SSLyze",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS 1.0 Supported",
+    "severity": "medium",
+    "description": "The server supports the deprecated TLS 1.0 protocol.",
+    "evidence": "TLS 1.0 is supported by scanme.sh:443.",
+    "reference": "https://datatracker.ietf.org/doc/html/rfc8996"
+  },
+  {
+    "tool": "SSLyze",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS 1.1 Supported",
+    "severity": "medium",
+    "description": "The server supports the deprecated TLS 1.1 protocol.",
+    "evidence": "TLS 1.1 is supported by scanme.sh:443.",
+    "reference": "https://datatracker.ietf.org/doc/html/rfc8996"
+  },
+  {
+    "tool": "SSLyze",
+    "target": "https://scanme.sh",
+    "vulnerability": "Weak CBC Cipher Suites",
+    "severity": "low",
+    "description": "The server accepts TLS cipher suites using CBC mode, which are considered weaker than modern AEAD cipher suites.",
+    "evidence": "TLS 1.0: TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA; TLS 1.0: TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA; TLS 1.1: TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA; TLS 1.1: TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+    "reference": "https://datatracker.ietf.org/doc/html/rfc8996"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "Clickjacking Protection",
+    "severity": "low",
+    "description": "X-Frame-Options is not set",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: http_headers",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "HTTP Strict Transport Security (HSTS)",
+    "severity": "low",
+    "description": "Strict-Transport-Security is not set",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: http_headers",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "MIME Type Confusion",
+    "severity": "low",
+    "description": "X-Content-Type-Options is not set",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: http_headers",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS/SSL misconfigurations",
+    "severity": "critical",
+    "description": "Requested hostname doesn't match those in the certificate",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: ssl",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS/SSL misconfigurations",
+    "severity": "medium",
+    "description": "Self-signed certificate detected: The certificate is not signed by a trusted Certificate Authority",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: ssl",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS/SSL misconfigurations",
+    "severity": "medium",
+    "description": "OCSP Must-Staple extension is missing",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: ssl",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS/SSL misconfigurations",
+    "severity": "high",
+    "description": "Certificate transparency: No",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: ssl",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS/SSL misconfigurations",
+    "severity": "high",
+    "description": "Strict Transport Security (HSTS) is not set",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: ssl",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS/SSL misconfigurations",
+    "severity": "critical",
+    "description": "Server is vulnerable to OpenSSL CCS (CVE-2014-0224)",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: ssl",
+    "reference": "https://wapiti-scanner.github.io/"
+  },
+  {
+    "tool": "Wapiti",
+    "target": "https://scanme.sh",
+    "vulnerability": "TLS/SSL misconfigurations",
+    "severity": "critical",
+    "description": "The following protocols are deprecated and/or insecure and should be deactivated: TLSv1.0, TLSv1.1",
+    "evidence": "Host: scanme.sh | Path: / | Method: GET | Module: ssl",
+    "reference": "https://wapiti-scanner.github.io/"
+  }
+]
