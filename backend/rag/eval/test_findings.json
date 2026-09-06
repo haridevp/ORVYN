@@ -1,0 +1,102 @@
+[
+  {
+    "id": "finding-01",
+    "tool": "nuclei",
+    "target": "http://test-app.local/login",
+    "vulnerability": "SQL Injection",
+    "severity": "High",
+    "description": "The login parameter 'username' is vulnerable to SQL injection, allowing authentication bypass.",
+    "evidence": "Payload ' OR '1'='1 returned authenticated session.",
+    "reference": "CWE-89"
+  },
+  {
+    "id": "finding-02",
+    "tool": "zap",
+    "target": "http://test-app.local/search",
+    "vulnerability": "Cross-Site Scripting (Reflected)",
+    "severity": "Medium",
+    "description": "The 'q' parameter reflects user input without sanitization.",
+    "evidence": "<script>alert(1)</script> reflected in response body.",
+    "reference": "CWE-79"
+  },
+  {
+    "id": "finding-03",
+    "tool": "nuclei",
+    "target": "http://test-app.local/api/fetch",
+    "vulnerability": "Server-Side Request Forgery",
+    "severity": "Critical",
+    "description": "The 'url' parameter allows fetching internal network resources.",
+    "evidence": "Request to http://169.254.169.254/latest/meta-data returned AWS metadata.",
+    "reference": "CWE-918"
+  },
+  {
+    "id": "finding-04",
+    "tool": "nikto",
+    "target": "http://test-app.local/",
+    "vulnerability": "Missing Security Headers",
+    "severity": "Low",
+    "description": "Server does not set X-Frame-Options or Content-Security-Policy headers.",
+    "evidence": "HTTP response headers missing X-Frame-Options, CSP.",
+    "reference": "CWE-1021"
+  },
+  {
+    "id": "finding-05",
+    "tool": "zap",
+    "target": "http://test-app.local/upload",
+    "vulnerability": "Insecure Deserialization",
+    "severity": "Critical",
+    "description": "The upload endpoint deserializes untrusted Java objects.",
+    "evidence": "Crafted serialized payload triggered command execution.",
+    "reference": "CWE-502"
+  },
+  {
+    "id": "finding-06",
+    "tool": "nuclei",
+    "target": "http://test-app.local/account",
+    "vulnerability": "Broken Authentication",
+    "severity": "High",
+    "description": "Session tokens do not expire and are predictable.",
+    "evidence": "Session ID pattern showed sequential incrementing values.",
+    "reference": "CWE-287"
+  },
+  {
+    "id": "finding-07",
+    "tool": "zap",
+    "target": "http://test-app.local/profile",
+    "vulnerability": "Cross-Site Request Forgery",
+    "severity": "Medium",
+    "description": "State-changing profile update endpoint lacks CSRF token validation.",
+    "evidence": "POST request succeeded without CSRF token from cross-origin form.",
+    "reference": "CWE-352"
+  },
+  {
+    "id": "finding-08",
+    "tool": "nikto",
+    "target": "http://test-app.local/backup.zip",
+    "vulnerability": "Sensitive File Exposure",
+    "severity": "Medium",
+    "description": "Backup archive containing source code accessible without authentication.",
+    "evidence": "GET /backup.zip returned 200 with 14MB archive.",
+    "reference": "CWE-538"
+  },
+  {
+    "id": "finding-09",
+    "tool": "nuclei",
+    "target": "http://test-app.local/xml-import",
+    "vulnerability": "XML External Entity Injection",
+    "severity": "High",
+    "description": "XML parser processes external entity references, allowing file disclosure.",
+    "evidence": "XXE payload retrieved contents of /etc/passwd.",
+    "reference": "CWE-611"
+  },
+  {
+    "id": "finding-10",
+    "tool": "zap",
+    "target": "http://test-app.local/admin/exec",
+    "vulnerability": "OS Command Injection",
+    "severity": "Critical",
+    "description": "The 'host' parameter is passed unsanitized to a system ping command.",
+    "evidence": "Payload '; whoami' returned command output in response.",
+    "reference": "CWE-78"
+  }
+]
