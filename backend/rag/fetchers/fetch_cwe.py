@@ -45,6 +45,8 @@ def fetch_cwe():
     for weakness in root.findall(findall_path, ns):
         cwe_num = weakness.get("ID")
         name = weakness.get("Name")
+        if name and name.strip().upper().startswith("DEPRECATED"):
+            continue
 
         desc_path = "cwe:Description" if ns else "Description"
         desc_el = weakness.find(desc_path, ns)
