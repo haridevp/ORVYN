@@ -100,25 +100,45 @@ if [[ "$1" == "--stop" || "$1" == "--down" || "$1" == "stop" ]]; then
     exit 0
 fi
 
-# --- Command: STATUS ---
-if [[ "$1" == "--status" || "$1" == "status" ]]; then
-    print_banner
-    print_info "Checking platform component status..."
-    
-    # Check Backend
-    if curl -s -f http://localhost:8000/health >/dev/null 2>&1; then
-        print_success "Backend API (Port 8000): ${GREEN}HEALTHY${NC} (http://localhost:8000)"
-    else
-        print_warn "Backend API (Port 8000): ${RED}OFFLINE${NC}"
-    fi
+# --- Command: SCAN (Terminal Vulnerability Assessment) ---
+if [[ "$1" == "scan" || "$1" == "--scan" ]]; then
+    shift
+    exec "$PROJECT_ROOT/cli.py" scan "$@"
+fi
 
-    # Check Frontend
-    if curl -s -f http://localhost:5173 >/dev/null 2>&1; then
-        print_success "Frontend Dashboard (Port 5173): ${GREEN}ONLINE${NC} (http://localhost:5173)"
-    else
-        print_warn "Frontend Dashboard (Port 5173): ${RED}OFFLINE${NC}"
+# --- Command: PROBE (Terminal Host Diagnostics) ---
+if [[ "$1" == "probe" || "$1" == "--probe" ]]; then
+    shift
+    exec "$PROJECT_ROOT/cli.py" probe "$@"
+fi
+
+# --- Command: CLI / INTERACTIVE CONSOLE ---
+if [[ "$1" == "cli" || "$1" == "--cli" || "$1" == "-i" || "$1" == "--interactive" ]]; then
+    print_banner
+    echo -e "  ${BOLD}🛡️  Interactive Terminal Penetration Testing Console${NC}"
+    echo ""
+    read -r -p "  Enter target domain or URL (e.g. scanme.nmap.org): " INTER_TARGET
+    if [[ -z "$INTER_TARGET" ]]; then
+        print_error "Target cannot be empty."
+        exit 1
     fi
-    exit 0
+    echo ""
+    echo -e "  Select Scan Profile:"
+    echo -e "    ${BOLD}1${NC}) Recon (~20s fast check)"
+    echo -e "    ${BOLD}2${NC}) Web (~45s DAST & injection suite)"
+    echo -e "    ${BOLD}3${NC}) Full (~85s comprehensive audit)"
+    echo -e "    ${BOLD}4${NC}) Unlimited (Exhaustive deep scan, no timeout)"
+    read -r -p "  Choice [1-4] (default: 2): " PROF_SEL
+    case "$PROF_SEL" in
+        1) PROF_NAME="recon" ;;
+        3) PROF_NAME="full" ;;
+        4) PROF_NAME="unlimited" ;;
+        *) PROF_NAME="web" ;;
+    esac
+    echo ""
+    print_info "Starting terminal scan for ${BOLD}$INTER_TARGET${NC} with profile: ${BOLD}$PROF_NAME${NC}..."
+    echo ""
+    exec "$PROJECT_ROOT/cli.py" scan "$INTER_TARGET" --profile "$PROF_NAME" --detailed -o "$PROJECT_ROOT/terminal_scan_report.md"
 fi
 
 # --- Main Startup Flow ---
@@ -243,8 +263,41 @@ echo -e "${CYAN}╠════════════════════�
 echo -e "${CYAN}║${NC}  🌐 ${BOLD}Web Dashboard:${NC}   ${CYAN}http://localhost:5173${NC}                            ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  🔑 ${BOLD}Default Login:${NC}   Username: ${YELLOW}admin${NC} | Password: ${YELLOW}admin${NC}             ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  ⚙️  ${BOLD}API Docs:${NC}        ${CYAN}http://localhost:8000/docs${NC}                       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  💻 ${BOLD}CLI Utility:${NC}     ${PURPLE}./cli.py scan <target> [options]${NC}                ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  💻 ${BOLD}Terminal Scan:${NC}   ${PURPLE}./start.sh scan <target> [--profile recon|web|full]${NC}  ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  🔍 ${BOLD}Terminal Probe:${NC}  ${PURPLE}./start.sh probe <target>${NC}                           ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  🛑 ${BOLD}To Stop:${NC}         ${DIM}./start.sh --stop${NC}                               ${CYAN}║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-print_success "Ready for vulnerability assessments. Enjoy!"
+
+# Interactive terminal scan option if running inside an interactive terminal
+if [ -t 0 ]; then
+    echo -e "${YELLOW}🎯 Launch a terminal vulnerability scan now? (y/N):${NC} "
+    read -r -p "> " RUN_SCAN || true
+    if [[ "$RUN_SCAN" =~ ^[Yy]$ ]]; then
+        echo ""
+        read -r -p "  Enter target domain or URL (e.g. scanme.nmap.org): " TERM_TARGET
+        if [[ -n "$TERM_TARGET" ]]; then
+            echo ""
+            echo -e "  Select Intensity Profile:"
+            echo -e "    1) Recon (~20s fast check)"
+            echo -e "    2) Web (~45s standard DAST)"
+            echo -e "    3) Full (~85s comprehensive)"
+            echo -e "    4) Unlimited (Exhaustive, no timeout)"
+            read -r -p "  Profile [1-4] (default: 2): " PROF_SEL
+            case "$PROF_SEL" in
+                1) P_NAME="recon" ;;
+                3) P_NAME="full" ;;
+                4) P_NAME="unlimited" ;;
+                *) P_NAME="web" ;;
+            esac
+            echo ""
+            print_info "Executing terminal penetration assessment for ${BOLD}$TERM_TARGET${NC}..."
+            echo ""
+            "$PROJECT_ROOT/cli.py" scan "$TERM_TARGET" --profile "$P_NAME" --detailed -o "$PROJECT_ROOT/scan_report.md"
+            echo ""
+            print_success "Assessment complete! Audit report saved to ${BOLD}scan_report.md${NC}"
+        fi
+    fi
+else
+    print_success "Ready for vulnerability assessments. Run './start.sh scan <target>' anytime!"
+fi
