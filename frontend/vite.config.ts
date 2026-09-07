@@ -1,4 +1,3 @@
-import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
@@ -7,7 +6,7 @@ import { defineConfig } from 'vite'
 // URL instead, change this to '/AI-Automated-Penetration-Testing/'.
 export default defineConfig({
   base: '/',
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   server: {
     proxy: {
       '/scan': 'http://backend:8000',
