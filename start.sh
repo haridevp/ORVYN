@@ -38,7 +38,7 @@ print_banner() {
     ██╔═══╝ ██╔══╝  ██║╚██╗██║   ██║   ██╔══╝  ╚════██║   ██║   
     ██║     ███████╗██║ ╚████║   ██║   ███████╗███████║   ██║   
     ╚═╝     ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝   ╚═╝   
-             AI-Automated Penetration Testing & SOC Suite
+             Automated Penetration Testing & DAST Platform
 EOF
     echo -e "${NC}"
 }
@@ -229,6 +229,36 @@ if [[ "$1" == "--stop" || "$1" == "--down" || "$1" == "stop" ]]; then
     exit 0
 fi
 
+# --- Command: STATUS ---
+if [[ "$1" == "--status" || "$1" == "status" ]]; then
+    print_banner
+    echo -e "  ${BOLD}Platform Cluster Health & Status Check${NC}"
+    echo ""
+    
+    # 1. Backend API Check
+    if curl -s -f http://localhost:8000/health >/dev/null 2>&1; then
+        print_success "Backend API: Online (http://localhost:8000/health)"
+    else
+        print_error "Backend API: Offline"
+    fi
+
+    # 2. Frontend Check
+    if curl -s -f http://localhost:5173 >/dev/null 2>&1; then
+        print_success "Frontend Dashboard: Online (http://localhost:5173)"
+    else
+        print_error "Frontend Dashboard: Offline"
+    fi
+
+    # 3. Docker Container Status
+    DOCKER_CMD=$(check_docker || true)
+    if [[ "$DOCKER_CMD" != "none" ]]; then
+        echo ""
+        print_info "Docker Container Status:"
+        $DOCKER_CMD ps --filter "name=fastapi_app|celery_worker|redis|postgres|frontend_app" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+    fi
+    exit 0
+fi
+
 # --- Command: SCAN (Terminal Vulnerability Assessment) ---
 if [[ "$1" == "scan" || "$1" == "--scan" ]]; then
     shift
@@ -271,7 +301,9 @@ if [[ "$1" == "cli" || "$1" == "--cli" || "$1" == "-i" || "$1" == "--interactive
 fi
 
 # --- Main Startup Flow ---
-print_banner
+echo ""
+print_info "Initializing platform cluster & security engines..."
+echo ""
 
 DOCKER_CMD=$(check_docker || true)
 
@@ -304,6 +336,13 @@ if [[ "$MODE" == "docker" ]]; then
             break
         fi
     done
+
+    # Release any leftover host background processes on port 5173/8000 so docker can bind cleanly
+    if [[ -f "$PROJECT_ROOT/.frontend.pid" ]]; then
+        kill $(cat "$PROJECT_ROOT/.frontend.pid") >/dev/null 2>&1 || true
+        rm -f "$PROJECT_ROOT/.frontend.pid"
+    fi
+    fuser -k 5173/tcp >/dev/null 2>&1 || true
 
     if [[ -n "$REBUILD_FLAG" ]]; then
         print_info "Rebuilding container images (--build specified)..."
@@ -384,8 +423,14 @@ else
     done
 fi
 
+# Replace loading screen with clean logo and platform details card
+if [ -t 1 ]; then
+    clear
+fi
+
+print_banner
+
 # Final Output Card
-echo ""
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║${NC}   ${GREEN}${BOLD}🚀 AUTOMATED PENETRATION TESTING PLATFORM READY${NC}                     ${CYAN}║${NC}"
 echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════════════╣${NC}"
