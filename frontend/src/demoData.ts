@@ -17,6 +17,16 @@ export const DEMO_STATUS: ScanStatusResponse = {
     { tool: "zap", status: "completed", findings_count: 4, simulated: true, started_at: null, finished_at: null, error: null },
     { tool: "nikto", status: "completed", findings_count: 3, simulated: true, started_at: null, finished_at: null, error: null },
   ],
+  logs: [
+    "[10:00:01] [system] Job demo-scan-0001 queued for target demo.example.com with scanners: nuclei, zap, nikto",
+    "[10:00:01] [nuclei] Scanner worker started in [SIMULATED] mode for target: demo.example.com",
+    "[10:00:01] [zap] Scanner worker started in [SIMULATED] mode for target: demo.example.com",
+    "[10:00:01] [nikto] Scanner worker started in [SIMULATED] mode for target: demo.example.com",
+    "[10:00:15] [nuclei] Found potential SQL injection parameter: id=1'",
+    "[10:00:22] [zap] Passive scan: Missing Anti-clickjacking Header [10020]",
+    "[10:00:30] [nikto] Server banner discloses: nginx/1.18.0",
+    "[10:00:45] [system] Correlation engine consolidated 11 findings into 4 correlated groups.",
+  ],
 };
 
 export const DEMO_RESULTS: ScanResultsResponse = {

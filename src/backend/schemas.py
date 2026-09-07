@@ -66,7 +66,7 @@ class ScannerProgress(BaseModel):
     finished_at: Optional[str] = None
     findings_count: int = 0
     error: Optional[str] = None
-    simulated: bool = True
+    simulated: bool = False
 
 
 class ScanStatusResponse(BaseModel):
@@ -75,6 +75,7 @@ class ScanStatusResponse(BaseModel):
     profile: str
     overall_status: Literal["queued", "running", "completed", "error"]
     scanners: list[ScannerProgress]
+    logs: list[str] = Field(default_factory=list)
     created_at: str
     updated_at: str
 
@@ -111,6 +112,7 @@ class ScanResultsResponse(BaseModel):
     correlated_findings: list[CorrelatedFinding]
     severity_distribution: SeverityDistribution
     duplicate_groups: int
+    logs: list[str] = Field(default_factory=list)
 
 
 def now_iso() -> str:

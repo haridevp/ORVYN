@@ -7,3 +7,5 @@ pytest
 httpx
 rich
 requests
+pyyaml
+python-owasp-zap-v2.4

@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+import shutil
+from typing import Callable, Optional
 
 from schemas import ScannerFinding, ScannerName
 
@@ -12,8 +14,17 @@ class ScannerWrapper(ABC):
     """
 
     name: ScannerName
+    binary: str = ""
+
+    def is_available(self) -> bool:
+        return bool(self.binary and shutil.which(self.binary))
 
     @abstractmethod
-    async def run(self, target: str, profile: str) -> list[ScannerFinding]:
+    async def run(
+        self,
+        target: str,
+        profile: str,
+        log_cb: Optional[Callable[[str], None]] = None,
+    ) -> list[ScannerFinding]:
         """Execute the scan and return findings already in the unified schema."""
         raise NotImplementedError

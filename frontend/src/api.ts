@@ -6,7 +6,7 @@ import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./typ
 // with VITE_API_BASE_URL, or at runtime via ?api=<url> for a quick demo.
 const runtimeOverride = new URLSearchParams(window.location.search).get("api");
 export const API_BASE_URL =
-  runtimeOverride || import.meta.env.VITE_API_BASE_URL || "";
+  runtimeOverride || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 export class ApiUnreachableError extends Error {}
 
@@ -17,7 +17,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { "Content-Type": "application/json" },
       ...init,
     });
-  } catch (err) {
+  } catch {
     throw new ApiUnreachableError(`Could not reach API at ${API_BASE_URL}`);
   }
   if (!response.ok) {
@@ -40,6 +40,17 @@ export function getScanStatus(scanId: string) {
 
 export function getScanResults(scanId: string) {
   return request<ScanResultsResponse>(`/scan/results/${scanId}`);
+}
+
+export function getScanLogs(scanId: string) {
+  return request<{ scan_id: string; logs: string[] }>(`/scan/logs/${scanId}`);
+}
+
+export function probeTarget(target: string) {
+  return request<import("./types").TargetProbeResponse>("/target/probe", {
+    method: "POST",
+    body: JSON.stringify({ target }),
+  });
 }
 
 export async function checkApiHealth(): Promise<boolean> {

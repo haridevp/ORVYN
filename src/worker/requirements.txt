@@ -1,2 +1,4 @@
 celery
 redis
+pyyaml
+python-owasp-zap-v2.4

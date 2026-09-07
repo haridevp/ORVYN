@@ -2,76 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --surface-1: #fcfcfb;
-  --surface-page: #f9f9f7;
-  --surface-sidebar: #ffffff;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --gridline: #e1e0d9;
-  --border: rgba(11, 11, 11, 0.1);
-  --shadow-card: 0 1px 2px rgba(11, 11, 11, 0.04), 0 1px 1px rgba(11, 11, 11, 0.03);
-
-  --series-blue: #2a78d6;
-  --series-blue-wash: rgba(42, 120, 214, 0.1);
-
-  /* Tool identity colors - categorical slots 1/8/5 from the validated
-     palette (blue/orange/violet), reused here for scanner identity rather
-     than a new hue assignment. */
-  --tool-nuclei: #eb6834;
-  --tool-zap: #2a78d6;
-  --tool-nikto: #4a3aa7;
-
-  --status-good: #0ca30c;
-  --status-warning: #fab219;
-  --status-serious: #ec835a;
-  --status-critical: #d03b3b;
-  --status-neutral: #898781;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --surface-1: #171716;
-    --surface-page: #0d0d0d;
-    --surface-sidebar: #131312;
+    --surface-page: #0a0a0b;
+    --surface-1: rgba(23, 23, 24, 0.7);
+    --surface-sidebar: rgba(15, 15, 16, 0.85);
+    
     --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --gridline: #2c2c2a;
-    --border: rgba(255, 255, 255, 0.08);
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    
+    --gridline: rgba(255, 255, 255, 0.05);
+    --border: rgba(255, 255, 255, 0.1);
+    --border-glow: rgba(255, 255, 255, 0.2);
+    
+    --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --shadow-glow: 0 0 20px rgba(57, 135, 229, 0.15);
 
-    --series-blue: #3987e5;
-    --series-blue-wash: rgba(57, 135, 229, 0.14);
+    --series-blue: #3b82f6;
+    --series-blue-wash: rgba(59, 130, 246, 0.15);
 
-    --tool-nuclei: #d95926;
-    --tool-zap: #3987e5;
-    --tool-nikto: #9085e9;
+    /* Tool identity colors */
+    --tool-nuclei: #f97316;
+    --tool-zap: #3b82f6;
+    --tool-nikto: #a855f7;
 
-    --status-good: #0ca30c;
-    --status-warning: #fab219;
-    --status-serious: #ec835a;
-    --status-critical: #d03b3b;
-    --status-neutral: #898781;
+    /* Status colors */
+    --status-good: #22c55e;
+    --status-warning: #eab308;
+    --status-serious: #f97316;
+    --status-critical: #ef4444;
+    --status-neutral: #71717a;
   }
 }
 
 body {
-  background: var(--surface-page);
+  background-color: var(--surface-page);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.05), transparent 40%),
+                    radial-gradient(circle at bottom left, rgba(168, 85, 247, 0.05), transparent 40%);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 ::selection {
   background: var(--series-blue-wash);
+  color: white;
 }
 
+/* Glassmorphism utilities */
+.glass-panel {
+  background: var(--surface-1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+}
+
+.glass-sidebar {
+  background: var(--surface-sidebar);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Animations */
 @keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.95); }
 }
 .animate-pulse-soft {
-  animation: pulse-soft 1.6s ease-in-out infinite;
+  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.animate-scan-line {
+  animation: scan-line 2s linear infinite;
 }

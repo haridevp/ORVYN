@@ -30,6 +30,7 @@ export interface ScanStatusResponse {
   profile: string;
   overall_status: OverallStatus;
   scanners: ScannerProgress[];
+  logs?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -64,4 +65,17 @@ export interface ScanResultsResponse {
   correlated_findings: CorrelatedFinding[];
   severity_distribution: SeverityDistribution;
   duplicate_groups: number;
+  logs?: string[];
+}
+
+export interface TargetProbeResponse {
+  target: string;
+  is_alive: boolean;
+  hostname: string;
+  ip?: string | null;
+  status_code?: number | null;
+  latency_ms?: number | null;
+  server?: string | null;
+  scheme?: string | null;
+  error?: string | null;
 }

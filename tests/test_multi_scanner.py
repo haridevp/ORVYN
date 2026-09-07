@@ -124,3 +124,12 @@ def test_findings_are_enriched_with_cwe_owasp_references():
     sqli_findings = [f for f in results["raw_findings"] if f["vulnerability"] == "SQL Injection"]
     assert sqli_findings
     assert all(f["reference"] and "CWE-89" in f["reference"] for f in sqli_findings)
+
+
+def test_target_probe_detects_unreachable_hosts():
+    # Tests that non-existent host like scanme.sh is cleanly flagged with helpful message
+    response = client.post("/target/probe", json={"target": "nonexistent-domain-12345.sh"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_alive"] is False
+    assert "DNS resolution failed" in data["error"]

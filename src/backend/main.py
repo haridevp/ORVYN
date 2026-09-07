@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
+import socket
+import time
 from typing import Literal
+import urllib.parse
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import httpx
 from pydantic import BaseModel, Field
 
 from job_manager import job_manager
@@ -69,6 +73,86 @@ def health():
             "database": "containerized",
         },
     }
+
+
+class TargetProbeRequest(BaseModel):
+    target: str = Field(..., min_length=1)
+
+
+class TargetProbeResponse(BaseModel):
+    target: str
+    is_alive: bool
+    hostname: str
+    ip: str | None = None
+    status_code: int | None = None
+    latency_ms: int | None = None
+    server: str | None = None
+    scheme: str | None = None
+    error: str | None = None
+
+
+async def _probe_target(target: str) -> TargetProbeResponse:
+    cleaned = target.strip()
+    if cleaned.startswith(("http://", "https://")):
+        parsed = urllib.parse.urlparse(cleaned)
+        hostname = parsed.hostname or cleaned
+        explicit_scheme = parsed.scheme
+    else:
+        hostname = cleaned.split("/")[0].split(":")[0]
+        explicit_scheme = None
+
+    try:
+        ip = socket.gethostbyname(hostname)
+    except Exception:
+        suggestion = "scanme.nmap.org" if "scanme" in hostname.lower() else None
+        hint = f" Did you mean '{suggestion}'?" if suggestion else ""
+        return TargetProbeResponse(
+            target=target,
+            hostname=hostname,
+            is_alive=False,
+            error=f"DNS resolution failed for '{hostname}'. Host is unreachable or does not exist.{hint}",
+        )
+
+    schemes_to_try = [explicit_scheme] if explicit_scheme else ["https", "http"]
+    last_error = None
+    for scheme in schemes_to_try:
+        url = f"{scheme}://{hostname}" if not cleaned.startswith(("http://", "https://")) else cleaned
+        start = time.perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=3.5, verify=False) as client:
+                resp = await client.get(url, follow_redirects=True)
+                latency = int((time.perf_counter() - start) * 1000)
+                server = resp.headers.get("server") or resp.headers.get("x-powered-by") or "Active HTTP Server"
+                return TargetProbeResponse(
+                    target=target,
+                    hostname=hostname,
+                    is_alive=True,
+                    ip=ip,
+                    status_code=resp.status_code,
+                    latency_ms=latency,
+                    server=server,
+                    scheme=scheme,
+                )
+        except Exception as exc:
+            last_error = str(exc)
+
+    return TargetProbeResponse(
+        target=target,
+        hostname=hostname,
+        is_alive=False,
+        ip=ip,
+        error=f"Host resolved to {ip} but HTTP service is unresponsive ({last_error or 'Connection refused'}).",
+    )
+
+
+@app.post("/target/probe", response_model=TargetProbeResponse)
+async def probe_target_post(request: TargetProbeRequest):
+    return await _probe_target(request.target)
+
+
+@app.get("/target/probe", response_model=TargetProbeResponse)
+async def probe_target_get(target: str):
+    return await _probe_target(target)
 
 
 @app.get("/architecture/proof")
@@ -175,3 +259,12 @@ def get_scan_job(scan_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Scan not found")
     return job.to_status_response()
+
+
+@app.get("/scan/logs/{scan_id}")
+def get_scan_logs(scan_id: str):
+    job = job_manager.get(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return {"scan_id": scan_id, "logs": job.logs}
+

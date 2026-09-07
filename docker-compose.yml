@@ -1,11 +1,14 @@
-version: "3.9"
-
 services:
   backend:
     build: ./src/backend
     container_name: fastapi_app
     ports:
       - "8000:8000"
+    volumes:
+      - ./src/backend:/app
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       - redis
       - db
@@ -13,6 +16,9 @@ services:
   worker:
     build: ./src/worker
     container_name: celery_worker
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       - redis
 
@@ -47,7 +53,3 @@ services:
       - "3000:3000"
     profiles:
       - demo-target
-
-  # ollama:
-  #   image: ollama/ollama
-  #   container_name: ollama
