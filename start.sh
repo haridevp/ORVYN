@@ -72,6 +72,135 @@ check_docker() {
     return 0
 }
 
+# --- Command: HELP & ADVANCED CLI MANUAL ---
+if [[ "$1" == "--help" || "$1" == "-h" || "$1" == "help" ]]; then
+    print_banner
+    cat << 'EOF'
+ADVANCED CLI & PLATFORM MANUAL
+==============================
+
+The AI Automated Penetration Testing platform provides both a full containerized
+web dashboard (Vite + FastAPI + Celery + Redis + PostgreSQL) and a powerful,
+high-performance CLI for terminal-driven vulnerability assessments and CI/CD pipelines.
+
+SYNOPSIS:
+    ./start.sh [PLATFORM_COMMAND]
+    ./start.sh scan <target> [SCAN_OPTIONS]
+    ./start.sh probe <target>
+    ./start.sh cli
+    ./cli.py <command> [OPTIONS]
+
+--------------------------------------------------------------------------------
+1. PLATFORM & CLUSTER MANAGEMENT
+--------------------------------------------------------------------------------
+    ./start.sh              Auto-detects and launches platform cluster via Docker Compose
+    ./start.sh --build      Rebuilds all container images from source without cache
+    ./start.sh --local      Launches platform natively using host Python venv & Vite
+    ./start.sh --stop       Gracefully stops all platform containers & background processes
+    ./start.sh --status     Checks health of backend API, engines, and frontend
+    ./start.sh --help, -h   Displays this advanced CLI usage manual
+
+--------------------------------------------------------------------------------
+2. TERMINAL VULNERABILITY ASSESSMENT (CLI)
+--------------------------------------------------------------------------------
+    ./start.sh scan <target> [OPTIONS]
+    ./cli.py scan <target> [OPTIONS]
+
+    TARGET SPECIFICATION:
+        target                  Hostname, IP address, or full URL (e.g. scanme.nmap.org,
+                                http://192.168.1.50:8080, or https://example.com)
+
+    SCAN INTENSITY PROFILES:
+        --profile recon         Rapid reconnaissance (~15-25s): Port probing, tech stack
+                                identification, DNS enumeration, and low-risk templates.
+        --profile web           Standard Web DAST (~45s): Active crawling, injection checks
+                                (XSS, SQLi, SSRF, LFI), header audits, and misconfigurations.
+        --profile full          Comprehensive audit (~85s): Exhaustive multi-scanner crawl,
+                                deep fuzzing, OWASP Top 10 coverage, and CVE template suite.
+        --profile unlimited     Exhaustive Deep Scan (NO TIMEOUT): Runs all engines without
+                                artificial execution timeouts. Recommended for large surface
+                                areas, heavy web applications, or slow networks.
+
+    SCOPE & PERIMETER CONTROL:
+        --in-scope <patterns>   Comma-separated list of allowed domains or wildcard masks.
+                                Default: *.target.com, target.com
+                                Example: --in-scope "*.corp.internal,api.corp.internal"
+        --out-of-scope <rules>  Comma-separated deny-list patterns to strictly exclude.
+        --exclude <rules>       Matches against URLs, domains, and paths.
+                                Example: --out-of-scope "logout,admin/delete,*.billing.internal"
+
+    ENGINE SELECTION:
+        --scanners <list>       Comma-separated subset of scanners to orchestrate.
+                                Choices: nuclei, zap, nikto (default: all three).
+                                Example: --scanners "nuclei,zap"
+
+    REPORT EXPORTS & ARTIFACTS:
+        -o, --output <file>     Export assessment findings directly to file.
+                                Supported formats by extension:
+                                  - .md   : Clean executive Markdown report with CVSS & remediation
+                                  - .json : Structured machine-readable JSON schema for CI/CD
+                                  - .txt  : Plain-text findings summary
+                                Example: -o /tmp/audit_report.md
+
+    TELEMETRY & LOG VERBOSITY:
+        -v, --verbose           Stream live scanner stdout/stderr execution logs in real time.
+        --detailed              Expand full vulnerability evidence, HTTP requests, responses,
+                                and MITRE CWE / OWASP remediation references.
+        --no-probe              Skip pre-flight DNS, TLS, and reachability diagnostics.
+        --force                 Continue execution even if pre-flight target check fails.
+        --json                  Output raw machine-readable JSON directly to stdout.
+        --api <url>             Execute scan against a remote platform cluster (e.g. http://localhost:8000).
+                                If omitted, scanners run locally in-process.
+
+--------------------------------------------------------------------------------
+3. TARGET DIAGNOSTICS & PROBING
+--------------------------------------------------------------------------------
+    ./start.sh probe <target>
+    ./cli.py probe <target>
+
+    Performs rapid non-intrusive pre-flight diagnostics:
+      - DNS resolution & IPv4/IPv6 resolution
+      - TLS / HTTP connectivity & latency round-trip time (RTT)
+      - Server header banner disclosure & HTTP status response
+      - Typo-squatting detection and hostname validation
+
+--------------------------------------------------------------------------------
+4. INTERACTIVE CONSOLE WIZARD
+--------------------------------------------------------------------------------
+    ./start.sh cli
+    ./start.sh -i
+
+    Launches an interactive guided CLI prompt to configure target domain, profile,
+    and output options step-by-step.
+
+--------------------------------------------------------------------------------
+5. ADVANCED PRODUCTION RECIPES & EXAMPLES
+--------------------------------------------------------------------------------
+    # Recipe 1: Rapid pre-flight target diagnostics
+    ./start.sh probe scanme.nmap.org
+
+    # Recipe 2: Full web audit with live verbose logs and Markdown report
+    ./start.sh scan scanme.nmap.org --profile web -v -o report.md --detailed
+
+    # Recipe 3: Exhaustive deep scan with NO timeouts
+    ./start.sh scan target.com --profile unlimited -o full_audit.md
+
+    # Recipe 4: Wildcard perimeter with strict exclusion of sensitive endpoints
+    ./start.sh scan example.com \
+        --in-scope "*.example.com" \
+        --out-of-scope "logout,auth/reset,admin/delete,payment.*" \
+        -o perimeter_findings.json
+
+    # Recipe 5: CI/CD Pipeline security gate (JSON exit output)
+    ./cli.py scan staging.internal --profile recon --no-probe --json -o ci_results.json
+
+    # Recipe 6: Target a remote platform backend over the network
+    ./start.sh scan target.com --api http://soc-cluster.corp:8000 -v -o remote_audit.md
+
+EOF
+    exit 0
+fi
+
 # --- Command: STOP ---
 if [[ "$1" == "--stop" || "$1" == "--down" || "$1" == "stop" ]]; then
     print_banner
@@ -258,13 +387,14 @@ fi
 # Final Output Card
 echo ""
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}   ${GREEN}${BOLD}🚀 AI AUTOMATED PENETRATION TESTING PLATFORM IS READY!${NC}             ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${GREEN}${BOLD}🚀 AUTOMATED PENETRATION TESTING PLATFORM READY${NC}                     ${CYAN}║${NC}"
 echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${CYAN}║${NC}  🌐 ${BOLD}Web Dashboard:${NC}   ${CYAN}http://localhost:5173${NC}                            ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  🔑 ${BOLD}Default Login:${NC}   Username: ${YELLOW}admin${NC} | Password: ${YELLOW}admin${NC}             ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  ⚙️  ${BOLD}API Docs:${NC}        ${CYAN}http://localhost:8000/docs${NC}                       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  💻 ${BOLD}Terminal Scan:${NC}   ${PURPLE}./start.sh scan <target> [--profile recon|web|full]${NC}  ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  🔍 ${BOLD}Terminal Probe:${NC}  ${PURPLE}./start.sh probe <target>${NC}                           ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  💻 ${BOLD}Terminal Scan:${NC}   ${PURPLE}./start.sh scan <target> [--profile unlimited]${NC}      ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  🔍 ${BOLD}Target Probe:${NC}    ${PURPLE}./start.sh probe <target>${NC}                           ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  📖 ${BOLD}CLI Manual:${NC}      ${CYAN}./start.sh --help${NC}                                   ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  🛑 ${BOLD}To Stop:${NC}         ${DIM}./start.sh --stop${NC}                               ${CYAN}║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""

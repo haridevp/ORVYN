@@ -170,8 +170,8 @@ function Row({ finding, index }: { finding: CorrelatedFinding; index: number }) 
                 </div>
 
                 <div>
-                  <span className="text-gray-500 uppercase tracking-wider text-[10px] font-mono">AI Recommended Action</span>
-                  <div className="mt-1 rounded-lg border border-purple-800/40 bg-purple-950/20 p-2 text-purple-300 text-[11px] leading-snug">
+                  <span className="text-slate-500 uppercase tracking-wider text-[10px] font-mono">Remediation Guidance</span>
+                  <div className="mt-1 rounded-lg border border-slate-800 bg-slate-900/80 p-2 text-slate-300 text-[11px] leading-snug">
                     Apply input validation filter and parameterized prepared statements before routing to backend handler.
                   </div>
                 </div>

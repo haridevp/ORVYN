@@ -55,7 +55,7 @@ export function ApiTopologyGraph({ target, findings = [], isScanning = false }: 
     const nList: TopologyNode[] = [
       {
         id: "agent",
-        label: "AI Pentest Agent",
+        label: "Security Orchestrator",
         type: "agent",
         path: "Orchestrator",
         url: "localhost:8000/scan",

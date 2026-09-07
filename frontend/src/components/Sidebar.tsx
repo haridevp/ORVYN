@@ -6,7 +6,6 @@ import {
   Terminal,
   Cpu,
   Shield,
-  Sparkles,
   LogOut,
   UserCheck,
 } from "lucide-react";
@@ -34,31 +33,31 @@ export function Sidebar({
     {
       id: "overview" as NavTab,
       label: "Overview & ASM",
-      icon: <LayoutDashboard size={18} />,
+      icon: <LayoutDashboard size={16} />,
     },
     {
       id: "topology" as NavTab,
       label: "API Attack Graph",
-      icon: <GitBranch size={18} />,
+      icon: <GitBranch size={16} />,
       badge: "Escape",
     },
     {
       id: "findings" as NavTab,
       label: "Threats & Findings",
-      icon: <ShieldAlert size={18} />,
+      icon: <ShieldAlert size={16} />,
       count: threatCount,
     },
     {
       id: "terminal" as NavTab,
       label: "Live Console",
-      icon: <Terminal size={18} />,
+      icon: <Terminal size={16} />,
       count: logsCount,
       pulse: true,
     },
     {
       id: "scanners" as NavTab,
-      label: "Engines Cluster",
-      icon: <Cpu size={18} />,
+      label: "Engine Cluster",
+      icon: <Cpu size={16} />,
       badge: "3 Active",
     },
   ];
@@ -67,79 +66,88 @@ export function Sidebar({
     <motion.aside
       initial={{ x: -200, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      className="hidden w-64 shrink-0 flex-col glass-sidebar px-4 py-6 md:flex relative z-30 shadow-2xl border-r border-gray-800/80 bg-[#080c14]/95"
+      className="hidden w-64 shrink-0 flex-col glass-sidebar px-4 py-6 md:flex relative z-30 border-r border-slate-800/80 bg-[#080c14]"
     >
       {/* Brand Header */}
-      <div className="flex items-center gap-3 px-2 pb-8 border-b border-gray-800/60">
-        <div className="p-2 bg-gradient-to-tr from-rose-500/20 via-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-          <Shield className="text-cyan-400" size={24} />
+      <div className="flex items-center gap-3 px-2 pb-6 border-b border-slate-800/60">
+        <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-blue-400">
+          <Shield size={20} />
         </div>
         <div>
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-black tracking-wider text-white uppercase font-mono">Aegis AI</p>
-            <span className="text-[9px] font-bold text-rose-400 bg-rose-950/80 border border-rose-800/60 px-1 rounded">SOC</span>
+            <p className="text-xs font-bold tracking-wider text-slate-100 uppercase font-mono">AEGIS</p>
+            <span className="text-[9px] font-mono font-medium text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.2 rounded">SEC</span>
           </div>
-          <p className="text-[11px] tracking-wider text-gray-400 font-medium">Auto-Penetration Testing</p>
+          <p className="text-[11px] text-slate-400 font-normal">Penetration Testing & DAST</p>
         </div>
       </div>
 
       {/* Nav List */}
-      <nav className="flex flex-col gap-1.5 mt-6">
-        <div className="px-3 pb-2 text-[10px] font-bold font-mono uppercase tracking-widest text-gray-500">
-          Security Operations
+      <nav className="flex flex-col gap-1 mt-5">
+        <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-wider text-slate-500">
+          Platform Navigation
         </div>
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
-            <motion.button
+            <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              whileHover={{ x: 4 }}
-              className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all text-left cursor-pointer ${
+              className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors text-left cursor-pointer ${
                 isActive
-                  ? "bg-gradient-to-r from-blue-600/30 via-indigo-600/20 to-purple-600/10 text-white border border-blue-500/40 shadow-lg shadow-blue-500/10 font-bold"
-                  : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
+                  ? "bg-blue-600/15 text-slate-100 border border-blue-500/30"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"
               }`}
             >
-              <span className="flex items-center gap-3">
-                <span className={isActive ? "text-cyan-400" : "text-gray-500"}>{item.icon}</span>
-                {item.label}
+              <span className="flex items-center gap-2.5">
+                <span className={isActive ? "text-blue-400" : "text-slate-500"}>{item.icon}</span>
+                <span>{item.label}</span>
               </span>
 
               {item.badge && (
-                <span className="rounded-full border border-gray-700/60 bg-black/40 px-2 py-0.5 text-[9px] font-mono font-bold text-cyan-300">
+                <span className="rounded border border-slate-800 bg-slate-900 px-1.5 py-0.2 text-[9px] font-mono text-slate-400">
                   {item.badge}
                 </span>
               )}
 
               {item.count !== undefined && item.count > 0 && (
                 <span
-                  className={`rounded-full px-2 py-0.2 text-[10px] font-mono font-bold ${
+                  className={`rounded px-1.5 py-0.2 text-[10px] font-mono font-medium ${
                     item.id === "findings"
-                      ? "bg-rose-950/80 border border-rose-800/60 text-rose-300"
-                      : "bg-blue-950/80 border border-blue-800/60 text-blue-300"
+                      ? "bg-rose-500/15 border border-rose-500/25 text-rose-300"
+                      : "bg-blue-500/15 border border-blue-500/25 text-blue-300"
                   }`}
                 >
                   {item.count}
                 </span>
               )}
-            </motion.button>
+            </button>
           );
         })}
       </nav>
 
-      {/* Autonomous Agent Card */}
-      <div className="mt-auto relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-cyan-950/30 via-gray-900 to-black p-4 text-xs shadow-xl">
-        <div className="flex items-center gap-2 text-cyan-400 font-bold font-mono">
-          <Sparkles size={14} className="animate-spin" />
-          Autonomous DAST Agent
+      {/* Engine Cluster Status Telemetry */}
+      <div className="mt-auto rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 text-xs space-y-2">
+        <div className="flex items-center justify-between text-[11px] font-mono">
+          <span className="text-slate-400">Engine Cluster</span>
+          <span className="text-emerald-400 font-medium flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            3 Active
+          </span>
         </div>
-        <p className="mt-1 text-[11px] text-gray-400 leading-relaxed">
-          Zero-false-positive multi-scanner pipeline correlating Nuclei, ZAP, and Nikto.
-        </p>
-        <div className="mt-3 flex items-center justify-between font-mono text-[10px] border-t border-gray-800 pt-2 text-gray-500">
-          <span>Target Profile</span>
-          <span className="text-emerald-400 font-bold">Web + API</span>
+        <div className="text-[10px] font-mono text-slate-500 space-y-1 pt-1 border-t border-slate-800/60">
+          <div className="flex justify-between">
+            <span>Nuclei v3</span>
+            <span className="text-slate-400">Templates</span>
+          </div>
+          <div className="flex justify-between">
+            <span>OWASP ZAP</span>
+            <span className="text-slate-400">DAST & Spider</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Nikto</span>
+            <span className="text-slate-400">Server Audit</span>
+          </div>
         </div>
       </div>
 

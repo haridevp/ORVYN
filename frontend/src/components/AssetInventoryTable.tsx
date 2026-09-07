@@ -10,7 +10,7 @@ interface AssetRecord {
   url: string;
   risks: { count: number; high: number; med: number; low: number; info: number };
   status: "Monitored" | "Vulnerable" | "Secure";
-  pentesting: "DAST" | "AI Agent" | "Pentest now";
+  pentesting: "DAST" | "Multi-Engine" | "Pentest now";
   lastScanned: string;
 }
 
@@ -104,7 +104,7 @@ export function AssetInventoryTable({
           info: list.filter((f) => f.severity === "info").length,
         },
         status: list.length > 0 ? "Vulnerable" : "Secure",
-        pentesting: "AI Agent",
+        pentesting: "Multi-Engine",
         lastScanned: "Active Scan Session",
       });
     });
@@ -242,9 +242,9 @@ export function AssetInventoryTable({
                         DAST
                       </span>
                     )}
-                    {asset.pentesting === "AI Agent" && (
-                      <span className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-purple-300 uppercase flex items-center gap-1 w-fit">
-                        <Zap size={10} /> AI Agent
+                    {asset.pentesting === "Multi-Engine" && (
+                      <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-blue-300 uppercase flex items-center gap-1 w-fit">
+                        <Zap size={10} /> Multi-Engine
                       </span>
                     )}
                   </td>
