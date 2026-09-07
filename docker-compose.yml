@@ -28,6 +28,18 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: pentest
 
+  # Deliberately-vulnerable app used as a legal, self-contained scan target
+  # for local demos - so `/scan/start` has something real to point Nuclei/
+  # ZAP/Nikto at without touching any third-party site. Not started by
+  # default; run `docker compose --profile demo-target up` to include it.
+  demo-target:
+    image: bkimminich/juice-shop
+    container_name: juice_shop_demo_target
+    ports:
+      - "3000:3000"
+    profiles:
+      - demo-target
+
   # ollama:
   #   image: ollama/ollama
   #   container_name: ollama

@@ -24,6 +24,7 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r src/backend/requirements.txt
+          pip install -r src/security_rag_engine/requirements.txt
           pip install pytest
 
       - name: Run Tests

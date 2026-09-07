@@ -1,0 +1,52 @@
+import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./types";
+
+// Backend runs via docker-compose (Celery/Redis/Postgres/real scanners don't
+// fit static hosting), so a GitHub-Pages-hosted dashboard has no backend to
+// reach unless you point it at one you're running. Override at build time
+// with VITE_API_BASE_URL, or at runtime via ?api=<url> for a quick demo.
+const runtimeOverride = new URLSearchParams(window.location.search).get("api");
+export const API_BASE_URL =
+  runtimeOverride || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+export class ApiUnreachableError extends Error {}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      ...init,
+    });
+  } catch (err) {
+    throw new ApiUnreachableError(`Could not reach API at ${API_BASE_URL}`);
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `Request failed: ${response.status}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+export function startScan(target: string, scanners: ScannerName[], profile: string) {
+  return request<ScanStatusResponse>("/scan/start", {
+    method: "POST",
+    body: JSON.stringify({ target, scanners, profile }),
+  });
+}
+
+export function getScanStatus(scanId: string) {
+  return request<ScanStatusResponse>(`/scan/status/${scanId}`);
+}
+
+export function getScanResults(scanId: string) {
+  return request<ScanResultsResponse>(`/scan/results/${scanId}`);
+}
+
+export async function checkApiHealth(): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
