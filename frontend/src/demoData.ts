@@ -10,6 +10,11 @@ export const DEMO_STATUS: ScanStatusResponse = {
   target: DEMO_TARGET,
   profile: "web",
   overall_status: "completed",
+  progress_pct: 100,
+  eta_seconds: 0,
+  elapsed_seconds: 45,
+  live_findings: [],
+  findings_count: 11,
   created_at: "2026-09-01T10:00:00Z",
   updated_at: "2026-09-01T10:00:45Z",
   scanners: [

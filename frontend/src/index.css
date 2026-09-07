@@ -4,57 +4,76 @@
 
 @layer base {
   :root {
-    --surface-page: #0a0a0b;
-    --surface-1: rgba(23, 23, 24, 0.7);
-    --surface-sidebar: rgba(15, 15, 16, 0.85);
+    --surface-page: #080c14;
+    --surface-card: #0d1322;
+    --surface-card-hover: #121a2d;
+    --surface-elevated: #162035;
+    --surface-sidebar: #0a0f1b;
     
-    --text-primary: #ffffff;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
     
-    --gridline: rgba(255, 255, 255, 0.05);
-    --border: rgba(255, 255, 255, 0.1);
-    --border-glow: rgba(255, 255, 255, 0.2);
+    --border: rgba(148, 163, 184, 0.12);
+    --border-subtle: rgba(148, 163, 184, 0.08);
+    --border-active: rgba(59, 130, 246, 0.4);
     
-    --shadow-card: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    --shadow-glow: 0 0 20px rgba(57, 135, 229, 0.15);
+    --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-elevated: 0 10px 30px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
 
-    --series-blue: #3b82f6;
-    --series-blue-wash: rgba(59, 130, 246, 0.15);
+    --primary-blue: #3b82f6;
+    --primary-blue-hover: #2563eb;
+    --primary-blue-wash: rgba(59, 130, 246, 0.12);
 
-    /* Tool identity colors */
+    /* Engine identity */
     --tool-nuclei: #f97316;
     --tool-zap: #3b82f6;
     --tool-nikto: #a855f7;
 
-    /* Status colors */
-    --status-good: #22c55e;
-    --status-warning: #eab308;
-    --status-serious: #f97316;
-    --status-critical: #ef4444;
-    --status-neutral: #71717a;
+    /* Semantic severity levels */
+    --severity-critical: #ef4444;
+    --severity-high: #f97316;
+    --severity-medium: #eab308;
+    --severity-low: #06b6d4;
+    --severity-info: #64748b;
   }
 }
 
 body {
   background-color: var(--surface-page);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.05), transparent 40%),
-                    radial-gradient(circle at bottom left, rgba(168, 85, 247, 0.05), transparent 40%);
+  -moz-osx-font-smoothing: grayscale;
+  background-image: 
+    linear-gradient(to bottom, rgba(13, 19, 34, 0.8), rgba(8, 12, 20, 0.98)),
+    radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
   background-attachment: fixed;
   min-height: 100vh;
 }
 
 ::selection {
-  background: var(--series-blue-wash);
-  color: white;
+  background: var(--primary-blue-wash);
+  color: #ffffff;
 }
 
-/* Glassmorphism utilities */
+/* Professional Enterprise Card Surface */
+.enterprise-panel {
+  background: var(--surface-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  border-radius: 12px;
+}
+
+.enterprise-panel-elevated {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-elevated);
+  border-radius: 12px;
+}
+
 .glass-panel {
-  background: var(--surface-1);
+  background: rgba(13, 19, 34, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
@@ -63,40 +82,30 @@ body {
 
 .glass-sidebar {
   background: var(--surface-sidebar);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--border);
 }
 
-/* Custom Scrollbar */
+/* Clean Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(148, 163, 184, 0.35);
 }
 
-/* Animations */
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(0.95); }
+/* Progress bar shimmer */
+@keyframes progress-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
-.animate-pulse-soft {
-  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes scan-line {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-}
-.animate-scan-line {
-  animation: scan-line 2s linear infinite;
+.animate-progress-shimmer {
+  animation: progress-shimmer 2s ease-in-out infinite;
 }

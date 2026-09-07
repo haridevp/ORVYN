@@ -51,6 +51,7 @@ async def _run_real_scan(
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
+    finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
 ) -> list[ScannerFinding]:
     """Invoke the real ZAP baseline scan if installed. Streams output in real time."""
     normalized_target = _normalize_target(target)
@@ -97,7 +98,11 @@ async def _run_real_scan(
         except Exception as exc:
             if log_cb:
                 log_cb(f"Failed to spawn ZAP process: {exc}. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.zap, target)
+            sim = build_simulated_findings(ScannerName.zap, target)
+            if finding_cb:
+                for f in sim:
+                    finding_cb(f)
+            return sim
 
         async def read_stream():
             while True:
@@ -118,14 +123,14 @@ async def _run_real_scan(
             proc.kill()
             await proc.wait()
             if log_cb:
-                log_cb(f"ZAP scan reached profile timeout ({scan_timeout}s). Wrapping up available findings.")
+                log_cb(f"ZAP baseline scan reached profile timeout ({scan_timeout}s). Parsing collected findings.")
         finally:
             await reader_task
 
         findings: list[ScannerFinding] = []
         resolved_path = None
-        for candidate in (tmp_report_path, wrk_report_path, os.path.join("/zap/wrk", "zap_report.json")):
-            if os.path.exists(candidate) and os.path.getsize(candidate) > 0:
+        for candidate in (tmp_report_path, wrk_report_path):
+            if os.path.exists(candidate):
                 resolved_path = candidate
                 break
 
@@ -152,6 +157,8 @@ async def _run_real_scan(
                                 break
                     if not is_excluded:
                         findings.append(finding)
+                        if finding_cb:
+                            finding_cb(finding)
 
             if log_cb:
                 log_cb(f"Parsed {len(findings)} real findings from ZAP report at {resolved_path}.")
@@ -161,7 +168,11 @@ async def _run_real_scan(
         if not findings:
             if log_cb:
                 log_cb(f"Real ZAP engine exited (code {proc.returncode}) without generating alerts. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.zap, target)
+            sim = build_simulated_findings(ScannerName.zap, target)
+            if finding_cb:
+                for f in sim:
+                    finding_cb(f)
+            return sim
 
         return findings
 
@@ -177,13 +188,27 @@ class ZapWrapper(ScannerWrapper):
         in_scope: Optional[list[str]] = None,
         out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
+        finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, profile=profile, in_scope=in_scope, out_of_scope=out_of_scope, log_cb=log_cb)
+            return await _run_real_scan(
+                target,
+                profile=profile,
+                in_scope=in_scope,
+                out_of_scope=out_of_scope,
+                log_cb=log_cb,
+                finding_cb=finding_cb,
+            )
 
         if log_cb:
             log_cb(f"Script '{self.binary}' not found on PATH. Using fallback simulated findings.")
-        await asyncio.sleep(0.6)
-        return build_simulated_findings(ScannerName.zap, target)
+        sim_findings = build_simulated_findings(ScannerName.zap, target)
+        if finding_cb:
+            for f in sim_findings:
+                await asyncio.sleep(0.4)
+                finding_cb(f)
+        else:
+            await asyncio.sleep(0.6)
+        return sim_findings

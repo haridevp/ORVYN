@@ -39,6 +39,7 @@ async def _run_real_scan(
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
+    finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
 ) -> list[ScannerFinding]:
     """Invoke the real `nikto` binary if installed. Streams verbose output in real time."""
     # Profile-tuned timing
@@ -85,7 +86,11 @@ async def _run_real_scan(
         except Exception as exc:
             if log_cb:
                 log_cb(f"Failed to spawn Nikto process: {exc}. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.nikto, target)
+            sim = build_simulated_findings(ScannerName.nikto, target)
+            if finding_cb:
+                for f in sim:
+                    finding_cb(f)
+            return sim
 
         async def read_stream():
             while True:
@@ -106,15 +111,16 @@ async def _run_real_scan(
             proc.kill()
             await proc.wait()
             if log_cb:
-                log_cb(f"Nikto scan reached profile timeout ({scan_timeout}s). Wrapping up available findings.")
+                log_cb(f"Nikto execution reached profile timeout ({scan_timeout}s). Wrapping up available findings.")
         finally:
             await reader_task
 
         findings: list[ScannerFinding] = []
-        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+        if os.path.exists(output_file):
             try:
                 with open(output_file, "r", encoding="utf-8", errors="replace") as f:
-                    report = json.load(f)
+                    content = f.read().strip()
+                    report = json.loads(content) if content else None
             except Exception as err:
                 if log_cb:
                     log_cb(f"Failed to parse Nikto output JSON: {err}")
@@ -148,6 +154,8 @@ async def _run_real_scan(
                                 break
                     if not is_excluded:
                         findings.append(finding)
+                        if finding_cb:
+                            finding_cb(finding)
 
             if log_cb and findings:
                 log_cb(f"Parsed {len(findings)} real findings from Nikto output.")
@@ -157,7 +165,11 @@ async def _run_real_scan(
         if not findings:
             if log_cb:
                 log_cb(f"Real Nikto engine finished (code {proc.returncode}) without generating findings. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.nikto, target)
+            sim = build_simulated_findings(ScannerName.nikto, target)
+            if finding_cb:
+                for f in sim:
+                    finding_cb(f)
+            return sim
 
         return findings
 
@@ -173,14 +185,27 @@ class NiktoWrapper(ScannerWrapper):
         in_scope: Optional[list[str]] = None,
         out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
+        finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, profile=profile, in_scope=in_scope, out_of_scope=out_of_scope, log_cb=log_cb)
+            return await _run_real_scan(
+                target,
+                profile=profile,
+                in_scope=in_scope,
+                out_of_scope=out_of_scope,
+                log_cb=log_cb,
+                finding_cb=finding_cb,
+            )
 
         if log_cb:
             log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
-        await asyncio.sleep(0.3)
-        return build_simulated_findings(ScannerName.nikto, target)
-
+        sim_findings = build_simulated_findings(ScannerName.nikto, target)
+        if finding_cb:
+            for f in sim_findings:
+                await asyncio.sleep(0.3)
+                finding_cb(f)
+        else:
+            await asyncio.sleep(0.3)
+        return sim_findings

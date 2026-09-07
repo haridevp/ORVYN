@@ -133,3 +133,17 @@ def test_target_probe_detects_unreachable_hosts():
     data = response.json()
     assert data["is_alive"] is False
     assert "DNS resolution failed" in data["error"]
+
+
+def test_status_response_includes_progress_eta_and_live_findings():
+    status = _start_and_wait("progress-eta-demo.local", ["nuclei"])
+    assert "progress_pct" in status
+    assert status["progress_pct"] == 100
+    assert "eta_seconds" in status
+    assert status["eta_seconds"] == 0
+    assert "elapsed_seconds" in status
+    assert status["elapsed_seconds"] >= 0
+    assert "live_findings" in status
+    assert len(status["live_findings"]) > 0
+    assert "severity_distribution" in status
+

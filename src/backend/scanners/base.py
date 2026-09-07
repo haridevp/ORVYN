@@ -27,6 +27,7 @@ class ScannerWrapper(ABC):
         in_scope: Optional[list[str]] = None,
         out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
+        finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
         """Execute the scan and return findings already in the unified schema."""
         raise NotImplementedError

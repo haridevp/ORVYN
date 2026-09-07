@@ -140,11 +140,24 @@ if [[ "$MODE" == "docker" ]]; then
     echo -e "  ${DIM}Services: Backend (FastAPI+ZAP+Nuclei+Nikto), Celery Worker, Redis, PostgreSQL${NC}"
     echo ""
 
-    $DOCKER_CMD compose up --build -d
+    REBUILD_FLAG=""
+    for arg in "$@"; do
+        if [[ "$arg" == "--build" ]]; then
+            REBUILD_FLAG="--build"
+            break
+        fi
+    done
 
-    print_info "Waiting for backend service health check..."
+    if [[ -n "$REBUILD_FLAG" ]]; then
+        print_info "Rebuilding container images (--build specified)..."
+        $DOCKER_CMD compose up --build -d
+    else
+        $DOCKER_CMD compose up -d
+    fi
+
+    print_info "Waiting for platform services health check..."
     READY=false
-    for i in {1..30}; do
+    for i in {1..35}; do
         if curl -s -f http://localhost:8000/health >/dev/null 2>&1; then
             READY=true
             break
@@ -152,9 +165,19 @@ if [[ "$MODE" == "docker" ]]; then
         sleep 1
     done
 
-    # Start frontend locally if not containerized in docker-compose
-    if ! curl -s -f http://localhost:5173 >/dev/null 2>&1; then
-        print_info "Starting frontend web dashboard..."
+    # Wait for frontend container on port 5173
+    FRONTEND_READY=false
+    for i in {1..20}; do
+        if curl -s -f http://localhost:5173 >/dev/null 2>&1; then
+            FRONTEND_READY=true
+            break
+        fi
+        sleep 1
+    done
+
+    if [[ "$FRONTEND_READY" != "true" ]]; then
+        # If containerized frontend failed or wasn't included, start fallback frontend locally
+        print_info "Containerized frontend not detected on port 5173. Launching host fallback..."
         if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
             (cd "$FRONTEND_DIR" && npm install)
         fi

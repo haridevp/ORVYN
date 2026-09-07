@@ -77,12 +77,26 @@ class ScannerProgress(BaseModel):
     simulated: bool = False
 
 
+class SeverityDistribution(BaseModel):
+    critical: int = 0
+    high: int = 0
+    medium: int = 0
+    low: int = 0
+    info: int = 0
+
+
 class ScanStatusResponse(BaseModel):
     scan_id: str
     target: str
     profile: str
     overall_status: Literal["queued", "running", "completed", "error"]
+    progress_pct: int = 0
+    eta_seconds: Optional[int] = None
+    elapsed_seconds: int = 0
     scanners: list[ScannerProgress]
+    live_findings: list[ScannerFinding] = Field(default_factory=list)
+    findings_count: int = 0
+    severity_distribution: SeverityDistribution = Field(default_factory=SeverityDistribution)
     in_scope: list[str] = Field(default_factory=list)
     out_of_scope: list[str] = Field(default_factory=list)
     logs: list[str] = Field(default_factory=list)
@@ -104,14 +118,6 @@ class CorrelatedFinding(BaseModel):
     evidence: list[str]
     reference: Optional[str] = None
     source_finding_ids: list[str]
-
-
-class SeverityDistribution(BaseModel):
-    critical: int = 0
-    high: int = 0
-    medium: int = 0
-    low: int = 0
-    info: int = 0
 
 
 class ScanResultsResponse(BaseModel):

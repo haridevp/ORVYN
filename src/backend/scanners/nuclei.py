@@ -45,6 +45,7 @@ async def _run_real_scan(
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
+    finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
 ) -> list[ScannerFinding]:
     """Invoke the real `nuclei` binary if it's installed. Streams verbose execution logs."""
     # Profile-tuned configuration
@@ -94,7 +95,11 @@ async def _run_real_scan(
         except Exception as exc:
             if log_cb:
                 log_cb(f"Failed to spawn Nuclei process: {exc}. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.nuclei, target)
+            sim = build_simulated_findings(ScannerName.nuclei, target)
+            if finding_cb:
+                for f in sim:
+                    finding_cb(f)
+            return sim
 
         async def read_stream():
             while True:
@@ -136,11 +141,17 @@ async def _run_real_scan(
                             finding = _normalize_raw_line(item, target)
                             if finding:
                                 findings.append(finding)
+                                if finding_cb:
+                                    finding_cb(finding)
 
         if not findings and proc.returncode != 0:
             if log_cb:
                 log_cb(f"Nuclei exited (code {proc.returncode}) without findings. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.nuclei, target)
+            sim = build_simulated_findings(ScannerName.nuclei, target)
+            if finding_cb:
+                for f in sim:
+                    finding_cb(f)
+            return sim
 
         return findings
 
@@ -156,15 +167,29 @@ class NucleiWrapper(ScannerWrapper):
         in_scope: Optional[list[str]] = None,
         out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
+        finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, profile=profile, in_scope=in_scope, out_of_scope=out_of_scope, log_cb=log_cb)
+            return await _run_real_scan(
+                target,
+                profile=profile,
+                in_scope=in_scope,
+                out_of_scope=out_of_scope,
+                log_cb=log_cb,
+                finding_cb=finding_cb,
+            )
 
-        # Binary not installed in this environment - return simulated findings
+        # Binary not installed in this environment - return simulated findings staggered live
         if log_cb:
             log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
-        await asyncio.sleep(0.4)
-        return build_simulated_findings(ScannerName.nuclei, target)
+        sim_findings = build_simulated_findings(ScannerName.nuclei, target)
+        if finding_cb:
+            for f in sim_findings:
+                await asyncio.sleep(0.35)
+                finding_cb(f)
+        else:
+            await asyncio.sleep(0.4)
+        return sim_findings
 

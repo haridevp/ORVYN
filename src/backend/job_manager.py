@@ -64,6 +64,7 @@ class ScanJob:
         self.out_of_scope = request.out_of_scope if request.out_of_scope else []
         self.created_at = now_iso()
         self.updated_at = self.created_at
+        self.start_epoch = datetime.now(timezone.utc).timestamp()
         self.scanner_progress: dict[ScannerName, ScannerProgress] = {
             tool: ScannerProgress(tool=tool, status=ScannerRunState.queued)
             for tool in request.scanners
@@ -76,6 +77,60 @@ class ScanJob:
         timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
         self.logs.append(f"[{timestamp}] [{tool_name}] {message}")
         self.updated_at = now_iso()
+
+    @property
+    def elapsed_seconds(self) -> int:
+        return max(0, int(datetime.now(timezone.utc).timestamp() - self.start_epoch))
+
+    @property
+    def expected_duration(self) -> int:
+        if self.profile == "recon":
+            return 22
+        elif self.profile == "full":
+            return 85
+        elif self.profile == "unlimited":
+            return 180
+        return 45  # web (default)
+
+    @property
+    def progress_percentage(self) -> int:
+        status = self.overall_status
+        if status in ("completed", "error"):
+            return 100
+
+        total_scanners = len(self.scanner_progress)
+        if total_scanners == 0:
+            return 0
+
+        completed_count = sum(
+            1 for p in self.scanner_progress.values()
+            if p.status in (ScannerRunState.completed, ScannerRunState.error)
+        )
+        running_count = sum(
+            1 for p in self.scanner_progress.values()
+            if p.status == ScannerRunState.running
+        )
+
+        completed_portion = (completed_count / total_scanners) * 100
+        time_ratio = min(0.85, self.elapsed_seconds / max(1, self.expected_duration))
+        running_portion = (running_count / total_scanners) * 100 * time_ratio
+
+        calculated = int(completed_portion + running_portion)
+        # Keep within 3% to 98% while running
+        return max(5, min(98, calculated))
+
+    @property
+    def estimated_time_remaining(self) -> int | None:
+        if self.overall_status in ("completed", "error"):
+            return 0
+        if self.profile == "unlimited":
+            return None
+
+        remaining = self.expected_duration - self.elapsed_seconds
+        if remaining > 0:
+            return remaining
+        # If past expected baseline, show a smooth gentle tail
+        return max(2, 6 - (abs(remaining) % 6))
 
     @property
     def overall_status(self) -> str:
@@ -96,7 +151,13 @@ class ScanJob:
             target=self.target,
             profile=self.profile,
             overall_status=self.overall_status,
+            progress_pct=self.progress_percentage,
+            eta_seconds=self.estimated_time_remaining,
+            elapsed_seconds=self.elapsed_seconds,
             scanners=list(self.scanner_progress.values()),
+            live_findings=list(self.findings),
+            findings_count=len(self.findings),
+            severity_distribution=severity_distribution(self.findings),
             in_scope=list(self.in_scope),
             out_of_scope=list(self.out_of_scope),
             logs=list(self.logs),
@@ -148,6 +209,19 @@ class JobManager:
         def log_callback(msg: str) -> None:
             job.add_log(tool, msg)
 
+        def live_finding_callback(finding: ScannerFinding) -> None:
+            eval_str = f"{finding.target} {finding.evidence or ''}"
+            if is_item_in_scope(eval_str, job.in_scope, job.out_of_scope):
+                # Avoid duplicates
+                if not any(
+                    existing.vulnerability == finding.vulnerability and existing.evidence == finding.evidence
+                    for existing in job.findings
+                ):
+                    job.findings.append(finding)
+                    progress.findings_count = len([f for f in job.findings if f.tool == tool])
+                    job.updated_at = now_iso()
+                    job.add_log(tool, f"🎯 Vulnerability detected live: [{finding.severity.upper()}] {finding.vulnerability}")
+
         try:
             findings = await wrapper.run(
                 job.target,
@@ -155,25 +229,29 @@ class JobManager:
                 in_scope=job.in_scope,
                 out_of_scope=job.out_of_scope,
                 log_cb=log_callback,
+                finding_cb=live_finding_callback,
             )
 
-            # Strict perimeter enforcement: filter out any out-of-scope finding evidence/targets
-            scoped_findings: list[ScannerFinding] = []
+            # Strict perimeter enforcement & reconciliation: ensure any batch findings are captured
             excluded_count = 0
             for f in findings:
                 eval_str = f"{f.target} {f.evidence or ''}"
                 if is_item_in_scope(eval_str, job.in_scope, job.out_of_scope):
-                    scoped_findings.append(f)
+                    if not any(
+                        existing.vulnerability == f.vulnerability and existing.evidence == f.evidence
+                        for existing in job.findings
+                    ):
+                        job.findings.append(f)
                 else:
                     excluded_count += 1
 
             if excluded_count > 0:
                 job.add_log(tool, f"Perimeter filter: Excluded {excluded_count} finding(s) matching out-of-scope rules.")
 
-            job.findings.extend(scoped_findings)
-            progress.findings_count = len(scoped_findings)
+            tool_findings = [f for f in job.findings if f.tool == tool]
+            progress.findings_count = len(tool_findings)
             progress.status = ScannerRunState.completed
-            job.add_log(tool, f"Execution completed with {len(scoped_findings)} in-scope findings.")
+            job.add_log(tool, f"Execution completed with {len(tool_findings)} in-scope findings.")
         except Exception as exc:  # a single scanner failing must not sink the job
             progress.status = ScannerRunState.error
             progress.error = str(exc)

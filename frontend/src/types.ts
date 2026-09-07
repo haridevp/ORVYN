@@ -29,7 +29,13 @@ export interface ScanStatusResponse {
   target: string;
   profile: string;
   overall_status: OverallStatus;
+  progress_pct: number;
+  eta_seconds?: number | null;
+  elapsed_seconds: number;
   scanners: ScannerProgress[];
+  live_findings?: ScannerFinding[];
+  findings_count?: number;
+  severity_distribution?: SeverityDistribution;
   in_scope?: string[];
   out_of_scope?: string[];
   logs?: string[];

@@ -11,6 +11,7 @@ import { ExecutiveMetrics } from "./components/ExecutiveMetrics";
 import { ApiTopologyGraph } from "./components/ApiTopologyGraph";
 import { AssetInventoryTable } from "./components/AssetInventoryTable";
 import { LoginView } from "./components/LoginView";
+import { LiveFindingsFeed } from "./components/LiveFindingsFeed";
 import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./types";
 import {
   Target,
@@ -137,16 +138,20 @@ export default function App() {
   const currentLogs = status?.logs || results?.logs || [];
   const currentTarget = status?.target || results?.target || "scanme.nmap.org";
 
-  // Dynamic user-based metrics: 0 by default, populated ONLY with real findings
+  // Dynamic metrics: Populated with real findings in real time
   const distribution = results
     ? results.severity_distribution
-    : { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
-  const totalFindings = results ? results.raw_findings.length : 0;
+    : (status?.severity_distribution || { critical: 0, high: 0, medium: 0, low: 0, info: 0 });
+  const rawFindings = results
+    ? results.raw_findings
+    : (status?.live_findings || []);
+  const totalFindings = results
+    ? results.raw_findings.length
+    : (status?.live_findings?.length || 0);
   const duplicateGroups = results ? results.duplicate_groups : 0;
-  const rawFindings = results ? results.raw_findings : [];
 
   return (
-    <div className="flex min-h-screen text-[var(--text-primary)] bg-[#070a0f]">
+    <div className="flex min-h-screen text-[var(--text-primary)] bg-[#080c14]">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -158,124 +163,119 @@ export default function App() {
       />
 
       <div className="min-w-0 flex-1 relative flex flex-col">
-        {/* Strix/ZeroThreat Executive Top Bar */}
-        <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-gray-800/80 bg-[#080c14]/90 backdrop-blur-xl px-8 py-4">
+        {/* Professional Enterprise Top Bar */}
+        <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl px-8 py-3.5">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-mono text-gray-400">
-              <span className="text-gray-500">Targets</span>
-              <ChevronRight size={14} className="text-gray-600" />
-              <span className="font-bold text-cyan-300 font-mono flex items-center gap-1.5">
-                <Target size={14} className="text-cyan-400" />
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+              <span className="text-slate-500">Target</span>
+              <ChevronRight size={13} className="text-slate-600" />
+              <span className="font-semibold text-slate-200 font-mono flex items-center gap-1.5">
+                <Target size={14} className="text-blue-400" />
                 {currentTarget}
               </span>
               {status?.in_scope && status.in_scope.length > 0 && (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 text-[10px] font-mono text-cyan-300">
+                <span className="hidden sm:inline-flex items-center gap-1 rounded bg-slate-900 border border-slate-800 px-2 py-0.5 text-[11px] font-mono text-slate-300">
                   Scope: {status.in_scope[0]}
                 </span>
               )}
               {status?.out_of_scope && status.out_of_scope.length > 0 && (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-rose-950/80 border border-rose-800/60 px-1.5 py-0.5 text-[10px] font-mono text-rose-300 font-bold">
+                <span className="hidden sm:inline-flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 text-[11px] font-mono text-rose-300 font-medium">
                   {status.out_of_scope.length} Excluded
                 </span>
               )}
             </div>
 
-            <span className="rounded-md border border-gray-700/60 bg-black/40 px-2 py-0.5 text-[10px] font-mono font-bold text-gray-400">
-              v2.4 (Live)
+            <span className="rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] font-mono text-slate-400">
+              SOC Platform v2.4
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 rounded-xl border border-gray-800 bg-black/40 px-3 py-1.5 text-xs font-mono">
-              <UserCheck size={14} className="text-emerald-400" />
-              <span className="text-white font-bold">{user.username}</span>
-              <span className="text-gray-500">•</span>
-              <span className="text-cyan-400 text-[11px]">SecOps Clearance</span>
+            <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs font-mono">
+              <UserCheck size={13} className="text-emerald-400" />
+              <span className="text-slate-200 font-semibold">{user.username}</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-slate-400 text-[11px]">SecOps Clearance</span>
             </div>
 
             <button
               onClick={() => handleStart(currentTarget, ["nuclei", "zap", "nikto"], "web")}
               disabled={!!isRunning}
-              className="flex items-center gap-1.5 rounded-xl border border-gray-700/80 bg-gray-900/80 hover:bg-gray-800 px-3.5 py-1.5 text-xs font-semibold text-gray-200 transition-all disabled:opacity-40 cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all disabled:opacity-40 cursor-pointer"
             >
-              <RotateCw size={13} className={isRunning ? "animate-spin text-cyan-400" : ""} />
-              <span>Rescan Target</span>
+              <RotateCw size={12} className={isRunning ? "animate-spin text-blue-400" : ""} />
+              <span>Rescan</span>
             </button>
 
             <button
               onClick={() => handleDownloadReport("json")}
               disabled={!results}
-              className="flex items-center gap-1.5 rounded-xl border border-blue-500/40 bg-blue-600/20 hover:bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-blue-300 hover:text-white transition-all disabled:opacity-40 shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all disabled:opacity-40 shadow-xs cursor-pointer"
             >
-              <Download size={13} />
-              <span>Download Report</span>
+              <Download size={12} />
+              <span>Export Report</span>
             </button>
 
             <button
               onClick={handleLogout}
               title="Sign Out"
-              className="flex items-center gap-1 rounded-xl border border-gray-800 bg-black/40 hover:bg-rose-500/20 hover:border-rose-500/40 px-2.5 py-1.5 text-xs font-medium text-gray-400 hover:text-rose-300 transition-colors cursor-pointer"
+              className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-rose-500/10 hover:border-rose-500/30 px-2.5 py-1.5 text-xs text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
             >
               <LogOut size={13} />
             </button>
           </div>
         </header>
 
-        {/* Secondary Navigation Tabs (Escape/ZeroThreat style) */}
-        <div className="flex items-center gap-1 border-b border-gray-800/60 bg-black/40 px-8 py-2 overflow-x-auto text-xs">
+        {/* Secondary Navigation Tabs */}
+        <div className="flex items-center gap-1 border-b border-slate-800/70 bg-slate-950/60 px-8 py-2 overflow-x-auto text-xs">
           {[
-            { id: "overview" as NavTab, label: "Overview & ASM", icon: <Layers size={14} /> },
-            { id: "topology" as NavTab, label: "API Attack Graph", icon: <GitBranch size={14} />, badge: "Live Packets" },
-            { id: "findings" as NavTab, label: "Threats & Findings", icon: <ShieldAlert size={14} />, count: totalFindings },
-            { id: "terminal" as NavTab, label: "Live Console", icon: <Terminal size={14} />, count: currentLogs.length, pulse: isRunning },
-            { id: "scanners" as NavTab, label: "Engine Cluster", icon: <Cpu size={14} /> },
+            { id: "overview" as NavTab, label: "Overview & ASM", icon: <Layers size={13} /> },
+            { id: "topology" as NavTab, label: "API Attack Graph", icon: <GitBranch size={13} /> },
+            { id: "findings" as NavTab, label: "Threats & Findings", icon: <ShieldAlert size={13} />, count: totalFindings },
+            { id: "terminal" as NavTab, label: "Live Console", icon: <Terminal size={13} />, count: currentLogs.length, pulse: isRunning },
+            { id: "scanners" as NavTab, label: "Engine Cluster", icon: <Cpu size={13} /> },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all select-none cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-medium transition-all select-none cursor-pointer ${
                 activeTab === tab.id
-                  ? "bg-blue-600/20 border border-blue-500/40 text-cyan-300 shadow-sm shadow-blue-500/10 font-bold"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]"
+                  ? "bg-blue-600/15 border border-blue-500/40 text-blue-300 font-semibold shadow-xs"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
               }`}
             >
               {tab.icon}
               <span>{tab.label}</span>
-              {tab.badge && (
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/60">
-                  {tab.badge}
-                </span>
-              )}
               {tab.count !== undefined && tab.count > 0 && (
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-rose-950/80 text-rose-300 border border-rose-800/40">
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-300 border border-rose-500/20">
                   {tab.count}
                 </span>
               )}
-              {tab.pulse && <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />}
+              {tab.pulse && <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-ping" />}
             </button>
           ))}
         </div>
 
         {/* Main Content Body */}
-        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-6 py-8 md:px-10">
+        <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-6 py-6 md:px-8">
           <AnimatePresence>
             {apiState === "offline" && (
               <motion.div
-                initial={{ opacity: 0, y: -15 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-5 py-3 text-xs text-rose-300 flex items-center justify-between"
+                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-300 flex items-center justify-between"
               >
                 <span>
-                  <strong>Backend Service Offline</strong> — API unreachable at <code className="font-mono bg-black/40 px-1 py-0.5 rounded">{API_BASE_URL}</code>. Ensure docker containers are running.
+                  <strong>Backend API Offline</strong> — API unreachable at <code className="font-mono bg-black/40 px-1 py-0.5 rounded">{API_BASE_URL}</code>.
                 </span>
               </motion.div>
             )}
 
             {error && (
               <motion.div
-                initial={{ opacity: 0, y: -15 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-5 py-3.5 text-xs text-rose-300 shadow-lg shadow-rose-500/5"
+                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300"
               >
                 {error}
               </motion.div>
@@ -284,8 +284,8 @@ export default function App() {
 
           {/* TAB 1: OVERVIEW & ATTACK SURFACE MANAGEMENT */}
           {activeTab === "overview" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              {/* Strix Top KPI Row */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              {/* Executive Metrics Row */}
               <ExecutiveMetrics
                 distribution={distribution}
                 totalFindings={totalFindings}
@@ -296,17 +296,30 @@ export default function App() {
               {/* Scan Launcher Card */}
               <ScanForm onStart={handleStart} disabled={!!isRunning} />
 
-              {/* Live Progress Card */}
+              {/* Live Telemetry Progress Card */}
               {status && (
                 <ScannerProgressList
                   scanners={status.scanners}
                   onOpenTerminal={() => setActiveTab("terminal")}
                   terminalOpen={false}
                   logsCount={currentLogs.length}
+                  progressPct={status.progress_pct}
+                  etaSeconds={status.eta_seconds}
+                  elapsedSeconds={status.elapsed_seconds}
+                  overallStatus={status.overall_status}
                 />
               )}
 
-              {/* Escape.dev Style Asset Inventory */}
+              {/* Live Findings Feed: Intercepted in real time while scanning */}
+              {(isRunning || (status?.live_findings && status.live_findings.length > 0) || rawFindings.length > 0) && (
+                <LiveFindingsFeed
+                  findings={status?.live_findings || rawFindings}
+                  isScanning={!!isRunning}
+                  onSelectFinding={() => setActiveTab("findings")}
+                />
+              )}
+
+              {/* Asset Inventory */}
               <AssetInventoryTable
                 target={currentTarget}
                 findings={rawFindings}
