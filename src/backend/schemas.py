@@ -55,7 +55,15 @@ class ScanStartRequest(BaseModel):
         default_factory=lambda: [ScannerName.nuclei, ScannerName.zap, ScannerName.nikto],
         description="Which scanners to run for this job",
     )
-    profile: Literal["recon", "web", "full"] = "web"
+    profile: Literal["recon", "web", "full", "unlimited"] = "web"
+    in_scope: list[str] = Field(
+        default_factory=list,
+        description="Domains, subdomains, or wildcard patterns in scope (e.g. *.target.com)",
+    )
+    out_of_scope: list[str] = Field(
+        default_factory=list,
+        description="Excluded domains, endpoints, or keywords (e.g. logout, auth.*)",
+    )
     requested_by: str = Field(default="panel-review-demo")
 
 
@@ -75,6 +83,8 @@ class ScanStatusResponse(BaseModel):
     profile: str
     overall_status: Literal["queued", "running", "completed", "error"]
     scanners: list[ScannerProgress]
+    in_scope: list[str] = Field(default_factory=list)
+    out_of_scope: list[str] = Field(default_factory=list)
     logs: list[str] = Field(default_factory=list)
     created_at: str
     updated_at: str
@@ -112,6 +122,8 @@ class ScanResultsResponse(BaseModel):
     correlated_findings: list[CorrelatedFinding]
     severity_distribution: SeverityDistribution
     duplicate_groups: int
+    in_scope: list[str] = Field(default_factory=list)
+    out_of_scope: list[str] = Field(default_factory=list)
     logs: list[str] = Field(default_factory=list)
 
 

@@ -30,6 +30,8 @@ export interface ScanStatusResponse {
   profile: string;
   overall_status: OverallStatus;
   scanners: ScannerProgress[];
+  in_scope?: string[];
+  out_of_scope?: string[];
   logs?: string[];
   created_at: string;
   updated_at: string;
@@ -65,6 +67,8 @@ export interface ScanResultsResponse {
   correlated_findings: CorrelatedFinding[];
   severity_distribution: SeverityDistribution;
   duplicate_groups: number;
+  in_scope?: string[];
+  out_of_scope?: string[];
   logs?: string[];
 }
 

@@ -48,6 +48,8 @@ async def _run_real_scan(
     target: str,
     profile: str = "web",
     timeout: Optional[int] = None,
+    in_scope: Optional[list[str]] = None,
+    out_of_scope: Optional[list[str]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
 ) -> list[ScannerFinding]:
     """Invoke the real ZAP baseline scan if installed. Streams output in real time."""
@@ -59,6 +61,10 @@ async def _run_real_scan(
     elif profile == "full":
         spider_minutes = "3"
         scan_timeout = timeout or 120
+    elif profile == "unlimited":
+        # Unlimited mode: extensive spider, no artificial timeout
+        spider_minutes = "10"
+        scan_timeout = timeout  # None -> runs until completion
     else:  # "web" (default)
         spider_minutes = "1"
         scan_timeout = timeout or 60
@@ -78,8 +84,9 @@ async def _run_real_scan(
         else:
             command = [BINARY, "-t", normalized_target, "-J", tmp_report_path, "-m", spider_minutes, "-I"]
 
+        timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED (no timeout)"
         if log_cb:
-            log_cb(f"Executing: {' '.join(command)} (timeout: {scan_timeout}s, profile: {profile})")
+            log_cb(f"Executing: {' '.join(command)} (timeout: {timeout_label}, profile: {profile})")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -103,7 +110,10 @@ async def _run_real_scan(
 
         reader_task = asyncio.create_task(read_stream())
         try:
-            await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
+            if scan_timeout is not None:
+                await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
+            else:
+                await proc.wait()
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
@@ -129,7 +139,20 @@ async def _run_real_scan(
                     report = {}
             for site in report.get("site", []):
                 for alert in site.get("alerts", []):
-                    findings.append(_normalize_alert(alert, target))
+                    finding = _normalize_alert(alert, target)
+                    # Filter out-of-scope finding evidence/targets
+                    evidence_str = (finding.evidence or "").lower()
+                    target_str = finding.target.lower()
+                    is_excluded = False
+                    if out_of_scope:
+                        for rule in out_of_scope:
+                            clean_rule = rule.strip().lower().lstrip("*.")
+                            if clean_rule and (clean_rule in evidence_str or clean_rule in target_str):
+                                is_excluded = True
+                                break
+                    if not is_excluded:
+                        findings.append(finding)
+
             if log_cb:
                 log_cb(f"Parsed {len(findings)} real findings from ZAP report at {resolved_path}.")
 
@@ -151,12 +174,14 @@ class ZapWrapper(ScannerWrapper):
         self,
         target: str,
         profile: str,
+        in_scope: Optional[list[str]] = None,
+        out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
     ) -> list[ScannerFinding]:
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, profile=profile, log_cb=log_cb)
+            return await _run_real_scan(target, profile=profile, in_scope=in_scope, out_of_scope=out_of_scope, log_cb=log_cb)
 
         if log_cb:
             log_cb(f"Script '{self.binary}' not found on PATH. Using fallback simulated findings.")

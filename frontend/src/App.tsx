@@ -71,11 +71,17 @@ export default function App() {
     setUser(null);
   }
 
-  async function handleStart(target: string, scanners: ScannerName[], profile: string) {
+  async function handleStart(
+    target: string,
+    scanners: ScannerName[],
+    profile: string,
+    inScope?: string[],
+    outOfScope?: string[],
+  ) {
     setError(null);
     setResults(null);
     try {
-      const initial = await startScan(target, scanners, profile);
+      const initial = await startScan(target, scanners, profile, inScope, outOfScope);
       setStatus(initial);
 
       pollRef.current = window.setInterval(async () => {
@@ -162,6 +168,16 @@ export default function App() {
                 <Target size={14} className="text-cyan-400" />
                 {currentTarget}
               </span>
+              {status?.in_scope && status.in_scope.length > 0 && (
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 text-[10px] font-mono text-cyan-300">
+                  Scope: {status.in_scope[0]}
+                </span>
+              )}
+              {status?.out_of_scope && status.out_of_scope.length > 0 && (
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-rose-950/80 border border-rose-800/60 px-1.5 py-0.5 text-[10px] font-mono text-rose-300 font-bold">
+                  {status.out_of_scope.length} Excluded
+                </span>
+              )}
             </div>
 
             <span className="rounded-md border border-gray-700/60 bg-black/40 px-2 py-0.5 text-[10px] font-mono font-bold text-gray-400">

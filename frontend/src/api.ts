@@ -27,10 +27,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function startScan(target: string, scanners: ScannerName[], profile: string) {
+export function startScan(
+  target: string,
+  scanners: ScannerName[],
+  profile: string,
+  in_scope?: string[],
+  out_of_scope?: string[],
+) {
   return request<ScanStatusResponse>("/scan/start", {
     method: "POST",
-    body: JSON.stringify({ target, scanners, profile }),
+    body: JSON.stringify({ target, scanners, profile, in_scope, out_of_scope }),
   });
 }
 

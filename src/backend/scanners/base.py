@@ -24,6 +24,8 @@ class ScannerWrapper(ABC):
         self,
         target: str,
         profile: str,
+        in_scope: Optional[list[str]] = None,
+        out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
     ) -> list[ScannerFinding]:
         """Execute the scan and return findings already in the unified schema."""

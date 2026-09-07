@@ -42,10 +42,12 @@ async def _run_real_scan(
     target: str,
     profile: str = "web",
     timeout: Optional[int] = None,
+    in_scope: Optional[list[str]] = None,
+    out_of_scope: Optional[list[str]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
 ) -> list[ScannerFinding]:
     """Invoke the real `nuclei` binary if it's installed. Streams verbose execution logs."""
-    # Profile-tuned configuration for fast, interactive response
+    # Profile-tuned configuration
     if profile == "recon":
         scan_timeout = timeout or 35
         tags = "cve,exposure,tech,misconfig,dns,ssl"
@@ -53,10 +55,20 @@ async def _run_real_scan(
     elif profile == "full":
         scan_timeout = timeout or 120
         extra_args = ["-severity", "info,low,medium,high,critical", "-timeout", "5", "-rate-limit", "150", "-concurrency", "30"]
+    elif profile == "unlimited":
+        # Unlimited mode: no artificial timeout threshold
+        scan_timeout = timeout  # None -> runs until completion
+        extra_args = ["-severity", "info,low,medium,high,critical", "-timeout", "8", "-rate-limit", "150", "-concurrency", "30"]
     else:  # "web" (default)
         scan_timeout = timeout or 60
         tags = "cve,xss,sqli,exposure,misconfig,auth,ssl,generic"
         extra_args = ["-tags", tags, "-timeout", "4", "-rate-limit", "150", "-concurrency", "25"]
+
+    # Exclude out-of-scope hosts
+    if out_of_scope:
+        exclude_hosts = [r.strip().lstrip("*.") for r in out_of_scope if "/" not in r and r.strip()]
+        if exclude_hosts:
+            extra_args.extend(["-exclude-hosts", ",".join(exclude_hosts)])
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "nuclei_output.json")
@@ -69,8 +81,9 @@ async def _run_real_scan(
             "-v",
             *extra_args,
         ]
+        timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED (no timeout)"
         if log_cb:
-            log_cb(f"Executing: {' '.join(command)} (timeout: {scan_timeout}s, profile: {profile})")
+            log_cb(f"Executing: {' '.join(command)} (timeout: {timeout_label}, profile: {profile})")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -94,7 +107,10 @@ async def _run_real_scan(
 
         reader_task = asyncio.create_task(read_stream())
         try:
-            await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
+            if scan_timeout is not None:
+                await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
+            else:
+                await proc.wait()
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
@@ -137,12 +153,14 @@ class NucleiWrapper(ScannerWrapper):
         self,
         target: str,
         profile: str,
+        in_scope: Optional[list[str]] = None,
+        out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
     ) -> list[ScannerFinding]:
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, profile=profile, log_cb=log_cb)
+            return await _run_real_scan(target, profile=profile, in_scope=in_scope, out_of_scope=out_of_scope, log_cb=log_cb)
 
         # Binary not installed in this environment - return simulated findings
         if log_cb:

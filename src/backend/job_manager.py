@@ -21,11 +21,47 @@ from schemas import (
 )
 
 
+def is_item_in_scope(item_target: str, in_scope: list[str], out_of_scope: list[str]) -> bool:
+    """Verify whether a finding target/evidence complies with configured scope boundaries."""
+    lowered = item_target.lower()
+
+    # 1. Deny-list check: out_of_scope exclusions take absolute priority
+    for rule in out_of_scope:
+        rule_clean = rule.strip().lower().lstrip("*.")
+        if rule_clean and rule_clean in lowered:
+            return False
+
+    # 2. Allow-list check: if in_scope rules are defined, target must match at least one
+    if in_scope:
+        matched = False
+        for rule in in_scope:
+            rule_clean = rule.strip().lower()
+            if not rule_clean or rule_clean == "*":
+                matched = True
+                break
+            if rule_clean.startswith("*."):
+                domain_part = rule_clean[2:]
+                if domain_part in lowered:
+                    matched = True
+                    break
+            elif rule_clean in lowered:
+                matched = True
+                break
+        if not matched:
+            return False
+
+    return True
+
+
 class ScanJob:
     def __init__(self, scan_id: str, request: ScanStartRequest):
         self.scan_id = scan_id
         self.target = request.target
         self.profile = request.profile
+        # Default in_scope to wildcard domain if not specified: e.g. *.target.com
+        target_domain = request.target.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+        self.in_scope = request.in_scope if request.in_scope else [f"*.{target_domain}", request.target]
+        self.out_of_scope = request.out_of_scope if request.out_of_scope else []
         self.created_at = now_iso()
         self.updated_at = self.created_at
         self.scanner_progress: dict[ScannerName, ScannerProgress] = {
@@ -61,6 +97,8 @@ class ScanJob:
             profile=self.profile,
             overall_status=self.overall_status,
             scanners=list(self.scanner_progress.values()),
+            in_scope=list(self.in_scope),
+            out_of_scope=list(self.out_of_scope),
             logs=list(self.logs),
             created_at=self.created_at,
             updated_at=self.updated_at,
@@ -76,6 +114,8 @@ class ScanJob:
             correlated_findings=correlated,
             severity_distribution=severity_distribution(self.findings),
             duplicate_groups=duplicate_group_count(correlated),
+            in_scope=list(self.in_scope),
+            out_of_scope=list(self.out_of_scope),
             logs=list(self.logs),
         )
 
@@ -88,7 +128,8 @@ class JobManager:
         scan_id = f"scan-{uuid4().hex[:12]}"
         job = ScanJob(scan_id, request)
         self._jobs[scan_id] = job
-        job.add_log("system", f"Job {scan_id} queued for target {request.target} with scanners: {', '.join(s.value for s in request.scanners)}")
+        scope_summary = f"In-Scope: [{', '.join(job.in_scope)}] | Out-of-Scope: [{', '.join(job.out_of_scope) if job.out_of_scope else 'None'}]"
+        job.add_log("system", f"Job {scan_id} queued for target {request.target} (profile: {request.profile}). {scope_summary}")
         for tool in request.scanners:
             asyncio.create_task(self._run_scanner(job, tool))
         return job
@@ -102,17 +143,37 @@ class JobManager:
         wrapper = REGISTRY[tool]
         progress.simulated = not wrapper.is_available()
         mode_label = "SIMULATED" if progress.simulated else "REAL ENGINE"
-        job.add_log(tool, f"Scanner worker started in [{mode_label}] mode for target: {job.target}")
+        job.add_log(tool, f"Scanner worker started in [{mode_label}] mode for target: {job.target} (profile: {job.profile})")
 
         def log_callback(msg: str) -> None:
             job.add_log(tool, msg)
 
         try:
-            findings = await wrapper.run(job.target, job.profile, log_cb=log_callback)
-            job.findings.extend(findings)
-            progress.findings_count = len(findings)
+            findings = await wrapper.run(
+                job.target,
+                job.profile,
+                in_scope=job.in_scope,
+                out_of_scope=job.out_of_scope,
+                log_cb=log_callback,
+            )
+
+            # Strict perimeter enforcement: filter out any out-of-scope finding evidence/targets
+            scoped_findings: list[ScannerFinding] = []
+            excluded_count = 0
+            for f in findings:
+                eval_str = f"{f.target} {f.evidence or ''}"
+                if is_item_in_scope(eval_str, job.in_scope, job.out_of_scope):
+                    scoped_findings.append(f)
+                else:
+                    excluded_count += 1
+
+            if excluded_count > 0:
+                job.add_log(tool, f"Perimeter filter: Excluded {excluded_count} finding(s) matching out-of-scope rules.")
+
+            job.findings.extend(scoped_findings)
+            progress.findings_count = len(scoped_findings)
             progress.status = ScannerRunState.completed
-            job.add_log(tool, f"Execution completed with {len(findings)} findings.")
+            job.add_log(tool, f"Execution completed with {len(scoped_findings)} in-scope findings.")
         except Exception as exc:  # a single scanner failing must not sink the job
             progress.status = ScannerRunState.error
             progress.error = str(exc)

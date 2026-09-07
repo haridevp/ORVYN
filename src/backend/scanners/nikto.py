@@ -36,10 +36,12 @@ async def _run_real_scan(
     target: str,
     profile: str = "web",
     timeout: Optional[int] = None,
+    in_scope: Optional[list[str]] = None,
+    out_of_scope: Optional[list[str]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
 ) -> list[ScannerFinding]:
     """Invoke the real `nikto` binary if installed. Streams verbose output in real time."""
-    # Profile-tuned timing to prevent long blocking scans
+    # Profile-tuned timing
     if profile == "recon":
         tuning = "12b"
         max_time = "20s"
@@ -48,6 +50,11 @@ async def _run_real_scan(
         tuning = "123b"
         max_time = "75s"
         scan_timeout = timeout or 90
+    elif profile == "unlimited":
+        # Unlimited mode: comprehensive scan, no maxtime and no process timeout
+        tuning = "123b"
+        max_time = None
+        scan_timeout = timeout  # None -> runs until completion
     else:  # "web" (default)
         tuning = "123b"
         max_time = "35s"
@@ -61,10 +68,13 @@ async def _run_real_scan(
             "-Format", "json",
             "-output", output_file,
             "-Tuning", tuning,
-            "-maxtime", max_time,
         ]
+        if max_time:
+            command.extend(["-maxtime", max_time])
+
+        timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED (no timeout)"
         if log_cb:
-            log_cb(f"Executing: {' '.join(command)} (timeout: {scan_timeout}s, profile: {profile})")
+            log_cb(f"Executing: {' '.join(command)} (timeout: {timeout_label}, profile: {profile})")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -88,7 +98,10 @@ async def _run_real_scan(
 
         reader_task = asyncio.create_task(read_stream())
         try:
-            await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
+            if scan_timeout is not None:
+                await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
+            else:
+                await proc.wait()
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
@@ -122,7 +135,19 @@ async def _run_real_scan(
 
             for item in vulnerabilities:
                 if isinstance(item, dict):
-                    findings.append(_normalize_item(item, target))
+                    finding = _normalize_item(item, target)
+                    # Filter out-of-scope finding evidence/targets
+                    evidence_str = (finding.evidence or "").lower()
+                    target_str = finding.target.lower()
+                    is_excluded = False
+                    if out_of_scope:
+                        for rule in out_of_scope:
+                            clean_rule = rule.strip().lower().lstrip("*.")
+                            if clean_rule and (clean_rule in evidence_str or clean_rule in target_str):
+                                is_excluded = True
+                                break
+                    if not is_excluded:
+                        findings.append(finding)
 
             if log_cb and findings:
                 log_cb(f"Parsed {len(findings)} real findings from Nikto output.")
@@ -145,12 +170,14 @@ class NiktoWrapper(ScannerWrapper):
         self,
         target: str,
         profile: str,
+        in_scope: Optional[list[str]] = None,
+        out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
     ) -> list[ScannerFinding]:
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, profile=profile, log_cb=log_cb)
+            return await _run_real_scan(target, profile=profile, in_scope=in_scope, out_of_scope=out_of_scope, log_cb=log_cb)
 
         if log_cb:
             log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
