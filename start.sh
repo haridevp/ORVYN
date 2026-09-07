@@ -131,16 +131,18 @@ SYNOPSIS:
 
     ENGINE SELECTION:
         --scanners <list>       Comma-separated subset of scanners to orchestrate.
-                                Choices: nuclei, zap, nikto (default: all three).
-                                Example: --scanners "nuclei,zap"
+                                Choices: nuclei, zap, nikto, whatweb, nmap, sslyze, wapiti
+                                (default: all 7 engines).
+                                Example: --scanners "nuclei,zap,nmap,whatweb"
 
     REPORT EXPORTS & ARTIFACTS:
         -o, --output <file>     Export assessment findings directly to file.
                                 Supported formats by extension:
+                                  - .pdf  : Corporate executive PDF report ([COMPANY NAME] branding)
                                   - .md   : Clean executive Markdown report with CVSS & remediation
                                   - .json : Structured machine-readable JSON schema for CI/CD
                                   - .txt  : Plain-text findings summary
-                                Example: -o /tmp/audit_report.md
+                                Example: -o /tmp/audit_report.pdf
 
     TELEMETRY & LOG VERBOSITY:
         -v, --verbose           Stream live scanner stdout/stderr execution logs in real time.
@@ -468,7 +470,7 @@ if [ -t 0 ]; then
             echo ""
             print_info "Executing terminal penetration assessment for ${BOLD}$TERM_TARGET${NC}..."
             echo ""
-            "$PROJECT_ROOT/cli.py" scan "$TERM_TARGET" --profile "$P_NAME" --detailed -o "$PROJECT_ROOT/scan_report.md"
+            "$PROJECT_ROOT/cli.py" scan "$TERM_TARGET" --profile "$P_NAME" --detailed --force -o "$PROJECT_ROOT/scan_report.md"
             echo ""
             print_success "Assessment complete! Audit report saved to ${BOLD}scan_report.md${NC}"
         fi

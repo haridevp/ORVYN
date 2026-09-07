@@ -2,12 +2,13 @@ import type { ScannerProgress } from "../types";
 import { RunStateBadge } from "./Badge";
 import { ToolMonogram, toolLabel } from "./ToolBadge";
 import { motion } from "framer-motion";
-import { Terminal, ShieldCheck, Activity, Clock, Hourglass, CheckCircle2 } from "lucide-react";
+import { Terminal, ShieldCheck, Activity, Clock, Hourglass, CheckCircle2, StopCircle, XCircle } from "lucide-react";
 
 interface ScannerProgressListProps {
   scanners: ScannerProgress[];
   onOpenTerminal?: () => void;
   terminalOpen?: boolean;
+  onCancelScan?: () => void;
   logsCount?: number;
   progressPct?: number;
   etaSeconds?: number | null;
@@ -21,10 +22,20 @@ function formatSeconds(secs: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
+function formatEta(eta: number): string {
+  if (eta <= 0) return "Finalizing...";
+  if (eta <= 2) return "Finishing up...";
+  if (eta < 60) return `~${eta}s`;
+  const m = Math.floor(eta / 60);
+  const s = eta % 60;
+  return s > 0 ? `~${m}m ${s}s` : `~${m}m`;
+}
+
 export function ScannerProgressList({
   scanners,
   onOpenTerminal,
   terminalOpen,
+  onCancelScan,
   logsCount = 0,
   progressPct = 0,
   etaSeconds,
@@ -32,7 +43,9 @@ export function ScannerProgressList({
   overallStatus = "running",
 }: ScannerProgressListProps) {
   const isCompleted = overallStatus === "completed";
-  const pct = isCompleted ? 100 : Math.max(0, Math.min(100, progressPct));
+  const isCancelled = overallStatus === "cancelled";
+  const isFinished = isCompleted || isCancelled;
+  const pct = isFinished ? 100 : Math.max(0, Math.min(100, progressPct));
 
   return (
     <motion.div
@@ -57,24 +70,37 @@ export function ScannerProgressList({
           </div>
         </div>
 
-        {onOpenTerminal && (
-          <button
-            onClick={onOpenTerminal}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-              terminalOpen
-                ? "border-blue-500/40 bg-blue-500/15 text-blue-300"
-                : "border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200"
-            }`}
-          >
-            <Terminal size={13} className="text-blue-400" />
-            <span>{terminalOpen ? "Hide Console" : "Live Console"}</span>
-            {logsCount > 0 && (
-              <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[10px] font-mono text-slate-400">
-                {logsCount}
-              </span>
-            )}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isFinished && onCancelScan && (
+            <button
+              onClick={onCancelScan}
+              className="flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-1.5 text-xs font-medium text-rose-300 transition-all cursor-pointer"
+              title="Abort and end current scan execution"
+            >
+              <StopCircle size={13} className="text-rose-400" />
+              <span>Abort Scan</span>
+            </button>
+          )}
+
+          {onOpenTerminal && (
+            <button
+              onClick={onOpenTerminal}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                terminalOpen
+                  ? "border-blue-500/40 bg-blue-500/15 text-blue-300"
+                  : "border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              }`}
+            >
+              <Terminal size={13} className="text-blue-400" />
+              <span>{terminalOpen ? "Hide Console" : "Live Console"}</span>
+              {logsCount > 0 && (
+                <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[10px] font-mono text-slate-400">
+                  {logsCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Progress & ETA Telemetry Bar */}
@@ -88,6 +114,10 @@ export function ScannerProgressList({
                 <span className="text-emerald-400 font-medium flex items-center gap-1">
                   <CheckCircle2 size={13} /> Assessment Completed
                 </span>
+              ) : isCancelled ? (
+                <span className="text-rose-400 font-medium flex items-center gap-1">
+                  <XCircle size={13} /> Scan Aborted by User
+                </span>
               ) : (
                 "Scanning & Correlating..."
               )}
@@ -100,10 +130,10 @@ export function ScannerProgressList({
               <span>Elapsed: {formatSeconds(elapsedSeconds)}</span>
             </div>
 
-            {!isCompleted && etaSeconds !== undefined && etaSeconds !== null && (
+            {!isFinished && etaSeconds !== undefined && etaSeconds !== null && (
               <div className="flex items-center gap-1.5 text-blue-400" title="Estimated time to complete scan">
                 <Hourglass size={12} className="text-blue-400" />
-                <span>ETA: ~{etaSeconds}s</span>
+                <span>ETA: {formatEta(etaSeconds)}</span>
               </div>
             )}
           </div>

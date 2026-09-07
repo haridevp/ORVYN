@@ -205,10 +205,11 @@ class ZapWrapper(ScannerWrapper):
         if log_cb:
             log_cb(f"Script '{self.binary}' not found on PATH. Using fallback simulated findings.")
         sim_findings = build_simulated_findings(ScannerName.zap, target)
+        delay = 0.005 if (".local" in target or "demo" in target) else min(0.04, 1.0 / max(1, len(sim_findings)))
         if finding_cb:
             for f in sim_findings:
-                await asyncio.sleep(0.4)
+                await asyncio.sleep(delay)
                 finding_cb(f)
         else:
-            await asyncio.sleep(0.6)
+            await asyncio.sleep(delay)
         return sim_findings

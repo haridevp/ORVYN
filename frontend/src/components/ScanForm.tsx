@@ -14,13 +14,21 @@ import {
   Sliders,
   ChevronDown,
   ChevronUp,
+  Globe,
+  Network,
+  Lock,
+  Bug,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const ALL_SCANNERS: { id: ScannerName; label: string; icon: React.ReactNode }[] = [
   { id: "nuclei", label: "Nuclei (Templates)", icon: <FlameIcon size={14} /> },
-  { id: "zap", label: "OWASP ZAP (Spider & DAST)", icon: <Zap size={14} /> },
-  { id: "nikto", label: "Nikto (Web Server Audit)", icon: <Shield size={14} /> },
+  { id: "zap", label: "OWASP ZAP (DAST)", icon: <Zap size={14} /> },
+  { id: "nikto", label: "Nikto (Web Server)", icon: <Shield size={14} /> },
+  { id: "whatweb", label: "WhatWeb (Tech Stack)", icon: <Globe size={14} /> },
+  { id: "nmap", label: "Nmap NSE (Port/CVE)", icon: <Network size={14} /> },
+  { id: "sslyze", label: "SSLyze (TLS/SSL)", icon: <Lock size={14} /> },
+  { id: "wapiti", label: "Wapiti (Web Vulns)", icon: <Bug size={14} /> },
 ];
 
 function FlameIcon({ size = 14 }: { size?: number }) {
@@ -63,10 +71,18 @@ interface Props {
 export function ScanForm({ onStart, disabled }: Props) {
   const [target, setTarget] = useState("");
   const [profile, setProfile] = useState("web");
-  const [scanners, setScanners] = useState<ScannerName[]>(["nuclei", "zap", "nikto"]);
+  const [scanners, setScanners] = useState<ScannerName[]>([
+    "nuclei",
+    "zap",
+    "nikto",
+    "whatweb",
+    "nmap",
+    "sslyze",
+    "wapiti",
+  ]);
 
-  // Scope & Perimeter Management state
-  const [scopeMode, setScopeMode] = useState<"wildcard" | "strict" | "custom">("wildcard");
+  // Scope & Perimeter Management state (default: strict host scope)
+  const [scopeMode, setScopeMode] = useState<"wildcard" | "strict" | "custom">("strict");
   const [showScopePanel, setShowScopePanel] = useState(false);
   const [customInScope, setCustomInScope] = useState<string[]>([]);
   const [customInInput, setCustomInInput] = useState("");
@@ -234,10 +250,38 @@ export function ScanForm({ onStart, disabled }: Props) {
 
         {/* Engine Checkbox Pills */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1">
-              Engines:
+              Engines ({scanners.length}/7):
             </span>
+            <div className="flex items-center gap-1 mr-2 bg-slate-950/80 p-0.5 rounded border border-slate-800 text-[10px] font-mono">
+              <button
+                type="button"
+                onClick={() => setScanners(["nuclei", "zap", "nikto", "whatweb", "nmap", "sslyze", "wapiti"])}
+                className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Select all 7 security engines"
+              >
+                All 7
+              </button>
+              <span className="text-slate-700">|</span>
+              <button
+                type="button"
+                onClick={() => setScanners(["nuclei", "zap", "nikto", "wapiti"])}
+                className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Select Web DAST engines"
+              >
+                Web DAST
+              </button>
+              <span className="text-slate-700">|</span>
+              <button
+                type="button"
+                onClick={() => setScanners(["nmap", "sslyze", "whatweb"])}
+                className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Select Network & Cryptography engines"
+              >
+                Infra
+              </button>
+            </div>
             {ALL_SCANNERS.map(({ id, label, icon }) => {
               const active = scanners.includes(id);
               return (
@@ -284,17 +328,6 @@ export function ScanForm({ onStart, disabled }: Props) {
                 <div className="flex rounded-md border border-slate-800 bg-slate-950 p-0.5 text-xs font-mono">
                   <button
                     type="button"
-                    onClick={() => setScopeMode("wildcard")}
-                    className={`rounded px-2 py-0.5 transition-all ${
-                      scopeMode === "wildcard"
-                        ? "bg-blue-600 text-white font-semibold shadow-xs"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    *.{activeDomain} (Wildcard)
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setScopeMode("strict")}
                     className={`rounded px-2 py-0.5 transition-all ${
                       scopeMode === "strict"
@@ -303,6 +336,17 @@ export function ScanForm({ onStart, disabled }: Props) {
                     }`}
                   >
                     {activeDomain} (Strict Host)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScopeMode("wildcard")}
+                    className={`rounded px-2 py-0.5 transition-all ${
+                      scopeMode === "wildcard"
+                        ? "bg-blue-600 text-white font-semibold shadow-xs"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    *.{activeDomain} (Wildcard)
                   </button>
                   <button
                     type="button"
@@ -461,15 +505,36 @@ export function ScanForm({ onStart, disabled }: Props) {
                     <AlertCircle size={14} className="text-rose-400 shrink-0" />
                     <span>{probeResult.error}</span>
                   </div>
-                  {probeResult.error?.includes("scanme.nmap.org") && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {probeResult.error?.includes("scanme.nmap.org") && (
+                      <button
+                        type="button"
+                        onClick={() => applySuggestion("scanme.nmap.org")}
+                        className="rounded bg-blue-500/20 px-2 py-0.5 text-[11px] font-medium text-blue-200 hover:bg-blue-500/30"
+                      >
+                        Use scanme.nmap.org
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => applySuggestion("scanme.nmap.org")}
-                      className="rounded bg-rose-500/20 px-2 py-0.5 text-[11px] font-medium text-rose-200 hover:bg-rose-500/30"
+                      onClick={() => {
+                        setProbeResult({
+                          target: target.trim(),
+                          hostname: activeDomain,
+                          is_alive: true,
+                          ip: "45.33.32.156",
+                          status_code: 200,
+                          latency_ms: 20,
+                          server: "Fallback IP Mode (45.33.32.156)",
+                          scheme: "http",
+                          error: null,
+                        });
+                      }}
+                      className="rounded bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[11px] font-medium text-amber-300 hover:bg-amber-500/30 transition-all"
                     >
-                      Use scanme.nmap.org
+                      Bypass DNS (Use Fallback IP 45.33.32.156)
                     </button>
-                  )}
+                  </div>
                 </div>
               )}
             </motion.div>

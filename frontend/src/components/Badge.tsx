@@ -13,6 +13,7 @@ const RUN_STATE_STYLE: Record<ScannerRunState, { color: string; bg: string; bord
   running: { color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30", label: "Running" },
   completed: { color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/30", label: "Completed" },
   error: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30", label: "Error" },
+  cancelled: { color: "text-slate-400", bg: "bg-slate-500/10", border: "border-slate-500/30", label: "Cancelled" },
 };
 
 function Dot({ colorClass, spin }: { colorClass: string; spin?: boolean }) {

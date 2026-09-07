@@ -27,6 +27,10 @@ class ScannerName(str, Enum):
     nuclei = "nuclei"
     zap = "zap"
     nikto = "nikto"
+    whatweb = "whatweb"
+    nmap = "nmap"
+    sslyze = "sslyze"
+    wapiti = "wapiti"
 
 
 class ScannerRunState(str, Enum):
@@ -34,6 +38,7 @@ class ScannerRunState(str, Enum):
     running = "running"
     completed = "completed"
     error = "error"
+    cancelled = "cancelled"
 
 
 class ScannerFinding(BaseModel):
@@ -52,7 +57,15 @@ class ScannerFinding(BaseModel):
 class ScanStartRequest(BaseModel):
     target: str = Field(..., min_length=3, description="Hostname, IP, or URL to assess")
     scanners: list[ScannerName] = Field(
-        default_factory=lambda: [ScannerName.nuclei, ScannerName.zap, ScannerName.nikto],
+        default_factory=lambda: [
+            ScannerName.nuclei,
+            ScannerName.zap,
+            ScannerName.nikto,
+            ScannerName.whatweb,
+            ScannerName.nmap,
+            ScannerName.sslyze,
+            ScannerName.wapiti,
+        ],
         description="Which scanners to run for this job",
     )
     profile: Literal["recon", "web", "full", "unlimited"] = "web"
@@ -89,13 +102,15 @@ class ScanStatusResponse(BaseModel):
     scan_id: str
     target: str
     profile: str
-    overall_status: Literal["queued", "running", "completed", "error"]
+    overall_status: Literal["queued", "running", "completed", "error", "cancelled"]
     progress_pct: int = 0
     eta_seconds: Optional[int] = None
     elapsed_seconds: int = 0
     scanners: list[ScannerProgress]
     live_findings: list[ScannerFinding] = Field(default_factory=list)
     findings_count: int = 0
+    correlated_count: int = 0
+    duplicate_groups: int = 0
     severity_distribution: SeverityDistribution = Field(default_factory=SeverityDistribution)
     in_scope: list[str] = Field(default_factory=list)
     out_of_scope: list[str] = Field(default_factory=list)

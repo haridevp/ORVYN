@@ -6,6 +6,8 @@ interface ExecutiveMetricsProps {
   totalFindings: number;
   duplicateGroups: number;
   isScanning: boolean;
+  enginesCount?: number;
+  engineNames?: string;
 }
 
 export function ExecutiveMetrics({
@@ -13,6 +15,8 @@ export function ExecutiveMetrics({
   totalFindings,
   duplicateGroups,
   isScanning,
+  enginesCount = 7,
+  engineNames = "Nuclei • ZAP • Nikto • WhatWeb • Nmap • SSLyze • Wapiti",
 }: ExecutiveMetricsProps) {
   const critical = distribution.critical || 0;
   const high = distribution.high || 0;
@@ -120,40 +124,55 @@ export function ExecutiveMetrics({
                   cx="38"
                   cy="38"
                   r={radius}
-                  stroke="#10b981"
+                  className="stroke-emerald-500"
                   strokeWidth="7"
                   strokeDasharray={`${circumference} ${circumference}`}
                   fill="transparent"
                 />
               )}
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center font-mono text-[10px] font-bold text-slate-200">
-              {hasThreats ? `${critical}C` : "OK"}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className={`text-[10px] font-bold ${hasThreats ? "text-rose-400" : "text-emerald-400 font-mono"}`}>
+                {hasThreats ? `${critical}C` : "OK"}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-xs">
-          {hasThreats ? (
-            <>
-              <div className="flex items-center gap-1 font-mono text-rose-400 font-semibold text-[11px]">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                {critical} Crit
-              </div>
-              <div className="flex items-center gap-1.5 font-mono text-slate-400 text-[10px]">
-                <span className="text-orange-400">{high} High</span>
-                <span>•</span>
-                <span className="text-yellow-400">{medium} Med</span>
-                <span>•</span>
-                <span className="text-cyan-400">{low} Low</span>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-1.5 text-emerald-400 font-mono text-[11px]">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              All perimeters verified clean
-            </div>
-          )}
+        <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] font-mono">
+          <span className="text-slate-400">Surface Severity</span>
+          <span className="flex items-center gap-1.5 font-medium">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                critical > 0
+                  ? "bg-rose-500"
+                  : high > 0
+                  ? "bg-orange-500"
+                  : medium > 0
+                  ? "bg-amber-500"
+                  : "bg-emerald-500"
+              }`}
+            />
+            <span
+              className={
+                critical > 0
+                  ? "text-rose-400"
+                  : high > 0
+                  ? "text-orange-400"
+                  : medium > 0
+                  ? "text-amber-400"
+                  : "text-emerald-400"
+              }
+            >
+              {critical > 0
+                ? "Critical Exposure"
+                : high > 0
+                ? "High Exposure"
+                : medium > 0
+                ? "Elevated Risk"
+                : "All perimeters verified clean"}
+            </span>
+          </span>
         </div>
       </div>
 
@@ -169,7 +188,7 @@ export function ExecutiveMetrics({
               <span className="text-2xl font-bold tracking-tight text-white font-mono">
                 {duplicateGroups}
               </span>
-              <span className="text-[11px] text-slate-400">Correlated</span>
+              <span className="text-[11px] text-slate-400">Correlated Vectors</span>
             </div>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
@@ -180,7 +199,7 @@ export function ExecutiveMetrics({
         <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] text-slate-400 font-mono">
           <span>Deduplication</span>
           <span className="text-emerald-400 font-medium">
-            {hasThreats ? "Cross-Engine Linked" : "Standby"}
+            {isScanning ? "Correlating Live..." : (hasThreats ? "Cross-Engine Linked" : "Standby")}
           </span>
         </div>
       </div>
@@ -221,9 +240,11 @@ export function ExecutiveMetrics({
             </div>
             <div className="mt-1.5 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-white font-mono">
-                3 Scanners
+                {enginesCount} Scanners
               </span>
-              <span className="text-[11px] text-slate-400">Nuclei • ZAP • Nikto</span>
+              <span className="text-[11px] text-slate-400 truncate max-w-[170px]" title={engineNames}>
+                {engineNames}
+              </span>
             </div>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-slate-300">

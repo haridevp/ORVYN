@@ -3,6 +3,7 @@ services:
     build: ./src/backend
     image: pentest-backend:latest
     container_name: fastapi_app
+    init: true
     ports:
       - "8000:8000"
     volumes:
@@ -18,6 +19,7 @@ services:
     build: ./src/worker
     image: pentest-worker:latest
     container_name: celery_worker
+    init: true
     dns:
       - 8.8.8.8
       - 1.1.1.1

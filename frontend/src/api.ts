@@ -21,8 +21,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiUnreachableError(`Could not reach API at ${API_BASE_URL}`);
   }
   if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
-    throw new Error(detail.detail || `Request failed: ${response.status}`);
+    let errorMsg = `Request failed: ${response.status}`;
+    try {
+      const data = await response.json();
+      if (typeof data.detail === "string") {
+        errorMsg = data.detail;
+      } else if (Array.isArray(data.detail)) {
+        errorMsg = data.detail
+          .map((d: any) => {
+            if (typeof d === "string") return d;
+            const field = Array.isArray(d.loc)
+              ? d.loc.filter((l: any) => l !== "body").join(".")
+              : "";
+            return field ? `${field}: ${d.msg || JSON.stringify(d)}` : (d.msg || JSON.stringify(d));
+          })
+          .join(" | ");
+      } else if (data.detail && typeof data.detail === "object") {
+        errorMsg = data.detail.msg || JSON.stringify(data.detail);
+      } else if (typeof data.message === "string") {
+        errorMsg = data.message;
+      }
+    } catch {
+      // response wasn't JSON
+    }
+    throw new Error(errorMsg);
   }
   return response.json() as Promise<T>;
 }
@@ -66,4 +88,25 @@ export async function checkApiHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export function cancelScan(scanId: string) {
+  return request<ScanStatusResponse>(`/scan/cancel/${scanId}`, {
+    method: "POST",
+  });
+}
+
+export async function downloadScanReportPdf(scanId: string, target: string): Promise<void> {
+  const cleanTarget = target.replace(/^https?:\/\//i, "").replace(/[/:]/g, "_");
+  const response = await fetch(`${API_BASE_URL}/scan/report/${scanId}/pdf`);
+  if (!response.ok) {
+    throw new Error(`Failed to download PDF report: ${response.statusText}`);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `pentest-report-${cleanTarget}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

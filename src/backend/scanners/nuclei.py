@@ -185,11 +185,12 @@ class NucleiWrapper(ScannerWrapper):
         if log_cb:
             log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
         sim_findings = build_simulated_findings(ScannerName.nuclei, target)
+        delay = 0.005 if (".local" in target or "demo" in target) else min(0.04, 1.0 / max(1, len(sim_findings)))
         if finding_cb:
             for f in sim_findings:
-                await asyncio.sleep(0.35)
+                await asyncio.sleep(delay)
                 finding_cb(f)
         else:
-            await asyncio.sleep(0.4)
+            await asyncio.sleep(delay)
         return sim_findings
 

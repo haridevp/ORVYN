@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { API_BASE_URL, ApiUnreachableError, checkApiHealth, getScanResults, getScanStatus, startScan } from "./api";
+import {
+  API_BASE_URL,
+  ApiUnreachableError,
+  checkApiHealth,
+  getScanResults,
+  getScanStatus,
+  startScan,
+  cancelScan,
+  downloadScanReportPdf,
+} from "./api";
+import { openPrintablePentestReport } from "./utils/pdfExport";
+import { WildcardPerimeterTracker } from "./components/WildcardPerimeterTracker";
 import { CorrelatedFindingsTable } from "./components/CorrelatedFindingsTable";
 import { LiveTerminal } from "./components/LiveTerminal";
 import { RawFindingsPanel } from "./components/RawFindingsPanel";
@@ -25,6 +36,11 @@ import {
   ChevronRight,
   LogOut,
   UserCheck,
+  StopCircle,
+  FileText,
+  Printer,
+  ChevronDown,
+  Activity,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -45,19 +61,30 @@ export default function App() {
   });
 
   const [apiState, setApiState] = useState<ApiState>("checking");
+  const [allScans, setAllScans] = useState<ScanStatusResponse[]>([]);
+  const [selectedScanId, setSelectedScanId] = useState<string | null>(null);
   const [status, setStatus] = useState<ScanStatusResponse | null>(null);
   const [results, setResults] = useState<ScanResultsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>("overview");
-  const pollRef = useRef<number | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const selectedScanIdRef = useRef<string | null>(null);
+  const pollersRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    selectedScanIdRef.current = selectedScanId;
+  }, [selectedScanId]);
 
   useEffect(() => {
     checkApiHealth().then((ok) => setApiState(ok ? "online" : "offline"));
   }, []);
 
   useEffect(() => {
+    const pollers = pollersRef.current;
     return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollers.forEach((intervalId) => window.clearInterval(intervalId));
+      pollers.clear();
     };
   }, []);
 
@@ -72,6 +99,40 @@ export default function App() {
     setUser(null);
   }
 
+  async function handleSelectScan(scanId: string) {
+    setSelectedScanId(scanId);
+    const existing = allScans.find((s) => s.scan_id === scanId);
+    if (existing) {
+      setStatus(existing);
+    }
+    try {
+      const res = await getScanResults(scanId);
+      setResults(res);
+    } catch {
+      // Job may still be in initial progress
+    }
+  }
+
+  async function handleCancelScan(scanIdToCancel?: string) {
+    const id = scanIdToCancel || selectedScanId || status?.scan_id;
+    if (!id) return;
+    try {
+      const updated = await cancelScan(id);
+      setStatus(updated);
+      setAllScans((prev) => prev.map((s) => (s.scan_id === id ? updated : s)));
+    } catch {
+      setStatus((prev) => (prev ? { ...prev, overall_status: "cancelled" } : null));
+      setAllScans((prev) =>
+        prev.map((s) => (s.scan_id === id ? { ...s, overall_status: "cancelled" } : s))
+      );
+    }
+    const poller = pollersRef.current.get(id);
+    if (poller) {
+      window.clearInterval(poller);
+      pollersRef.current.delete(id);
+    }
+  }
+
   async function handleStart(
     target: string,
     scanners: ScannerName[],
@@ -80,53 +141,128 @@ export default function App() {
     outOfScope?: string[],
   ) {
     setError(null);
-    setResults(null);
     try {
       const initial = await startScan(target, scanners, profile, inScope, outOfScope);
+      setAllScans((prev) => [initial, ...prev.filter((s) => s.scan_id !== initial.scan_id)]);
+      setSelectedScanId(initial.scan_id);
       setStatus(initial);
+      const existingPoller = pollersRef.current.get(initial.scan_id);
+      if (existingPoller) {
+        window.clearInterval(existingPoller);
+        pollersRef.current.delete(initial.scan_id);
+      }
 
-      pollRef.current = window.setInterval(async () => {
+      const intervalId = window.setInterval(async () => {
         try {
           const next = await getScanStatus(initial.scan_id);
-          setStatus(next);
+          setAllScans((prev) =>
+            prev.map((s) => (s.scan_id === initial.scan_id ? next : s))
+          );
 
-          // Progressive streaming: fetch and render results immediately as each scanner completes or finds vulnerabilities
+          if (selectedScanIdRef.current === initial.scan_id) {
+            setStatus(next);
+          }
+
           const anyProgress = next.scanners.some(
             (s) => s.status === "completed" || (s.findings_count ?? 0) > 0
           );
           if (anyProgress) {
             try {
               const currentResults = await getScanResults(initial.scan_id);
-              setResults(currentResults);
+              if (selectedScanIdRef.current === initial.scan_id) {
+                setResults(currentResults);
+              }
             } catch {
-              // Ignore transient polling error while job completes
+              // Transient polling catch
             }
           }
 
-          if (next.overall_status === "completed" || next.overall_status === "error") {
-            if (pollRef.current) window.clearInterval(pollRef.current);
-            const finalResults = await getScanResults(initial.scan_id);
-            setResults(finalResults);
+          if (
+            next.overall_status === "completed" ||
+            next.overall_status === "error" ||
+            next.overall_status === "cancelled"
+          ) {
+            window.clearInterval(intervalId);
+            pollersRef.current.delete(initial.scan_id);
+            try {
+              const finalResults = await getScanResults(initial.scan_id);
+              if (selectedScanIdRef.current === initial.scan_id) {
+                setResults(finalResults);
+              }
+            } catch {
+              // Ignore
+            }
           }
-        } catch (err) {
-          if (pollRef.current) window.clearInterval(pollRef.current);
-          setError(err instanceof Error ? err.message : "Polling failed");
+        } catch {
+          window.clearInterval(intervalId);
+          pollersRef.current.delete(initial.scan_id);
         }
-      }, 700);
+      }, 1000);
+
+      pollersRef.current.set(initial.scan_id, intervalId);
     } catch (err) {
       setError(err instanceof ApiUnreachableError ? err.message : (err as Error).message);
     }
   }
 
-  function handleDownloadReport(format: "json" | "summary") {
+  async function handleDownloadReport(format: "pdf" | "print" | "json" | "markdown") {
+    setShowExportMenu(false);
     if (!results) return;
-    const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pentest-report-${results.target}-${format}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+    if (format === "print") {
+      openPrintablePentestReport(results);
+      return;
+    }
+
+    if (format === "pdf") {
+      try {
+        await downloadScanReportPdf(results.scan_id, results.target);
+      } catch {
+        openPrintablePentestReport(results);
+      }
+      return;
+    }
+
+    if (format === "json") {
+      const blob = new Blob([JSON.stringify(results, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pentest-report-${results.target}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (format === "markdown") {
+      let md = `# Penetration Testing Executive Report: ${results.target}\n\n`;
+      md += `- **Generated At:** ${new Date().toUTCString()}\n`;
+      md += `- **Scan ID:** ${results.scan_id}\n`;
+      md += `- **Target Perimeter:** \`${results.target}\`\n`;
+      md += `\n## Severity Distribution\n`;
+      for (const [sev, count] of Object.entries(results.severity_distribution || {})) {
+        md += `- **${sev.toUpperCase()}:** ${count}\n`;
+      }
+      md += `\n## Correlated Vulnerabilities (${results.correlated_findings.length})\n\n`;
+      for (const f of results.correlated_findings) {
+        md += `### [${f.severity.toUpperCase()}] ${f.vulnerability}\n`;
+        md += `- **Target:** ${f.target}\n`;
+        md += `- **Confidence:** ${f.confidence}%\n`;
+        md += `- **Engines:** ${f.contributing_tools.join(", ")}\n`;
+        md += `- **Description:** ${f.description}\n`;
+        if (f.evidence && f.evidence.length > 0) {
+          md += `- **Evidence:** \`${f.evidence[0]}\`\n`;
+        }
+        md += `\n`;
+      }
+      const blob = new Blob([md], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pentest-report-${results.target}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   }
 
   // If user is not authenticated, render Login Portal
@@ -147,8 +283,10 @@ export default function App() {
     : (status?.live_findings || []);
   const totalFindings = results
     ? results.raw_findings.length
-    : (status?.live_findings?.length || 0);
-  const duplicateGroups = results ? results.duplicate_groups : 0;
+    : (status?.findings_count || 0);
+  const duplicateGroups = results
+    ? (results.correlated_findings?.length ?? results.duplicate_groups ?? 0)
+    : (status?.correlated_count ?? status?.duplicate_groups ?? 0);
 
   return (
     <div className="flex min-h-screen text-[var(--text-primary)] bg-[#080c14]">
@@ -186,7 +324,7 @@ export default function App() {
             </div>
 
             <span className="rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] font-mono text-slate-400">
-              SOC Platform v2.4
+              7-Engine Cluster
             </span>
           </div>
 
@@ -198,8 +336,25 @@ export default function App() {
               <span className="text-slate-400 text-[11px]">SecOps Clearance</span>
             </div>
 
+            {isRunning && (
+              <button
+                onClick={() => handleCancelScan()}
+                className="flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-all cursor-pointer shadow-xs"
+                title="Abort and end current scan execution"
+              >
+                <StopCircle size={13} className="text-rose-400 animate-pulse" />
+                <span>Abort Scan</span>
+              </button>
+            )}
+
             <button
-              onClick={() => handleStart(currentTarget, ["nuclei", "zap", "nikto"], "web")}
+              onClick={() =>
+                handleStart(
+                  currentTarget,
+                  ["nuclei", "zap", "nikto", "whatweb", "nmap", "sslyze", "wapiti"],
+                  "web"
+                )
+              }
               disabled={!!isRunning}
               className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all disabled:opacity-40 cursor-pointer"
             >
@@ -207,14 +362,65 @@ export default function App() {
               <span>Rescan</span>
             </button>
 
-            <button
-              onClick={() => handleDownloadReport("json")}
-              disabled={!results}
-              className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all disabled:opacity-40 shadow-xs cursor-pointer"
-            >
-              <Download size={12} />
-              <span>Export Report</span>
-            </button>
+            {/* Export Dropdown Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={!results}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all disabled:opacity-40 shadow-xs cursor-pointer"
+              >
+                <Download size={12} />
+                <span>Export Report</span>
+                <ChevronDown size={12} />
+              </button>
+
+              <AnimatePresence>
+                {showExportMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    className="absolute right-0 mt-1.5 w-56 rounded-lg border border-slate-800 bg-slate-900/95 backdrop-blur-xl shadow-xl z-50 p-1.5 text-xs font-mono"
+                  >
+                    <button
+                      onClick={() => handleDownloadReport("pdf")}
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-slate-200 hover:bg-blue-600/20 hover:text-blue-300 transition-colors cursor-pointer text-left"
+                    >
+                      <FileText size={13} className="text-rose-400" />
+                      <div>
+                        <div className="font-semibold text-slate-200">Download PDF Report</div>
+                        <div className="text-[10px] text-slate-400">Executive formatted .pdf file</div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleDownloadReport("print")}
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-slate-200 hover:bg-blue-600/20 hover:text-blue-300 transition-colors cursor-pointer text-left"
+                    >
+                      <Printer size={13} className="text-blue-400" />
+                      <div>
+                        <div className="font-semibold text-slate-200">Print / Save as PDF</div>
+                        <div className="text-[10px] text-slate-400">Print-optimized vector audit view</div>
+                      </div>
+                    </button>
+                    <div className="my-1 border-t border-slate-800" />
+                    <button
+                      onClick={() => handleDownloadReport("json")}
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer text-left"
+                    >
+                      <Download size={12} className="text-slate-500" />
+                      <span>Export Raw JSON Data</span>
+                    </button>
+                    <button
+                      onClick={() => handleDownloadReport("markdown")}
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer text-left"
+                    >
+                      <FileText size={12} className="text-slate-500" />
+                      <span>Export Markdown (.md)</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             <button
               onClick={handleLogout}
@@ -233,7 +439,7 @@ export default function App() {
             { id: "topology" as NavTab, label: "API Attack Graph", icon: <GitBranch size={13} /> },
             { id: "findings" as NavTab, label: "Threats & Findings", icon: <ShieldAlert size={13} />, count: totalFindings },
             { id: "terminal" as NavTab, label: "Live Console", icon: <Terminal size={13} />, count: currentLogs.length, pulse: isRunning },
-            { id: "scanners" as NavTab, label: "Engine Cluster", icon: <Cpu size={13} /> },
+            { id: "scanners" as NavTab, label: "7-Engine Cluster", icon: <Cpu size={13} /> },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -275,12 +481,62 @@ export default function App() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300"
+                className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 font-mono"
               >
-                {error}
+                <span>{typeof error === "string" ? error : JSON.stringify(error)}</span>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="ml-3 text-rose-400 hover:text-white cursor-pointer px-1.5 py-0.5 rounded hover:bg-rose-500/20"
+                  title="Dismiss alert"
+                >
+                  ✕
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Multiple Concurrent Scans Switcher Strip */}
+          {allScans.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/50 p-2 text-xs font-mono">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mr-1">
+                <Activity size={12} className="text-blue-400" />
+                Concurrent Assessments ({allScans.length}):
+              </span>
+              {allScans.map((s) => {
+                const active = (selectedScanId || status?.scan_id) === s.scan_id;
+                const isScanRunning =
+                  s.overall_status === "running" || s.overall_status === "queued";
+                return (
+                  <button
+                    key={s.scan_id}
+                    onClick={() => handleSelectScan(s.scan_id)}
+                    className={`flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs transition-all cursor-pointer ${
+                      active
+                        ? "bg-blue-600/20 border-blue-500/50 text-blue-200 font-semibold shadow-xs"
+                        : "bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        isScanRunning
+                          ? "bg-blue-400 animate-pulse"
+                          : s.overall_status === "completed"
+                          ? "bg-emerald-400"
+                          : "bg-rose-400"
+                      }`}
+                    />
+                    <span className="font-semibold text-slate-200 truncate max-w-[130px]">
+                      {s.target}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {isScanRunning ? `${s.progress_pct}%` : s.overall_status}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* TAB 1: OVERVIEW & ATTACK SURFACE MANAGEMENT */}
           {activeTab === "overview" && (
@@ -291,10 +547,21 @@ export default function App() {
                 totalFindings={totalFindings}
                 duplicateGroups={duplicateGroups}
                 isScanning={!!isRunning}
+                enginesCount={status?.scanners?.length ? status.scanners.length : 7}
+                engineNames={status?.scanners?.length ? status.scanners.map((s) => s.tool.toUpperCase()).join(" • ") : "Nuclei • ZAP • Nikto • WhatWeb • Nmap • SSLyze • Wapiti"}
               />
 
-              {/* Scan Launcher Card */}
-              <ScanForm onStart={handleStart} disabled={!!isRunning} />
+              {/* Scan Launcher Card - Allows launching concurrent scans anytime */}
+              <ScanForm onStart={handleStart} disabled={false} />
+
+              {/* Wildcard Perimeter Reconnaissance Tracker */}
+              <WildcardPerimeterTracker
+                target={currentTarget}
+                inScope={status?.in_scope}
+                outOfScope={status?.out_of_scope}
+                isScanning={!!isRunning}
+                findingsCount={totalFindings}
+              />
 
               {/* Live Telemetry Progress Card */}
               {status && (
@@ -302,6 +569,7 @@ export default function App() {
                   scanners={status.scanners}
                   onOpenTerminal={() => setActiveTab("terminal")}
                   terminalOpen={false}
+                  onCancelScan={() => handleCancelScan()}
                   logsCount={currentLogs.length}
                   progressPct={status.progress_pct}
                   etaSeconds={status.eta_seconds}
@@ -323,7 +591,13 @@ export default function App() {
               <AssetInventoryTable
                 target={currentTarget}
                 findings={rawFindings}
-                onTriggerScan={(endpoint) => handleStart(endpoint, ["nuclei", "zap"], "web")}
+                onTriggerScan={(endpoint) =>
+                  handleStart(
+                    endpoint,
+                    ["nuclei", "zap", "nikto", "whatweb", "nmap", "sslyze", "wapiti"],
+                    "web"
+                  )
+                }
               />
             </motion.div>
           )}
@@ -339,7 +613,13 @@ export default function App() {
               <AssetInventoryTable
                 target={currentTarget}
                 findings={rawFindings}
-                onTriggerScan={(endpoint) => handleStart(endpoint, ["nuclei", "zap"], "web")}
+                onTriggerScan={(endpoint) =>
+                  handleStart(
+                    endpoint,
+                    ["nuclei", "zap", "nikto", "whatweb", "nmap", "sslyze", "wapiti"],
+                    "web"
+                  )
+                }
               />
             </motion.div>
           )}
@@ -352,6 +632,8 @@ export default function App() {
                 totalFindings={totalFindings}
                 duplicateGroups={duplicateGroups}
                 isScanning={!!isRunning}
+                enginesCount={status?.scanners?.length ? status.scanners.length : 7}
+                engineNames={status?.scanners?.length ? status.scanners.map((s) => s.tool.toUpperCase()).join(" • ") : "Nuclei • ZAP • Nikto • WhatWeb • Nmap • SSLyze • Wapiti"}
               />
 
               {results && results.correlated_findings.length > 0 ? (
@@ -367,7 +649,9 @@ export default function App() {
                 <div className="p-12 text-center text-gray-500 bg-white/[0.02] rounded-2xl border border-gray-800">
                   <ShieldAlert size={36} className="mx-auto mb-3 text-gray-600" />
                   <p className="text-base font-bold text-gray-300">
-                    {totalFindings === 0 && results ? "Target Verified Clean — 0 Vulnerabilities Flagged" : "Awaiting Scan Execution"}
+                    {totalFindings === 0 && results
+                      ? "Target Verified Clean — 0 Vulnerabilities Flagged"
+                      : "Awaiting Scan Execution"}
                   </p>
                   <p className="text-xs text-gray-500 mt-1.5 max-w-md mx-auto">
                     {results
@@ -392,14 +676,32 @@ export default function App() {
                 isOpen={true}
                 onToggle={() => {}}
               />
-              {status && <ScannerProgressList scanners={status.scanners} />}
+              {status && (
+                <ScannerProgressList
+                  scanners={status.scanners}
+                  onCancelScan={() => handleCancelScan()}
+                  overallStatus={status.overall_status}
+                  progressPct={status.progress_pct}
+                  etaSeconds={status.eta_seconds}
+                  elapsedSeconds={status.elapsed_seconds}
+                />
+              )}
             </motion.div>
           )}
 
           {/* TAB 5: SCANNER CLUSTER */}
           {activeTab === "scanners" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              {status && <ScannerProgressList scanners={status.scanners} />}
+              {status && (
+                <ScannerProgressList
+                  scanners={status.scanners}
+                  onCancelScan={() => handleCancelScan()}
+                  overallStatus={status.overall_status}
+                  progressPct={status.progress_pct}
+                  etaSeconds={status.eta_seconds}
+                  elapsedSeconds={status.elapsed_seconds}
+                />
+              )}
               <LiveTerminal
                 logs={currentLogs}
                 isRunning={!!isRunning}

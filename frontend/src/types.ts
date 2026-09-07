@@ -1,7 +1,7 @@
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
-export type ScannerName = "nuclei" | "zap" | "nikto";
-export type ScannerRunState = "queued" | "running" | "completed" | "error";
-export type OverallStatus = "queued" | "running" | "completed" | "error";
+export type ScannerName = "nuclei" | "zap" | "nikto" | "whatweb" | "nmap" | "sslyze" | "wapiti";
+export type ScannerRunState = "queued" | "running" | "completed" | "error" | "cancelled";
+export type OverallStatus = "queued" | "running" | "completed" | "error" | "cancelled";
 
 export interface ScannerFinding {
   id: string;
@@ -35,6 +35,8 @@ export interface ScanStatusResponse {
   scanners: ScannerProgress[];
   live_findings?: ScannerFinding[];
   findings_count?: number;
+  correlated_count?: number;
+  duplicate_groups?: number;
   severity_distribution?: SeverityDistribution;
   in_scope?: string[];
   out_of_scope?: string[];

@@ -71,6 +71,8 @@ class ScanJob:
         }
         self.findings: list[ScannerFinding] = []
         self.logs: list[str] = []
+        self.is_cancelled: bool = False
+        self._tasks: list[asyncio.Task] = []
 
     def add_log(self, tool: ScannerName | str, message: str) -> None:
         tool_name = tool.value if hasattr(tool, "value") else str(tool)
@@ -84,18 +86,18 @@ class ScanJob:
 
     @property
     def expected_duration(self) -> int:
-        if self.profile == "recon":
-            return 22
-        elif self.profile == "full":
-            return 85
-        elif self.profile == "unlimited":
-            return 180
-        return 45  # web (default)
+        num_scanners = max(1, len(self.scanner_progress))
+        base = {"recon": 20, "web": 40, "full": 80, "unlimited": 180}.get(self.profile, 40)
+        if num_scanners == 1:
+            base = int(base * 0.6)
+        elif num_scanners == 2:
+            base = int(base * 0.85)
+        return max(10, base)
 
     @property
     def progress_percentage(self) -> int:
         status = self.overall_status
-        if status in ("completed", "error"):
+        if status in ("completed", "error", "cancelled"):
             return 100
 
         total_scanners = len(self.scanner_progress)
@@ -112,33 +114,51 @@ class ScanJob:
         )
 
         completed_portion = (completed_count / total_scanners) * 100
-        time_ratio = min(0.85, self.elapsed_seconds / max(1, self.expected_duration))
+        time_ratio = min(0.90, self.elapsed_seconds / max(1, self.expected_duration))
         running_portion = (running_count / total_scanners) * 100 * time_ratio
 
         calculated = int(completed_portion + running_portion)
-        # Keep within 3% to 98% while running
         return max(5, min(98, calculated))
 
     @property
     def estimated_time_remaining(self) -> int | None:
-        if self.overall_status in ("completed", "error"):
+        if self.overall_status in ("completed", "error", "cancelled"):
             return 0
         if self.profile == "unlimited":
             return None
 
+        total = len(self.scanner_progress)
+        if total == 0:
+            return 0
+
+        completed = sum(
+            1 for p in self.scanner_progress.values()
+            if p.status in (ScannerRunState.completed, ScannerRunState.error, ScannerRunState.cancelled)
+        )
+        if completed == total:
+            return 0
+
         remaining = self.expected_duration - self.elapsed_seconds
         if remaining > 0:
-            return remaining
-        # If past expected baseline, show a smooth gentle tail
-        return max(2, 6 - (abs(remaining) % 6))
+            return max(1, remaining)
+
+        # Monotonic, graceful tail while scanners finalize without jumping
+        overtime = self.elapsed_seconds - self.expected_duration
+        if overtime < 4:
+            return 3
+        elif overtime < 8:
+            return 2
+        return 1
 
     @property
     def overall_status(self) -> str:
+        if self.is_cancelled:
+            return "cancelled"
         states = [p.status for p in self.scanner_progress.values()]
-        if any(s == ScannerRunState.error for s in states) and all(
-            s in (ScannerRunState.completed, ScannerRunState.error) for s in states
+        if any(s in (ScannerRunState.error, ScannerRunState.cancelled) for s in states) and all(
+            s in (ScannerRunState.completed, ScannerRunState.error, ScannerRunState.cancelled) for s in states
         ):
-            return "error" if all(s == ScannerRunState.error for s in states) else "completed"
+            return "error" if all(s in (ScannerRunState.error, ScannerRunState.cancelled) for s in states) else "completed"
         if all(s == ScannerRunState.completed for s in states):
             return "completed"
         if any(s == ScannerRunState.running for s in states):
@@ -146,6 +166,7 @@ class ScanJob:
         return "queued"
 
     def to_status_response(self) -> ScanStatusResponse:
+        correlated = correlate_findings(self.findings)
         return ScanStatusResponse(
             scan_id=self.scan_id,
             target=self.target,
@@ -157,6 +178,8 @@ class ScanJob:
             scanners=list(self.scanner_progress.values()),
             live_findings=list(self.findings),
             findings_count=len(self.findings),
+            correlated_count=len(correlated),
+            duplicate_groups=duplicate_group_count(correlated),
             severity_distribution=severity_distribution(self.findings),
             in_scope=list(self.in_scope),
             out_of_scope=list(self.out_of_scope),
@@ -192,8 +215,26 @@ class JobManager:
         scope_summary = f"In-Scope: [{', '.join(job.in_scope)}] | Out-of-Scope: [{', '.join(job.out_of_scope) if job.out_of_scope else 'None'}]"
         job.add_log("system", f"Job {scan_id} queued for target {request.target} (profile: {request.profile}). {scope_summary}")
         for tool in request.scanners:
-            asyncio.create_task(self._run_scanner(job, tool))
+            t = asyncio.create_task(self._run_scanner(job, tool))
+            job._tasks.append(t)
         return job
+
+    def cancel_scan(self, scan_id: str) -> bool:
+        job = self._jobs.get(scan_id)
+        if not job:
+            return False
+        job.is_cancelled = True
+        job.add_log("system", "Scan cancelled by user request.")
+        for task in job._tasks:
+            if not task.done():
+                task.cancel()
+        for p in job.scanner_progress.values():
+            if p.status in (ScannerRunState.queued, ScannerRunState.running):
+                p.status = ScannerRunState.cancelled
+                p.error = "Aborted by user request"
+                p.finished_at = now_iso()
+        job.updated_at = now_iso()
+        return True
 
     async def _run_scanner(self, job: ScanJob, tool: ScannerName) -> None:
         progress = job.scanner_progress[tool]
