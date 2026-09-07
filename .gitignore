@@ -38,9 +38,11 @@ out/
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs & Process Tracking
 *.log
 logs/
+*.pid
+.*.pid
 
 # Test / Coverage
 .coverage
