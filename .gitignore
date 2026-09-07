@@ -51,3 +51,10 @@ htmlcov/
 *.sqlite3
 history.db
 chroma_security_db/
+
+
+backend/rag/data/chroma_db/
+backend/rag/data/raw/*.json
+
+!backend/rag/data/raw/.gitkeep
+!backend/rag/data/chroma_db/.gitkeep
