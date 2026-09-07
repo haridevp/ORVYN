@@ -21,14 +21,19 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install Dependencies
+      - name: Run Backend Tests
         run: |
-          pip install -r src/backend/requirements.txt
-          pip install -r src/security_rag_engine/requirements.txt
-          pip install pytest
+          python -m venv .venv-backend
+          source .venv-backend/bin/activate
+          pip install -r src/backend/requirements.txt pytest httpx
+          pytest tests/test_basic.py tests/test_multi_scanner.py
 
-      - name: Run Tests
-        run: pytest
+      - name: Run RAG Engine Tests
+        run: |
+          python -m venv .venv-rag
+          source .venv-rag/bin/activate
+          pip install -r src/security_rag_engine/requirements.txt pytest
+          pytest tests/security_rag_engine/
 
       - name: Build Docker Images
         run: docker compose build

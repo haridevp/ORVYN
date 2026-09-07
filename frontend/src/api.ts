@@ -6,7 +6,7 @@ import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./typ
 // with VITE_API_BASE_URL, or at runtime via ?api=<url> for a quick demo.
 const runtimeOverride = new URLSearchParams(window.location.search).get("api");
 export const API_BASE_URL =
-  runtimeOverride || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  runtimeOverride || import.meta.env.VITE_API_BASE_URL || "";
 
 export class ApiUnreachableError extends Error {}
 

@@ -8,4 +8,11 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: '/',
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      '/scan': 'http://backend:8000',
+      '/health': 'http://backend:8000',
+      '/architecture': 'http://backend:8000',
+    }
+  }
 })
