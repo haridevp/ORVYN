@@ -25,11 +25,12 @@ RUN git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto && \
     ln -s /opt/nikto/program/nikto.pl /usr/local/bin/nikto && \
     chmod +x /usr/local/bin/nikto
 
-# Install Nuclei
+# Install Nuclei and pre-cache templates
 RUN wget https://github.com/projectdiscovery/nuclei/releases/download/v3.2.0/nuclei_3.2.0_linux_amd64.zip && \
     unzip nuclei_3.2.0_linux_amd64.zip && \
     mv nuclei /usr/local/bin/ && \
-    rm nuclei_3.2.0_linux_amd64.zip
+    rm nuclei_3.2.0_linux_amd64.zip && \
+    nuclei -update-templates || true
 
 # Ensure zap-baseline.py is accessible in PATH
 ENV PATH="/zap:$PATH"

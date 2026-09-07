@@ -32,22 +32,39 @@ def _normalize_item(item: dict, target: str) -> ScannerFinding:
     )
 
 
-async def _run_real_scan(target: str, timeout: int = 300, log_cb: Optional[Callable[[str], None]] = None) -> list[ScannerFinding]:
+async def _run_real_scan(
+    target: str,
+    profile: str = "web",
+    timeout: Optional[int] = None,
+    log_cb: Optional[Callable[[str], None]] = None,
+) -> list[ScannerFinding]:
     """Invoke the real `nikto` binary if installed. Streams verbose output in real time."""
+    # Profile-tuned timing to prevent long blocking scans
+    if profile == "recon":
+        tuning = "12b"
+        max_time = "20s"
+        scan_timeout = timeout or 25
+    elif profile == "full":
+        tuning = "123b"
+        max_time = "75s"
+        scan_timeout = timeout or 90
+    else:  # "web" (default)
+        tuning = "123b"
+        max_time = "35s"
+        scan_timeout = timeout or 45
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "nikto_output.json")
-        # Nikto flags: -Tuning 123b (interesting files, misconfigurations, info leak, software id),
-        # -maxtime 90s to keep execution responsive during interactive scans
         command = [
             BINARY,
             "-h", target,
             "-Format", "json",
             "-output", output_file,
-            "-Tuning", "123b",
-            "-maxtime", "90s",
+            "-Tuning", tuning,
+            "-maxtime", max_time,
         ]
         if log_cb:
-            log_cb(f"Executing: {' '.join(command)}")
+            log_cb(f"Executing: {' '.join(command)} (timeout: {scan_timeout}s, profile: {profile})")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -71,13 +88,12 @@ async def _run_real_scan(target: str, timeout: int = 300, log_cb: Optional[Calla
 
         reader_task = asyncio.create_task(read_stream())
         try:
-            await asyncio.wait_for(proc.wait(), timeout=timeout)
+            await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
             if log_cb:
-                log_cb("Nikto scan timed out after exceeding threshold. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.nikto, target)
+                log_cb(f"Nikto scan reached profile timeout ({scan_timeout}s). Wrapping up available findings.")
         finally:
             await reader_task
 
@@ -134,9 +150,10 @@ class NiktoWrapper(ScannerWrapper):
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, log_cb=log_cb)
+            return await _run_real_scan(target, profile=profile, log_cb=log_cb)
 
         if log_cb:
             log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
         await asyncio.sleep(0.3)
         return build_simulated_findings(ScannerName.nikto, target)
+

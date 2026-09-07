@@ -82,6 +82,20 @@ export default function App() {
         try {
           const next = await getScanStatus(initial.scan_id);
           setStatus(next);
+
+          // Progressive streaming: fetch and render results immediately as each scanner completes or finds vulnerabilities
+          const anyProgress = next.scanners.some(
+            (s) => s.status === "completed" || (s.findings_count ?? 0) > 0
+          );
+          if (anyProgress) {
+            try {
+              const currentResults = await getScanResults(initial.scan_id);
+              setResults(currentResults);
+            } catch {
+              // Ignore transient polling error while job completes
+            }
+          }
+
           if (next.overall_status === "completed" || next.overall_status === "error") {
             if (pollRef.current) window.clearInterval(pollRef.current);
             const finalResults = await getScanResults(initial.scan_id);

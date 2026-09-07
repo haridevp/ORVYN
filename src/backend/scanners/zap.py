@@ -44,9 +44,25 @@ def _normalize_target(target: str) -> str:
     return target
 
 
-async def _run_real_scan(target: str, timeout: int = 600, log_cb: Optional[Callable[[str], None]] = None) -> list[ScannerFinding]:
+async def _run_real_scan(
+    target: str,
+    profile: str = "web",
+    timeout: Optional[int] = None,
+    log_cb: Optional[Callable[[str], None]] = None,
+) -> list[ScannerFinding]:
     """Invoke the real ZAP baseline scan if installed. Streams output in real time."""
     normalized_target = _normalize_target(target)
+    # Profile-tuned spider duration and execution timeout
+    if profile == "recon":
+        spider_minutes = "1"
+        scan_timeout = timeout or 45
+    elif profile == "full":
+        spider_minutes = "3"
+        scan_timeout = timeout or 120
+    else:  # "web" (default)
+        spider_minutes = "1"
+        scan_timeout = timeout or 60
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         report_filename = f"zap_report_{uuid4().hex[:8]}.json"
         tmp_report_path = os.path.join(tmp_dir, report_filename)
@@ -58,12 +74,12 @@ async def _run_real_scan(target: str, timeout: int = 600, log_cb: Optional[Calla
                 os.makedirs("/zap/wrk", exist_ok=True)
             except Exception:
                 pass
-            command = [BINARY, "-t", normalized_target, "-J", report_filename, "-m", "2", "-I"]
+            command = [BINARY, "-t", normalized_target, "-J", report_filename, "-m", spider_minutes, "-I"]
         else:
-            command = [BINARY, "-t", normalized_target, "-J", tmp_report_path, "-m", "2", "-I"]
+            command = [BINARY, "-t", normalized_target, "-J", tmp_report_path, "-m", spider_minutes, "-I"]
 
         if log_cb:
-            log_cb(f"Executing: {' '.join(command)}")
+            log_cb(f"Executing: {' '.join(command)} (timeout: {scan_timeout}s, profile: {profile})")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -87,13 +103,12 @@ async def _run_real_scan(target: str, timeout: int = 600, log_cb: Optional[Calla
 
         reader_task = asyncio.create_task(read_stream())
         try:
-            await asyncio.wait_for(proc.wait(), timeout=timeout)
+            await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
             if log_cb:
-                log_cb("ZAP scan timed out after exceeding threshold. Providing fallback findings.")
-            return build_simulated_findings(ScannerName.zap, target)
+                log_cb(f"ZAP scan reached profile timeout ({scan_timeout}s). Wrapping up available findings.")
         finally:
             await reader_task
 
@@ -141,7 +156,7 @@ class ZapWrapper(ScannerWrapper):
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, log_cb=log_cb)
+            return await _run_real_scan(target, profile=profile, log_cb=log_cb)
 
         if log_cb:
             log_cb(f"Script '{self.binary}' not found on PATH. Using fallback simulated findings.")

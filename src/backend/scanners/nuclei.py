@@ -38,29 +38,50 @@ def _normalize_raw_line(raw: dict, target: str) -> ScannerFinding | None:
     )
 
 
-async def _run_real_scan(target: str, timeout: int = 300, log_cb: Optional[Callable[[str], None]] = None) -> list[ScannerFinding]:
+async def _run_real_scan(
+    target: str,
+    profile: str = "web",
+    timeout: Optional[int] = None,
+    log_cb: Optional[Callable[[str], None]] = None,
+) -> list[ScannerFinding]:
     """Invoke the real `nuclei` binary if it's installed. Streams verbose execution logs."""
+    # Profile-tuned configuration for fast, interactive response
+    if profile == "recon":
+        scan_timeout = timeout or 35
+        tags = "cve,exposure,tech,misconfig,dns,ssl"
+        extra_args = ["-tags", tags, "-timeout", "3", "-rate-limit", "150", "-concurrency", "25"]
+    elif profile == "full":
+        scan_timeout = timeout or 120
+        extra_args = ["-severity", "info,low,medium,high,critical", "-timeout", "5", "-rate-limit", "150", "-concurrency", "30"]
+    else:  # "web" (default)
+        scan_timeout = timeout or 60
+        tags = "cve,xss,sqli,exposure,misconfig,auth,ssl,generic"
+        extra_args = ["-tags", tags, "-timeout", "4", "-rate-limit", "150", "-concurrency", "25"]
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "nuclei_output.json")
         command = [
             BINARY,
             "-u", target,
-            "-severity", "info,low,medium,high,critical",
+            "-duc",  # disable update check to prevent waiting on github api
             "-json-export", output_file,
-            "-rate-limit", "150",
-            "-concurrency", "25",
-            "-timeout", "5",
             "-no-color",
             "-v",
+            *extra_args,
         ]
         if log_cb:
-            log_cb(f"Executing: {' '.join(command)}")
+            log_cb(f"Executing: {' '.join(command)} (timeout: {scan_timeout}s, profile: {profile})")
 
-        proc = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+        except Exception as exc:
+            if log_cb:
+                log_cb(f"Failed to spawn Nuclei process: {exc}. Providing fallback findings.")
+            return build_simulated_findings(ScannerName.nuclei, target)
 
         async def read_stream():
             while True:
@@ -73,13 +94,12 @@ async def _run_real_scan(target: str, timeout: int = 300, log_cb: Optional[Calla
 
         reader_task = asyncio.create_task(read_stream())
         try:
-            await asyncio.wait_for(proc.wait(), timeout=timeout)
+            await asyncio.wait_for(proc.wait(), timeout=scan_timeout)
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
             if log_cb:
-                log_cb("Execution timed out after reaching threshold.")
-            return []
+                log_cb(f"Nuclei execution reached profile timeout ({scan_timeout}s). Wrapping up available findings.")
         finally:
             await reader_task
 
@@ -122,10 +142,11 @@ class NucleiWrapper(ScannerWrapper):
         if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(target, log_cb=log_cb)
+            return await _run_real_scan(target, profile=profile, log_cb=log_cb)
 
         # Binary not installed in this environment - return simulated findings
         if log_cb:
             log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
         await asyncio.sleep(0.4)
         return build_simulated_findings(ScannerName.nuclei, target)
+
