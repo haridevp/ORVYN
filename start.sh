@@ -49,17 +49,27 @@ print_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
 print_error()   { echo -e "  ${RED}✖${NC} $1"; }
 
 check_docker() {
-    if command -v docker >/dev/null 2>&1; then
-        if docker info >/dev/null 2>&1; then
-            echo "docker"
-            return 0
-        elif sudo -n docker info >/dev/null 2>&1; then
-            echo "sudo docker"
-            return 0
-        fi
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "none"
+        return 1
     fi
-    echo "none"
-    return 1
+
+    # 1. Check if user already has direct docker access
+    if docker info >/dev/null 2>&1; then
+        echo "docker"
+        return 0
+    fi
+
+    # 2. Check if non-interactive sudo can adjust socket permissions
+    sudo -n chmod 666 /var/run/docker.sock >/dev/null 2>&1 || true
+    if docker info >/dev/null 2>&1; then
+        echo "docker"
+        return 0
+    fi
+
+    # 3. Default to sudo docker so the user is prompted for permission in their terminal
+    echo "sudo docker"
+    return 0
 }
 
 # --- Command: STOP ---
@@ -115,25 +125,23 @@ fi
 print_banner
 
 DOCKER_CMD=$(check_docker || true)
-MODE="auto"
 
-if [[ "$1" == "--docker" ]]; then
-    MODE="docker"
-elif [[ "$1" == "--local" ]]; then
+# By default, start.sh always runs docker compose
+MODE="docker"
+
+if [[ "$1" == "--local" ]]; then
     MODE="local"
-else
-    # Auto-detect best mode
-    if [[ "$DOCKER_CMD" != "none" ]]; then
-        MODE="docker"
-    else
-        MODE="local"
-    fi
 fi
 
 if [[ "$MODE" == "docker" ]]; then
     if [[ "$DOCKER_CMD" == "none" ]]; then
-        print_warn "Docker daemon is not directly accessible without sudo."
-        DOCKER_CMD="sudo docker"
+        print_error "Docker binary not found on PATH. Please install Docker or run with './start.sh --local'."
+        exit 1
+    fi
+
+    if [[ "$DOCKER_CMD" == "sudo docker" ]]; then
+        print_warn "Docker daemon requires elevated permissions to access /var/run/docker.sock."
+        print_info "Prompting for sudo password to launch containers..."
     fi
 
     print_info "Launching platform cluster via ${BOLD}${DOCKER_CMD} compose${NC}..."
