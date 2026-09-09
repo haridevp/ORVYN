@@ -5,6 +5,8 @@ import {
   checkApiHealth,
   getScanResults,
   getScanStatus,
+  listScans,
+  deleteScan,
   startScan,
   cancelScan,
   downloadScanReportPdf,
@@ -21,6 +23,7 @@ import { Sidebar, type NavTab } from "./components/Sidebar";
 import { ExecutiveMetrics } from "./components/ExecutiveMetrics";
 import { ApiTopologyGraph } from "./components/ApiTopologyGraph";
 import { AssetInventoryTable } from "./components/AssetInventoryTable";
+import { ScanHistoryView } from "./components/ScanHistoryView";
 import { LoginView } from "./components/LoginView";
 import { LiveFindingsFeed } from "./components/LiveFindingsFeed";
 import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./types";
@@ -40,7 +43,7 @@ import {
   FileText,
   Printer,
   ChevronDown,
-  Activity,
+  History,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -77,7 +80,19 @@ export default function App() {
   }, [selectedScanId]);
 
   useEffect(() => {
-    checkApiHealth().then((ok) => setApiState(ok ? "online" : "offline"));
+    checkApiHealth().then((ok) => {
+      setApiState(ok ? "online" : "offline");
+      if (ok) {
+        listScans()
+          .then((scans) => {
+            setAllScans(scans);
+            if (scans.length > 0 && !selectedScanIdRef.current) {
+              handleSelectScan(scans[0].scan_id);
+            }
+          })
+          .catch(() => {});
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -101,15 +116,37 @@ export default function App() {
 
   async function handleSelectScan(scanId: string) {
     setSelectedScanId(scanId);
+    setResults(null);
     const existing = allScans.find((s) => s.scan_id === scanId);
     if (existing) {
       setStatus(existing);
     }
     try {
       const res = await getScanResults(scanId);
-      setResults(res);
+      if (selectedScanIdRef.current === scanId) {
+        setResults(res);
+      }
     } catch {
       // Job may still be in initial progress
+    }
+  }
+
+  async function handleDeleteScan(scanId: string) {
+    try {
+      await deleteScan(scanId);
+      const remaining = allScans.filter((s) => s.scan_id !== scanId);
+      setAllScans(remaining);
+      if (selectedScanId === scanId) {
+        if (remaining.length > 0) {
+          handleSelectScan(remaining[0].scan_id);
+        } else {
+          setSelectedScanId(null);
+          setStatus(null);
+          setResults(null);
+        }
+      }
+    } catch {
+      // Ignore
     }
   }
 
@@ -139,10 +176,12 @@ export default function App() {
     profile: string,
     inScope?: string[],
     outOfScope?: string[],
+    template?: string | null,
   ) {
     setError(null);
+    setResults(null);
     try {
-      const initial = await startScan(target, scanners, profile, inScope, outOfScope);
+      const initial = await startScan(target, scanners, profile, inScope, outOfScope, template);
       setAllScans((prev) => [initial, ...prev.filter((s) => s.scan_id !== initial.scan_id)]);
       setSelectedScanId(initial.scan_id);
       setStatus(initial);
@@ -228,16 +267,17 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `pentest-report-${results.target}.json`;
+      a.download = `orvyn-report-${results.target}.json`;
       a.click();
       URL.revokeObjectURL(url);
       return;
     }
 
     if (format === "markdown") {
-      let md = `# Penetration Testing Executive Report: ${results.target}\n\n`;
+      let md = `# ORVYN Executive Intelligence Report: ${results.target}\n\n`;
+      md += `*Offensive Risk and Vulnerability Intelligence Network*\n\n`;
       md += `- **Generated At:** ${new Date().toUTCString()}\n`;
-      md += `- **Scan ID:** ${results.scan_id}\n`;
+      md += `- **Assessment ID:** ${results.scan_id}\n`;
       md += `- **Target Perimeter:** \`${results.target}\`\n`;
       md += `\n## Severity Distribution\n`;
       for (const [sev, count] of Object.entries(results.severity_distribution || {})) {
@@ -259,7 +299,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `pentest-report-${results.target}.md`;
+      a.download = `orvyn-report-${results.target}.md`;
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -296,6 +336,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         threatCount={totalFindings}
         logsCount={currentLogs.length}
+        historyCount={allScans.length}
         user={user}
         onLogout={handleLogout}
       />
@@ -324,7 +365,7 @@ export default function App() {
             </div>
 
             <span className="rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] font-mono text-slate-400">
-              7-Engine Cluster
+              ORVYN Cluster
             </span>
           </div>
 
@@ -439,7 +480,8 @@ export default function App() {
             { id: "topology" as NavTab, label: "API Attack Graph", icon: <GitBranch size={13} /> },
             { id: "findings" as NavTab, label: "Threats & Findings", icon: <ShieldAlert size={13} />, count: totalFindings },
             { id: "terminal" as NavTab, label: "Live Console", icon: <Terminal size={13} />, count: currentLogs.length, pulse: isRunning },
-            { id: "scanners" as NavTab, label: "7-Engine Cluster", icon: <Cpu size={13} /> },
+            { id: "scanners" as NavTab, label: "Engine Cluster", icon: <Cpu size={13} /> },
+            { id: "history" as NavTab, label: "Scan History", icon: <History size={13} />, count: allScans.length },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -495,48 +537,6 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Multiple Concurrent Scans Switcher Strip */}
-          {allScans.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/50 p-2 text-xs font-mono">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mr-1">
-                <Activity size={12} className="text-blue-400" />
-                Concurrent Assessments ({allScans.length}):
-              </span>
-              {allScans.map((s) => {
-                const active = (selectedScanId || status?.scan_id) === s.scan_id;
-                const isScanRunning =
-                  s.overall_status === "running" || s.overall_status === "queued";
-                return (
-                  <button
-                    key={s.scan_id}
-                    onClick={() => handleSelectScan(s.scan_id)}
-                    className={`flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs transition-all cursor-pointer ${
-                      active
-                        ? "bg-blue-600/20 border-blue-500/50 text-blue-200 font-semibold shadow-xs"
-                        : "bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                    }`}
-                  >
-                    <span
-                      className={`h-2 w-2 rounded-full ${
-                        isScanRunning
-                          ? "bg-blue-400 animate-pulse"
-                          : s.overall_status === "completed"
-                          ? "bg-emerald-400"
-                          : "bg-rose-400"
-                      }`}
-                    />
-                    <span className="font-semibold text-slate-200 truncate max-w-[130px]">
-                      {s.target}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {isScanRunning ? `${s.progress_pct}%` : s.overall_status}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           {/* TAB 1: OVERVIEW & ATTACK SURFACE MANAGEMENT */}
           {activeTab === "overview" && (
@@ -707,6 +707,20 @@ export default function App() {
                 isRunning={!!isRunning}
                 isOpen={true}
                 onToggle={() => {}}
+              />
+            </motion.div>
+          )}
+
+          {/* TAB 6: SCAN HISTORY */}
+          {activeTab === "history" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <ScanHistoryView
+                scans={allScans}
+                selectedScanId={selectedScanId}
+                onSelectScan={handleSelectScan}
+                onDeleteScan={handleDeleteScan}
+                onNavigateToOverview={() => setActiveTab("overview")}
+                onNewScanClick={() => setActiveTab("overview")}
               />
             </motion.div>
           )}

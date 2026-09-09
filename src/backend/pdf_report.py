@@ -138,8 +138,8 @@ class PentestPDFBuilder:
         p.rect(0, 788, 612, 4, fill_color=(0.20, 0.50, 0.95))
 
         # Brand / Suite Title (Professional Company Placeholders)
-        p.text(40, 762, "[COMPANY NAME] CYBERSECURITY AUDIT SERVICES  //  PENETRATION TESTING DIVISION", font="/F2", size=8.5, color=(0.58, 0.65, 0.75))
-        p.text(40, 742, "PENETRATION TESTING & SECURITY AUDIT REPORT", font="/F2", size=14, color=(1.0, 1.0, 1.0))
+        p.text(40, 762, "ORVYN  //  OFFENSIVE RISK AND VULNERABILITY INTELLIGENCE NETWORK", font="/F2", size=8.5, color=(0.58, 0.65, 0.75))
+        p.text(40, 742, "OFFENSIVE RISK & VULNERABILITY INTELLIGENCE REPORT", font="/F2", size=14, color=(1.0, 1.0, 1.0))
         p.text(40, 730, f"Client Scope: {target}   |   Profile: {profile.upper()}   |   Assessment ID: {scan_id[:16]}", font="/F1", size=8.0, color=(0.40, 0.70, 0.95))
 
         # Badge pill top right
@@ -335,12 +335,12 @@ class PentestPDFBuilder:
             # If not page 1, add running top header
             if idx > 1:
                 p.rect(0, 770, 612, 22, fill_color=(0.06, 0.09, 0.16))
-                p.text(40, 776, "[COMPANY NAME] AUDIT SERVICES  //  PENETRATION TESTING REPORT", font="/F2", size=7.5, color=(0.60, 0.65, 0.75))
+                p.text(40, 776, "ORVYN  //  OFFENSIVE RISK AND VULNERABILITY INTELLIGENCE NETWORK", font="/F2", size=7.5, color=(0.60, 0.65, 0.75))
                 p.text(420, 776, f"Scope: {self.target}", font="/F1", size=7.5, color=(0.40, 0.70, 0.95))
 
             # Running footer on every page
             p.line(40, 36, 572, 36, stroke_color=(0.85, 0.88, 0.92), line_width=0.8)
-            p.text(40, 24, f"STRICTLY CONFIDENTIAL - [COMPANY NAME] ASSESSMENT | Generated {now_str}", font="/F1", size=7.0, color=(0.50, 0.55, 0.62))
+            p.text(40, 24, f"STRICTLY CONFIDENTIAL - ORVYN INTELLIGENCE NETWORK | Generated {now_str}", font="/F1", size=7.0, color=(0.50, 0.55, 0.62))
             p.text(510, 24, f"Page {idx} of {total}", font="/F2", size=7.5, color=(0.35, 0.40, 0.48))
 
     def build_pdf(self) -> bytes:

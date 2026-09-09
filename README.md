@@ -1,8 +1,8 @@
-# AI-Automated-Penetration-Testing
+# ORVYN: Offensive Risk and Vulnerability Intelligence Network
 
-> Final Year Project | Semester 6-8 | Team of 4
+> Autonomous Offensive Security & DAST Intelligence Platform | Final Year Project | Semester 6-8
 
-An AI-assisted penetration testing platform that coordinates scan requests, asynchronous worker execution, and validation-ready reporting. The current repository contains the project foundation, delivery workflow, and API proof-of-architecture for the larger system planned in the review deck.
+An AI-driven autonomous offensive risk and vulnerability intelligence network that coordinates multi-tool scan execution, dynamic LLM template selection, asynchronous worker execution, and validation-ready reporting.
 
 [Full Backlog](docs/BACKLOG.md) | [Sprint Plan](docs/SPRINTS.md) | [Roadmap](docs/ROADMAP.md) | [Team](docs/TEAM.md)
 
@@ -95,15 +95,17 @@ Optional local scan target (no third-party site required):
 docker compose --profile demo-target up demo-target   # OWASP Juice Shop on :3000
 ```
 
-CLI (same scanner/correlation engine as the API and dashboard - see `src/backend/cli.py`):
+CLI (same scanner/correlation engine as the API and dashboard - run directly via `./start.sh`):
 ```bash
-cd src/backend
-python cli.py scan scanme.nmap.org                       # runs scanners locally, no server needed
-python cli.py scan scanme.nmap.org --scanners nuclei,zap  # pick a subset
-python cli.py scan scanme.nmap.org --json                 # machine-readable output
-python cli.py scan scanme.nmap.org --api http://localhost:8000   # hit a running backend instead
-python cli.py status <scan_id> --api http://localhost:8000
-python cli.py results <scan_id> --api http://localhost:8000 --json
+./start.sh scan scanme.nmap.org                       # runs scanners locally, no server needed
+./start.sh scan scanme.nmap.org --template auto        # autonomous LLM recon & template selection
+./start.sh templates                                   # list all 30 vulnerability assessment templates
+./start.sh check                                       # environment & toolchain diagnostics
+./start.sh scan scanme.nmap.org --scanners nuclei,zap  # pick a subset
+./start.sh scan scanme.nmap.org --json                 # machine-readable output
+./start.sh scan scanme.nmap.org --api http://localhost:8000   # hit a running backend instead
+./start.sh status <scan_id> --api http://localhost:8000
+./start.sh results <scan_id> --api http://localhost:8000 --json
 ```
 
 ## Project Structure

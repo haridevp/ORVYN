@@ -169,7 +169,7 @@ class NucleiWrapper(ScannerWrapper):
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
-        if self.is_available():
+        if self.is_available() and not (target.endswith(".local") or "demo" in target.lower()):
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
             return await _run_real_scan(

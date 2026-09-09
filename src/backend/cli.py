@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Command-line interface for the AI Automated Penetration Testing platform.
+"""Command-line interface for ORVYN - Offensive Risk and Vulnerability Intelligence Network.
 
 Features:
   - Local & API modes (in-process or remote FastAPI backend)
@@ -13,22 +13,28 @@ Features:
 
 Usage Examples:
   # Rapid recon scan:
-  ./cli.py scan scanme.nmap.org --profile recon
+  ./start.sh scan scanme.nmap.org --profile recon
 
   # Exhaustive deep scan with no timeout:
-  ./cli.py scan scanme.nmap.org --profile unlimited
+  ./start.sh scan scanme.nmap.org --profile unlimited
+
+  # Autonomous AI template selection:
+  ./start.sh scan scanme.nmap.org --template auto
+
+  # List 30 curated multi-tool assessment templates:
+  ./start.sh templates --category "API & Cloud"
 
   # Wildcard scope with exclusions and JSON report export:
-  ./cli.py scan github.com --in-scope "*.github.com" --exclude "logout,auth.*" -o report.json
+  ./start.sh scan github.com --in-scope "*.github.com" --exclude "logout,auth.*" -o report.json
 
   # Generate full executive Markdown audit report:
-  ./cli.py scan scanme.nmap.org -o pentest_report.md
+  ./start.sh scan scanme.nmap.org -o pentest_report.md
 
   # Pre-flight reachability probe:
-  ./cli.py probe scanme.nmap.org
+  ./start.sh probe scanme.nmap.org
 
   # Target remote running backend:
-  ./cli.py scan scanme.nmap.org --api http://localhost:8000 -v
+  ./start.sh scan scanme.nmap.org --api http://localhost:8000 -v
 """
 
 import argparse
@@ -52,9 +58,11 @@ from rich.table import Table
 
 # Intra-package imports
 from correlation import correlate_findings, duplicate_group_count, severity_distribution
+from environment import detect_environment
 from job_manager import is_item_in_scope
 from scanners import REGISTRY
 from schemas import ScannerName
+from templates.registry import template_registry
 
 console = Console()
 
@@ -320,6 +328,7 @@ async def run_local_scan(
     verbose: bool,
     detailed: bool,
     output_path: Optional[str] = None,
+    template: Optional[str] = None,
 ) -> None:
     tools = [ScannerName(s) for s in scanner_names]
     target_domain = extract_domain(target)
@@ -327,11 +336,12 @@ async def run_local_scan(
 
     if not as_json:
         profile_label = "Exhaustive (NO TIMEOUT)" if profile == "unlimited" else f"{profile.upper()}"
-        console.print(f"[bold cyan]Launching Scan[/] for [bold]{target}[/] [dim](profile: {profile_label})[/]")
+        mode_note = " [bold magenta]🤖 AI Autonomous Mode[/]" if template == "auto" else ""
+        console.print(f"[bold cyan]Launching Scan[/] for [bold]{target}[/] [dim](profile: {profile_label})[/]{mode_note}")
         console.print(f"  [dim]Perimeter In-Scope:[/]  [green]{', '.join(effective_in_scope)}[/]")
         if out_of_scope:
             console.print(f"  [dim]Out-of-Scope Deny:[/]   [red]{', '.join(out_of_scope)}[/]")
-        console.print(f"  [dim]Active Engines:[/]       {', '.join(t.value for t in tools)}\n")
+        console.print(f"  [dim]Initial Engines:[/]      {', '.join(t.value for t in tools)}\n")
 
     results_by_tool: dict[ScannerName, list] = {}
 
@@ -364,7 +374,40 @@ async def run_local_scan(
             exc_msg = f" ([yellow]{excluded_count} out-of-scope excluded[/])" if excluded_count > 0 else ""
             console.print(f"  [bold green]✔[/] [bold]{tool.value}[/]: {len(scoped_findings)} findings{exc_msg}")
 
+    # Run Phase 1 initial tools
     await asyncio.gather(*(run_one(t) for t in tools))
+
+    # Phase 2: Autonomous LLM Template Selection if in auto mode
+    if template == "auto":
+        all_initial = [f for findings in results_by_tool.values() for f in findings]
+        tech_list: list[str] = []
+        open_ports: list[int] = []
+        server_banner: Optional[str] = None
+
+        for f in all_initial:
+            if f.tool == ScannerName.whatweb:
+                tech_list.append(f.description)
+            elif f.tool == ScannerName.nmap:
+                if "port" in f.vulnerability.lower() or "service" in f.vulnerability.lower():
+                    tech_list.append(f.vulnerability)
+
+        try:
+            from ai_orchestrator import select_template_with_llm
+            decision = await select_template_with_llm(target, tech_list, open_ports, server_banner)
+            if not as_json:
+                console.print(f"\n[bold cyan]🤖 AI Decision:[/] Evaluated recon ({decision.confidence}% confidence) ➡️ Selected template [bold]{decision.template_name}[/]")
+                console.print(f"   [dim]Reasoning:[/] {decision.reasoning}")
+
+            chosen_tmpl = template_registry.get_template(decision.selected_template_id)
+            if chosen_tmpl:
+                secondary_tools = [t for t in chosen_tmpl.scanners if t not in results_by_tool]
+                if secondary_tools:
+                    if not as_json:
+                        console.print(f"   [dim]Enqueuing targeted secondary tools:[/] [green]{', '.join(t.value for t in secondary_tools)}[/]\n")
+                    await asyncio.gather(*(run_one(t) for t in secondary_tools))
+        except Exception as exc:
+            if not as_json:
+                console.print(f"[yellow]Autonomous template selection note: {exc}[/]")
 
     all_findings = [f for findings in results_by_tool.values() for f in findings]
     raw_findings = [f.model_dump(mode="json") for f in all_findings]
@@ -415,6 +458,7 @@ def run_api_scan(
     detailed: bool,
     output_path: Optional[str] = None,
     poll_interval: float = 0.8,
+    template: Optional[str] = None,
 ) -> None:
     req_body = {
         "target": target,
@@ -423,11 +467,16 @@ def run_api_scan(
         "in_scope": in_scope,
         "out_of_scope": out_of_scope,
     }
+    if template:
+        req_body["template"] = template
+
     resp = requests.post(f"{api_url}/scan/start", json=req_body)
     resp.raise_for_status()
     scan_id = resp.json()["scan_id"]
     if not as_json:
         console.print(f"[bold]Started scan[/] [cyan]{scan_id}[/] via [dim]{api_url}[/]")
+        if template:
+            console.print(f"  [dim]Template:[/]             [cyan]{resp.json().get('template_name', template)}[/]")
         console.print(f"  [dim]Perimeter In-Scope:[/]  [green]{', '.join(in_scope) if in_scope else f'*.{extract_domain(target)}'}[/]")
         if out_of_scope:
             console.print(f"  [dim]Out-of-Scope Deny:[/]   [red]{', '.join(out_of_scope)}[/]")
@@ -506,7 +555,26 @@ def cmd_probe(args: argparse.Namespace) -> None:
 
 
 def cmd_scan(args: argparse.Namespace) -> None:
-    scanner_names = [s.strip() for s in args.scanners.split(",")] if args.scanners else ALL_SCANNERS
+    applied_template = getattr(args, "template", None)
+    if applied_template == "auto":
+        scanner_names = [s.strip() for s in args.scanners.split(",")] if args.scanners else ["whatweb", "nmap", "sslyze"]
+        if not args.json:
+            console.print("[bold cyan]🤖 AI Autonomous Mode Active:[/] Initializing Phase 1 Reconnaissance...")
+            console.print("   [dim]Recon Engines:[/] [green]WhatWeb, Nmap NSE, SSLyze[/] ➡️ Backend LLM Selection ➡️ Secondary Attack Chain\n")
+    elif applied_template:
+        tmpl = template_registry.get_template(applied_template)
+        if not tmpl:
+            console.print(f"[red]Unknown template '{applied_template}'. Run './start.sh templates' to list options.[/]")
+            sys.exit(1)
+        scanner_names = [s.strip() for s in args.scanners.split(",")] if args.scanners else [s.value for s in tmpl.scanners]
+        if not getattr(args, "_user_set_profile", False) and args.profile == "web":
+            args.profile = tmpl.profile
+        if not args.json:
+            console.print(f"[bold cyan]🎯 Applied Vulnerability Template:[/] [bold]{tmpl.name}[/] ({tmpl.badge})")
+            console.print(f"   [dim]Toolchain:[/] [green]{', '.join([s.value for s in tmpl.scanners])}[/] | [dim]Focus:[/] {', '.join(tmpl.vulnerability_focus[:3])}\n")
+    else:
+        scanner_names = [s.strip() for s in args.scanners.split(",")] if args.scanners else ALL_SCANNERS
+
     invalid = set(scanner_names) - set(ALL_SCANNERS)
     if invalid:
         console.print(f"[red]Unknown scanner(s): {', '.join(invalid)}. Choose from {', '.join(ALL_SCANNERS)}[/]")
@@ -540,6 +608,7 @@ def cmd_scan(args: argparse.Namespace) -> None:
             args.verbose,
             args.detailed,
             output_path=args.output,
+            template=applied_template,
         )
     else:
         asyncio.run(
@@ -553,8 +622,81 @@ def cmd_scan(args: argparse.Namespace) -> None:
                 args.verbose,
                 args.detailed,
                 output_path=args.output,
+                template=applied_template,
             )
         )
+
+
+def cmd_templates(args: argparse.Namespace) -> None:
+    """List all available multi-tool vulnerability assessment templates."""
+    cat_filter = getattr(args, "category", None)
+    title = "🛡️ Curated Multi-Tool Vulnerability Templates"
+    if cat_filter:
+        title += f" [Category: {cat_filter}]"
+    console.rule(f"[bold cyan]{title}")
+
+    templates = template_registry.list_templates(category=cat_filter)
+    if not templates:
+        console.print(f"[yellow]No templates found matching category '{cat_filter}'.[/]")
+        cats = template_registry.get_categories()
+        console.print(f"[dim]Available categories: {', '.join(cats)}[/]\n")
+        return
+
+    table = Table(box=box.ROUNDED, header_style="bold cyan")
+    table.add_column("ID", style="bold yellow")
+    table.add_column("Template Name", style="bold white")
+    table.add_column("Category", style="cyan")
+    table.add_column("Chained Tools", style="green")
+    table.add_column("Vulnerability Focus", style="dim")
+
+    for t in templates:
+        tools_str = ", ".join([step.tool.value for step in t.tool_chain])
+        focus_str = ", ".join(t.vulnerability_focus[:3])
+        if len(t.vulnerability_focus) > 3:
+            focus_str += f" (+{len(t.vulnerability_focus) - 3} more)"
+        table.add_row(t.id, f"{t.badge} {t.name}", t.category, tools_str, focus_str)
+
+    console.print(table)
+    console.print("[dim]Usage: ./start.sh scan <target> --template <template_id>[/]\n")
+
+
+def cmd_env(args: argparse.Namespace) -> None:
+    """Display host OS detection, Kali/Parrot native status, and available tool binaries."""
+    console.rule("[bold cyan]🔍 Platform & Security Environment Diagnostics")
+    env = detect_environment()
+
+    card = Table(box=box.SIMPLE, show_header=False)
+    card.add_row("[bold]Host OS[/]", f"[cyan]{env.os_name}[/] (ID: {env.os_id})")
+    
+    if env.is_kali:
+        card.add_row("[bold]Kali Linux Native[/]", "[bold green]YES (Native Host Execution Active)[/]")
+    elif env.is_parrot:
+        card.add_row("[bold]Parrot OS Native[/]", "[bold green]YES (Native Host Execution Active)[/]")
+    else:
+        card.add_row("[bold]Kali/Parrot Host[/]", "[dim]No (Generic Host Distro)[/]")
+
+    card.add_row("[bold]Docker Daemon[/]", "[bold green]AVAILABLE[/]" if env.docker_available else "[yellow]NOT AVAILABLE[/]")
+    card.add_row("[bold]Execution Mode[/]", f"[bold magenta]{env.execution_mode.value.upper()}[/]")
+    card.add_row("[bold]Environment Note[/]", f"[dim]{env.description}[/]")
+
+    tools_table = Table(title="Security Binary Status", box=box.SIMPLE_HEAVY, header_style="bold cyan")
+    tools_table.add_column("Tool")
+    tools_table.add_column("Status")
+    tools_table.add_column("Path / Execution Mode")
+
+    import shutil
+    from environment import SECURITY_TOOLS
+    for tool in SECURITY_TOOLS:
+        path = shutil.which(tool)
+        if path:
+            tools_table.add_row(tool, "[bold green]INSTALLED[/]", f"[dim]{path}[/]")
+        elif env.docker_available:
+            tools_table.add_row(tool, "[cyan]CONTAINER[/]", "[dim]pentest-backend:latest[/]")
+        else:
+            tools_table.add_row(tool, "[yellow]SIMULATED[/]", "[dim]Internal realistic mock engine[/]")
+
+    console.print(Panel(card, border_style="cyan", title="System Environment"))
+    console.print(tools_table)
 
 
 def cmd_status(args: argparse.Namespace) -> None:
@@ -607,14 +749,18 @@ def cmd_results(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cli.py",
-        description="🛡️ AI Automated Penetration Testing CLI (Nuclei, ZAP, Nikto & Correlation Engine)",
+        prog="./start.sh",
+        description="🛡️ ORVYN - Offensive Risk and Vulnerability Intelligence Network",
     )
     sub = parser.parse_args if False else parser.add_subparsers(dest="command", required=True)
 
     # 1. SCAN COMMAND
     scan_p = sub.add_parser("scan", help="Run a multi-scanner assessment and output report")
     scan_p.add_argument("target", help="Hostname, IP, or URL to assess (e.g. scanme.nmap.org)")
+    scan_p.add_argument(
+        "--template",
+        help="Curated vulnerability assessment template (e.g. web_owasp_deep_audit, full_infrastructure_audit, api_microservice_audit, cms_wordpress_deep_audit, cloud_secrets_exposure_audit, quick_recon_triage)",
+    )
     scan_p.add_argument("--scanners", help=f"Comma-separated list from {', '.join(ALL_SCANNERS)} (default: all)")
     scan_p.add_argument(
         "--profile",
@@ -641,7 +787,19 @@ def build_parser() -> argparse.ArgumentParser:
     scan_p.add_argument("--json", action="store_true", help="Print raw JSON to stdout")
     scan_p.set_defaults(func=cmd_scan)
 
-    # 2. PROBE COMMAND
+    # 2. TEMPLATES COMMAND
+    templates_p = sub.add_parser("templates", help="List all curated multi-tool vulnerability assessment templates")
+    templates_p.add_argument(
+        "-c", "--category", default=None,
+        help="Filter templates by category (e.g. 'CMS & Frameworks', 'API & Cloud', 'OWASP Injections', 'Infrastructure & Ports', 'Recon & Supply Chain')"
+    )
+    templates_p.set_defaults(func=cmd_templates)
+
+    # 3. ENV COMMAND
+    env_p = sub.add_parser("env", help="Check host OS (Kali/Parrot detection), Docker daemon, and security tool binaries")
+    env_p.set_defaults(func=cmd_env)
+
+    # 4. PROBE COMMAND
     probe_p = sub.add_parser("probe", help="Perform pre-flight reachability, DNS & TLS diagnostics on a target")
     probe_p.add_argument("target", help="Hostname or URL to probe")
     probe_p.set_defaults(func=cmd_probe)

@@ -11,6 +11,8 @@ import {
   Code2,
   ExternalLink,
   CheckCircle2,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -62,6 +64,12 @@ function Row({ finding, index }: { finding: CorrelatedFinding; index: number }) 
               <span className="truncate text-sm font-bold text-white tracking-wide">
                 {finding.vulnerability}
               </span>
+              {finding.ai_status === "completed" && (
+                <span className="flex items-center gap-1 rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-300 border border-purple-500/40">
+                  <Sparkles size={10} className="text-purple-400 animate-pulse" />
+                  AI RAG (Qwen 2.5)
+                </span>
+              )}
               {isDuplicate && (
                 <span className="flex items-center gap-1 rounded-full bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-400 border border-blue-500/30">
                   <GitMerge size={10} />
@@ -92,10 +100,13 @@ function Row({ finding, index }: { finding: CorrelatedFinding; index: number }) 
 
         <div className="flex items-center gap-4 shrink-0">
           <div className="hidden sm:flex flex-col items-end text-right font-mono text-[11px]">
-            <span className="text-emerald-400 font-bold flex items-center gap-1">
-              <CheckCircle2 size={12} /> {finding.confidence}% Confidence
+            <span className={`${finding.ai_status === 'completed' ? 'text-purple-300' : 'text-emerald-400'} font-bold flex items-center gap-1`}>
+              {finding.ai_status === 'completed' ? <Sparkles size={12} className="text-purple-400" /> : <CheckCircle2 size={12} />}
+              {finding.ai_confidence ?? finding.confidence}% Confidence
             </span>
-            <span className="text-gray-500 text-[10px]">Triaged & Correlated</span>
+            <span className="text-gray-500 text-[10px]">
+              {finding.ai_status === 'completed' ? 'AI Validated & Triaged' : 'Triaged & Correlated'}
+            </span>
           </div>
 
           <motion.div
@@ -117,14 +128,25 @@ function Row({ finding, index }: { finding: CorrelatedFinding; index: number }) 
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 space-y-4">
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 font-mono">
-                    Vulnerability Description & Impact
-                  </h4>
-                  <p className="mt-1 text-sm text-gray-300 leading-relaxed font-sans">
-                    {finding.description}
-                  </p>
-                </div>
+                {finding.ai_threat_explanation ? (
+                  <div className="rounded-xl border border-purple-500/30 bg-purple-950/20 p-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-purple-300 font-mono flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-purple-400" /> AI Threat Narrative & Exploit Analysis (Qwen 2.5)
+                    </h4>
+                    <p className="mt-2 text-sm text-purple-100/90 leading-relaxed font-sans">
+                      {finding.ai_threat_explanation}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 font-mono">
+                      Vulnerability Description & Impact
+                    </h4>
+                    <p className="mt-1 text-sm text-gray-300 leading-relaxed font-sans">
+                      {finding.description}
+                    </p>
+                  </div>
+                )}
 
                 {finding.evidence.length > 0 && (
                   <div>
@@ -151,12 +173,33 @@ function Row({ finding, index }: { finding: CorrelatedFinding; index: number }) 
                   <div className="font-mono text-cyan-300 font-bold mt-0.5 truncate">{finding.target}</div>
                 </div>
 
+                {finding.ai_validated_severity && (
+                  <div>
+                    <span className="text-purple-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1">
+                      <Sparkles size={10} /> AI Validated Severity
+                    </span>
+                    <div className="font-mono text-white font-bold mt-0.5">{finding.ai_validated_severity}</div>
+                  </div>
+                )}
+
                 <div>
                   <span className="text-gray-500 uppercase tracking-wider text-[10px] font-mono">CWE / OWASP Reference</span>
-                  <div className="mt-1">
-                    {finding.reference ? (
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {finding.ai_references && finding.ai_references.length > 0 ? (
+                      finding.ai_references.map((ref, idx) => (
+                        <a
+                          key={idx}
+                          href={ref.startsWith("http") ? ref : `https://cwe.mitre.org/data/definitions/${ref.replace(/[^0-9]/g, "")}.html`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 font-mono text-blue-400 hover:text-blue-300 underline bg-blue-950/40 border border-blue-800/40 px-2 py-1 rounded text-[11px]"
+                        >
+                          <ExternalLink size={11} /> {ref}
+                        </a>
+                      ))
+                    ) : finding.reference ? (
                       <a
-                        href={finding.reference.startsWith("http") ? finding.reference : `https://cwe.mitre.org/data/definitions/${finding.reference.replace(/[^0-9]/g, '')}.html`}
+                        href={finding.reference.startsWith("http") ? finding.reference : `https://cwe.mitre.org/data/definitions/${finding.reference.replace(/[^0-9]/g, "")}.html`}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 font-mono text-blue-400 hover:text-blue-300 underline bg-blue-950/40 border border-blue-800/40 px-2 py-1 rounded"
@@ -170,9 +213,11 @@ function Row({ finding, index }: { finding: CorrelatedFinding; index: number }) 
                 </div>
 
                 <div>
-                  <span className="text-slate-500 uppercase tracking-wider text-[10px] font-mono">Remediation Guidance</span>
-                  <div className="mt-1 rounded-lg border border-slate-800 bg-slate-900/80 p-2 text-slate-300 text-[11px] leading-snug">
-                    Apply input validation filter and parameterized prepared statements before routing to backend handler.
+                  <span className="text-slate-400 uppercase tracking-wider text-[10px] font-mono flex items-center gap-1">
+                    <Bot size={12} className="text-purple-400" /> Remediation Guidance
+                  </span>
+                  <div className="mt-1 rounded-lg border border-purple-900/40 bg-purple-950/30 p-2.5 text-purple-100 text-[11px] leading-relaxed">
+                    {finding.ai_remediation || "Apply input validation filter and parameterized prepared statements before routing to backend handler."}
                   </div>
                 </div>
               </div>
@@ -180,6 +225,7 @@ function Row({ finding, index }: { finding: CorrelatedFinding; index: number }) 
           </motion.div>
         )}
       </AnimatePresence>
+
     </motion.div>
   );
 }

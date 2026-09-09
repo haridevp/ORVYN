@@ -13,12 +13,26 @@ from pydantic import BaseModel, Field
 from job_manager import job_manager
 from schemas import ScanResultsResponse, ScanStartRequest, ScanStatusResponse
 
+try:
+    from environment import detect_environment, EnvironmentInfo
+    from mcp import mcp_router
+    from templates.definitions import ScanTemplate
+    from templates.registry import template_registry
+except ImportError:
+    from src.backend.environment import detect_environment, EnvironmentInfo
+    from src.backend.mcp import mcp_router
+    from src.backend.templates.definitions import ScanTemplate
+    from src.backend.templates.registry import template_registry
+
 
 app = FastAPI(
-    title="AI Automated Penetration Testing API",
-    version="0.3.0",
-    description="Multi-scanner orchestration API for the AI pentesting platform.",
+    title="ORVYN - Offensive Risk and Vulnerability Intelligence Network API",
+    version="1.0.0",
+    description="Multi-scanner orchestration, AI autonomous template selection, and HexStrike MCP API for ORVYN.",
 )
+
+# Mount HexStrike MCP router
+app.include_router(mcp_router)
 
 # Dashboard is a static SPA (GitHub Pages / local dev server) hosted on a
 # different origin than this API, so it needs CORS to call /scan/* directly.
@@ -233,6 +247,13 @@ def architecture_proof():
     }
 
 
+@app.get("/scans", response_model=list[ScanStatusResponse])
+@app.get("/scan/history", response_model=list[ScanStatusResponse])
+def list_scans(limit: int = 100):
+    """Retrieve all historically persisted scans from database."""
+    return job_manager.list_scans(limit=limit)
+
+
 @app.post("/scans", status_code=202, response_model=ScanStatus)
 def create_scan(request: ScanRequest):
     queue_mode, task_id = _queue_scan(request)
@@ -251,16 +272,40 @@ def create_scan(request: ScanRequest):
     return scan
 
 
-@app.get("/scans/{scan_id}", response_model=ScanStatus)
+@app.get("/scans/{scan_id}")
 def get_scan(scan_id: str):
+    job = job_manager.get(scan_id)
+    if job:
+        return job.to_status_response()
     scan = SCAN_STORE.get(scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     return scan
 
 
+@app.delete("/scan/{scan_id}")
+@app.delete("/scans/{scan_id}")
+def delete_scan(scan_id: str):
+    success = job_manager.delete_scan(scan_id)
+    if scan_id in SCAN_STORE:
+        del SCAN_STORE[scan_id]
+        success = True
+    if not success:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return {"status": "deleted", "scan_id": scan_id}
+
+
 @app.get("/reports/{scan_id}")
 def get_report(scan_id: str):
+    job = job_manager.get(scan_id)
+    if job:
+        return {
+            "scan_id": scan_id,
+            "summary": f"Persistent scan assessment for {job.target}.",
+            "target": job.target,
+            "validation_status": "completed" if job.overall_status == "completed" else "in_progress",
+            "findings_count": len(job.findings),
+        }
     scan = SCAN_STORE.get(scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -349,4 +394,31 @@ def cancel_scan(scan_id: str):
         raise HTTPException(status_code=404, detail="Scan not found")
     job_manager.cancel_scan(scan_id)
     return job.to_status_response()
+
+
+# ---------------------------------------------------------------------------
+# Module 4 - Templates & Environment Detection
+# ---------------------------------------------------------------------------
+
+
+@app.get("/environment", response_model=EnvironmentInfo)
+def get_platform_environment():
+    """Returns host OS details (Kali/Parrot detection), execution mode, and tool binaries."""
+    return detect_environment()
+
+
+@app.get("/templates", response_model=list[ScanTemplate])
+def get_scan_templates():
+    """Returns all multi-tool vulnerability assessment templates."""
+    return template_registry.list_templates()
+
+
+@app.get("/templates/{template_id}", response_model=ScanTemplate)
+def get_scan_template(template_id: str):
+    """Get a specific scan template by identifier."""
+    tmpl = template_registry.get_template(template_id)
+    if not tmpl:
+        raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+    return tmpl
+
 

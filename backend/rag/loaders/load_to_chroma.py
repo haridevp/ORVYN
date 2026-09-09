@@ -13,7 +13,7 @@ from sentence_transformers import SentenceTransformer
 
 CHROMA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "chroma_db")
 COLLECTION_NAME = "security_knowledge"
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
 _client = None
 _embedder = None

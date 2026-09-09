@@ -8,15 +8,17 @@ import {
   Shield,
   LogOut,
   UserCheck,
+  History,
 } from "lucide-react";
 
-export type NavTab = "overview" | "topology" | "findings" | "terminal" | "scanners";
+export type NavTab = "overview" | "topology" | "findings" | "terminal" | "scanners" | "history";
 
 interface SidebarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   threatCount?: number;
   logsCount?: number;
+  historyCount?: number;
   user?: { username: string; role: string } | null;
   onLogout?: () => void;
 }
@@ -26,6 +28,7 @@ export function Sidebar({
   setActiveTab,
   threatCount = 0,
   logsCount = 0,
+  historyCount = 0,
   user,
   onLogout,
 }: SidebarProps) {
@@ -58,7 +61,13 @@ export function Sidebar({
       id: "scanners" as NavTab,
       label: "Engine Cluster",
       icon: <Cpu size={16} />,
-      badge: "3 Active",
+      badge: "Curated",
+    },
+    {
+      id: "history" as NavTab,
+      label: "Scan History",
+      icon: <History size={16} />,
+      count: historyCount,
     },
   ];
 
@@ -75,10 +84,10 @@ export function Sidebar({
         </div>
         <div>
           <div className="flex items-center gap-1.5">
-            <p className="text-xs font-bold tracking-wider text-slate-100 uppercase font-mono">AEGIS</p>
-            <span className="text-[9px] font-mono font-medium text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.2 rounded">SEC</span>
+            <p className="text-xs font-bold tracking-wider text-slate-100 uppercase font-mono">ORVYN</p>
+            <span className="text-[9px] font-mono font-medium text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.2 rounded">NETWORK</span>
           </div>
-          <p className="text-[11px] text-slate-400 font-normal">Penetration Testing & DAST</p>
+          <p className="text-[10px] text-slate-400 font-normal leading-tight">Offensive Risk & Vulnerability Intelligence</p>
         </div>
       </div>
 

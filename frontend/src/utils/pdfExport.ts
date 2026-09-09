@@ -43,8 +43,13 @@ export function openPrintablePentestReport(results: ScanResultsResponse): void {
           <strong>Evidence:</strong> ${escapeHtml(f.evidence[0])}
         </div>
       ` : ""}
+      ${f.ai_threat_explanation ? `
+        <div style="font-size:11px;background:#faf5ff;border-left:3px solid #a855f7;padding:6px 8px;color:#581c87;margin-bottom:6px;">
+          <strong>AI Threat Analysis (Qwen 2.5):</strong> ${escapeHtml(f.ai_threat_explanation)}
+        </div>
+      ` : ""}
       <div style="font-size:11px;background:#f0fdf4;border-left:3px solid #16a34a;padding:6px 8px;color:#166534;">
-        <strong>Remediation Recommendation:</strong> Restrict endpoint parameters, apply input validation, and update components to stable patched release.
+        <strong>Remediation Recommendation:</strong> ${escapeHtml(f.ai_remediation || "Restrict endpoint parameters, apply input validation, and update components to stable patched release.")}
       </div>
     </div>
   `).join("");
@@ -54,7 +59,7 @@ export function openPrintablePentestReport(results: ScanResultsResponse): void {
     <html lang="en">
     <head>
       <meta charset="utf-8">
-      <title>Penetration Testing Executive Report - ${escapeHtml(target)}</title>
+      <title>ORVYN Intelligence Report - ${escapeHtml(target)}</title>
       <style>
         @page { size: letter; margin: 15mm; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 20px; font-size: 12px; line-height: 1.5; }
@@ -82,8 +87,8 @@ export function openPrintablePentestReport(results: ScanResultsResponse): void {
       <div class="header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <div class="org-title">[COMPANY NAME] CYBERSECURITY SERVICES // PENETRATION TESTING DIVISION</div>
-            <div class="doc-title">SECURITY ASSESSMENT & VULNERABILITY AUDIT REPORT</div>
+            <div class="org-title">ORVYN // OFFENSIVE RISK AND VULNERABILITY INTELLIGENCE NETWORK</div>
+            <div class="doc-title">OFFENSIVE RISK & VULNERABILITY AUDIT REPORT</div>
             <div style="font-size:11px;color:#0284c7;font-weight:600;">Target Perimeter: ${escapeHtml(target)}</div>
           </div>
           <span class="confidential-badge">STRICTLY CONFIDENTIAL</span>
@@ -140,7 +145,7 @@ export function openPrintablePentestReport(results: ScanResultsResponse): void {
       </p>
 
       <div style="margin-top:24px;border-top:1px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;">
-        <span>STRICTLY CONFIDENTIAL - [COMPANY NAME] SECURITY ASSESSMENT</span>
+        <span>STRICTLY CONFIDENTIAL - ORVYN INTELLIGENCE NETWORK</span>
         <span>Generated ${nowStr}</span>
       </div>
     </body>

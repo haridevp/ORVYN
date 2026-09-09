@@ -33,19 +33,27 @@ TOOL_MAP = {
     "nmap": ScannerName.nmap,
     "sslyze": ScannerName.sslyze,
     "wapiti": ScannerName.wapiti,
+    "sqlmap": ScannerName.sqlmap,
+    "ffuf": ScannerName.ffuf,
 }
 
 
 def _find_standardized_json() -> Path | None:
+    current = Path(__file__).resolve()
+    parents = list(current.parents)
     candidates = [
-        Path(__file__).parent / "standardized_scan_results.json",
-        Path(__file__).parents[1] / "standardized_scan_results.json",
-        Path(__file__).parents[3] / "vuln_scanner_project" / "standardized_scan_results.json",
+        current.parent / "standardized_scan_results.json",
+        parents[1] / "standardized_scan_results.json" if len(parents) > 1 else None,
+        parents[3] / "vuln_scanner_project" / "standardized_scan_results.json" if len(parents) > 3 else None,
         Path("src/backend/scanners/standardized_scan_results.json"),
+        Path("src/backend/standardized_scan_results.json"),
+        Path("/app/standardized_scan_results.json"),
         Path("vuln_scanner_project/standardized_scan_results.json"),
         Path("standardized_scan_results.json"),
     ]
     for c in candidates:
+        if not c:
+            continue
         try:
             if c.is_file() and c.stat().st_size > 0:
                 return c
@@ -215,8 +223,10 @@ def build_simulated_findings(tool: ScannerName, target: str) -> list[ScannerFind
         if mapped_tool == tool:
             raw_target = str(item.get("target", ""))
             port_suffix = ""
-            if ":" in raw_target and not raw_target.startswith(("http://", "https://")):
-                port_suffix = ":" + raw_target.split(":")[-1]
+            if ":" in raw_target:
+                parts = raw_target.split(":")
+                if parts[-1].isdigit():
+                    port_suffix = f":{parts[-1]}"
 
             item_target = f"{clean_target}{port_suffix}" if port_suffix else clean_target
             sev_str = str(item.get("severity", "info")).lower()
@@ -226,6 +236,11 @@ def build_simulated_findings(tool: ScannerName, target: str) -> list[ScannerFind
             evidence = item.get("evidence", "")
             ref = item.get("reference")
 
+            # Dynamically replace benchmark placeholder ('scanme.sh') with user's actual target
+            vuln = vuln.replace("scanme.sh", clean_target)
+            desc = desc.replace("scanme.sh", clean_target)
+            evidence = evidence.replace("scanme.sh", clean_target)
+
             # Enrich generic titles with specific descriptors so multi-item tools (Nikto, Wapiti)
             # are not collapsed by deduplication and properly represent distinct vulnerabilities
             if tool == ScannerName.nikto and vuln == "Nikto Web Finding":
@@ -233,7 +248,7 @@ def build_simulated_findings(tool: ScannerName, target: str) -> list[ScannerFind
                 clean_desc = clean_desc.split("/: ", 1)[-1] if "/: " in clean_desc else clean_desc
                 vuln = clean_desc[:70].strip()
                 evidence = f"{evidence} | {clean_desc[:50]}"
-            elif tool == ScannerName.wapiti and vuln == "TLS/SSL misconfigurations":
+            elif tool == ScannerName.wapiti and "TLS/SSL" in vuln:
                 vuln = f"TLS/SSL: {desc[:55]}"
                 evidence = f"{evidence} | {desc[:50]}"
 
@@ -300,6 +315,32 @@ def build_simulated_findings(tool: ScannerName, target: str) -> list[ScannerFind
                     description="X-Frame-Options or CSP frame-ancestors is not set on HTTP endpoints.",
                     evidence=f"GET http://{clean_target}/ - header missing",
                     reference=enrich_reference("Clickjacking Protection", "https://wapiti-scanner.github.io/"),
+                )
+            )
+        elif tool == ScannerName.sqlmap:
+            findings.append(
+                ScannerFinding(
+                    tool=ScannerName.sqlmap,
+                    target=clean_target,
+                    vulnerability="SQL Injection (SQLi) - Parameter Vulnerability",
+                    severity=Severity.critical,
+                    confidence=90,
+                    description="Blind / Boolean-based SQL injection vulnerability identified in HTTP request parameters.",
+                    evidence=f"GET http://{clean_target}/api?id=1' AND '1'='1 - dynamic response differential detected",
+                    reference=enrich_reference("SQL Injection", "https://sqlmap.org/"),
+                )
+            )
+        elif tool == ScannerName.ffuf:
+            findings.append(
+                ScannerFinding(
+                    tool=ScannerName.ffuf,
+                    target=f"{clean_target}/.env",
+                    vulnerability="Discovered Sensitive Endpoint: /.env (HTTP 200)",
+                    severity=Severity.high,
+                    confidence=85,
+                    description="High-speed endpoint fuzzing discovered exposed environment variables file containing sensitive configurations.",
+                    evidence=f"URL: http://{clean_target}/.env | Status: 200 | Words: 42 | Length: 512",
+                    reference=enrich_reference("Discovered Sensitive Endpoint", "https://github.com/ffuf/ffuf"),
                 )
             )
         elif tool == ScannerName.nuclei:

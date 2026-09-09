@@ -31,6 +31,8 @@ class ScannerName(str, Enum):
     nmap = "nmap"
     sslyze = "sslyze"
     wapiti = "wapiti"
+    sqlmap = "sqlmap"
+    ffuf = "ffuf"
 
 
 class ScannerRunState(str, Enum):
@@ -45,7 +47,7 @@ class ScannerFinding(BaseModel):
     """Unified finding shape every scanner wrapper must normalize into."""
 
     id: str = Field(default_factory=lambda: f"finding-{uuid4().hex[:10]}")
-    tool: ScannerName
+    tool: ScannerName | str
     target: str
     vulnerability: str
     severity: Severity
@@ -69,6 +71,10 @@ class ScanStartRequest(BaseModel):
         description="Which scanners to run for this job",
     )
     profile: Literal["recon", "web", "full", "unlimited"] = "web"
+    template: Optional[str] = Field(
+        default=None,
+        description="Optional vulnerability audit template ID (e.g. web_owasp_deep_audit, full_infrastructure_audit)",
+    )
     in_scope: list[str] = Field(
         default_factory=list,
         description="Domains, subdomains, or wildcard patterns in scope (e.g. *.target.com)",
@@ -102,6 +108,8 @@ class ScanStatusResponse(BaseModel):
     scan_id: str
     target: str
     profile: str
+    template_id: Optional[str] = None
+    template_name: Optional[str] = None
     overall_status: Literal["queued", "running", "completed", "error", "cancelled"]
     progress_pct: int = 0
     eta_seconds: Optional[int] = None
@@ -134,10 +142,21 @@ class CorrelatedFinding(BaseModel):
     reference: Optional[str] = None
     source_finding_ids: list[str]
 
+    # AI RAG Triage enrichment (Module 3 / Ollama Qwen 2.5)
+    ai_threat_explanation: Optional[str] = None
+    ai_remediation: Optional[str] = None
+    ai_validated_severity: Optional[str] = None
+    ai_confidence: Optional[int] = None
+    ai_status: Optional[str] = "pending"
+    ai_references: list[str] = Field(default_factory=list)
+
 
 class ScanResultsResponse(BaseModel):
     scan_id: str
     target: str
+    profile: Optional[str] = None
+    template_id: Optional[str] = None
+    template_name: Optional[str] = None
     overall_status: str
     raw_findings: list[ScannerFinding]
     correlated_findings: list[CorrelatedFinding]
@@ -146,6 +165,17 @@ class ScanResultsResponse(BaseModel):
     in_scope: list[str] = Field(default_factory=list)
     out_of_scope: list[str] = Field(default_factory=list)
     logs: list[str] = Field(default_factory=list)
+
+
+class TriageResult(BaseModel):
+    target: str
+    vulnerability: str
+    validated_severity: str
+    confidence_score: int
+    threat_explanation: str
+    remediation_guidance: str
+    retrieved_references: list[str] = Field(default_factory=list)
+    status: str
 
 
 def now_iso() -> str:

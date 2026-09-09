@@ -21,15 +21,16 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /zap/wrk && chmod 777 /zap/wrk
 
 # Install Nikto
-RUN git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto && \
-    ln -s /opt/nikto/program/nikto.pl /usr/local/bin/nikto && \
+RUN rm -rf /opt/nikto && \
+    git clone --depth=1 https://github.com/sullo/nikto.git /opt/nikto && \
+    ln -sf /opt/nikto/program/nikto.pl /usr/local/bin/nikto && \
     chmod +x /usr/local/bin/nikto
 
 # Install Nuclei
-RUN wget https://github.com/projectdiscovery/nuclei/releases/download/v3.2.0/nuclei_3.2.0_linux_amd64.zip && \
-    unzip nuclei_3.2.0_linux_amd64.zip && \
-    mv nuclei /usr/local/bin/ && \
-    rm nuclei_3.2.0_linux_amd64.zip
+RUN wget -q https://github.com/projectdiscovery/nuclei/releases/download/v3.2.0/nuclei_3.2.0_linux_amd64.zip && \
+    unzip -o nuclei_3.2.0_linux_amd64.zip && \
+    mv -f nuclei /usr/local/bin/ && \
+    rm -f nuclei_3.2.0_linux_amd64.zip
 
 # Ensure zap-baseline.py is accessible in PATH
 ENV PATH="/zap:$PATH"

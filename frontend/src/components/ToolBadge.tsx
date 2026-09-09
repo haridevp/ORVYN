@@ -1,5 +1,5 @@
 import type { ScannerName } from "../types";
-import { Flame, Zap, Shield, Globe, Network, Lock, Bug } from "lucide-react";
+import { Flame, Zap, Shield, Globe, Network, Lock, Bug, Database, Search } from "lucide-react";
 
 const TOOL: Record<ScannerName, { label: string; icon: React.ReactNode; bg: string; text: string; border: string }> = {
   nuclei: { label: "Nuclei", icon: <Flame size={12} />, bg: "bg-orange-500/20", text: "text-orange-400", border: "border-orange-500/30" },
@@ -9,6 +9,8 @@ const TOOL: Record<ScannerName, { label: string; icon: React.ReactNode; bg: stri
   nmap: { label: "Nmap NSE", icon: <Network size={12} />, bg: "bg-cyan-500/20", text: "text-cyan-400", border: "border-cyan-500/30" },
   sslyze: { label: "SSLyze", icon: <Lock size={12} />, bg: "bg-rose-500/20", text: "text-rose-400", border: "border-rose-500/30" },
   wapiti: { label: "Wapiti", icon: <Bug size={12} />, bg: "bg-amber-500/20", text: "text-amber-400", border: "border-amber-500/30" },
+  sqlmap: { label: "SQLMap", icon: <Database size={12} />, bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/30" },
+  ffuf: { label: "FFUF", icon: <Search size={12} />, bg: "bg-violet-500/20", text: "text-violet-400", border: "border-violet-500/30" },
 };
 
 export function toolLabel(tool: ScannerName): string {

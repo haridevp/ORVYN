@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import type { ScannerName, TargetProbeResponse } from "../types";
-import { probeTarget } from "../api";
+import type { EnvironmentInfo, ScannerName, TargetProbeResponse } from "../types";
+import { getEnvironment, probeTarget } from "../api";
 import {
   Play,
   Zap,
@@ -18,6 +18,9 @@ import {
   Network,
   Lock,
   Bug,
+  Database,
+  Cpu,
+  Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -29,6 +32,8 @@ const ALL_SCANNERS: { id: ScannerName; label: string; icon: React.ReactNode }[] 
   { id: "nmap", label: "Nmap NSE (Port/CVE)", icon: <Network size={14} /> },
   { id: "sslyze", label: "SSLyze (TLS/SSL)", icon: <Lock size={14} /> },
   { id: "wapiti", label: "Wapiti (Web Vulns)", icon: <Bug size={14} /> },
+  { id: "sqlmap", label: "SQLMap (SQL Injection)", icon: <Database size={14} /> },
+  { id: "ffuf", label: "FFUF (Fuzzing / Discovery)", icon: <Search size={14} /> },
 ];
 
 function FlameIcon({ size = 14 }: { size?: number }) {
@@ -64,6 +69,7 @@ interface Props {
     profile: string,
     inScope?: string[],
     outOfScope?: string[],
+    template?: string | null,
   ) => void;
   disabled: boolean;
 }
@@ -72,14 +78,16 @@ export function ScanForm({ onStart, disabled }: Props) {
   const [target, setTarget] = useState("");
   const [profile, setProfile] = useState("web");
   const [scanners, setScanners] = useState<ScannerName[]>([
-    "nuclei",
-    "zap",
-    "nikto",
     "whatweb",
-    "nmap",
-    "sslyze",
+    "nuclei",
+    "nikto",
+    "zap",
     "wapiti",
+    "sslyze",
   ]);
+
+  // Environment State
+  const [environment, setEnvironment] = useState<EnvironmentInfo | null>(null);
 
   // Scope & Perimeter Management state (default: strict host scope)
   const [scopeMode, setScopeMode] = useState<"wildcard" | "strict" | "custom">("strict");
@@ -94,6 +102,13 @@ export function ScanForm({ onStart, disabled }: Props) {
   const [probeResult, setProbeResult] = useState<TargetProbeResponse | null>(null);
 
   const activeDomain = useMemo(() => extractDomain(target || "target.com"), [target]);
+
+  // Fetch environment from backend
+  useEffect(() => {
+    getEnvironment()
+      .then(setEnvironment)
+      .catch(() => {});
+  }, []);
 
   // Debounced alive probe
   useEffect(() => {
@@ -160,7 +175,14 @@ export function ScanForm({ onStart, disabled }: Props) {
       effectiveInScope = customInScope.length > 0 ? customInScope : [`*.${activeDomain}`, activeDomain];
     }
 
-    onStart(target.trim(), scanners, profile, effectiveInScope, outOfScope);
+    onStart(
+      target.trim(),
+      scanners,
+      profile,
+      effectiveInScope,
+      outOfScope,
+      "auto"
+    );
   }
 
   function applySuggestion(suggested: string) {
@@ -169,7 +191,64 @@ export function ScanForm({ onStart, disabled }: Props) {
 
   return (
     <div className="enterprise-panel p-5 space-y-4">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Top Bar: Environment Mode & HexStrike MCP Status */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800/80 text-xs">
+        <div className="flex items-center gap-2">
+          <div className="flex h-5 w-5 items-center justify-center rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <Cpu size={12} />
+          </div>
+          <span className="font-semibold text-slate-200">Execution Engine:</span>
+          {environment?.is_kali ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-mono text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Kali Linux Native Host Tools
+            </span>
+          ) : environment?.is_parrot ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-mono text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Parrot Security OS Native Host
+            </span>
+          ) : environment?.docker_available ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/15 border border-blue-500/30 px-2.5 py-0.5 text-[11px] font-mono text-blue-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+              Curated HexStrike MCP Container Mode
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-mono text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              Simulated Security Telemetry Mode
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+          <span>Host: <strong className="text-slate-300">{environment?.os_name || "Linux Host"}</strong></span>
+        </div>
+      </div>
+
+      {/* Autonomous AI Orchestration Banner */}
+      <div className="rounded-xl border border-purple-500/40 bg-gradient-to-r from-purple-950/30 via-slate-900/90 to-blue-950/30 p-3.5 shadow-lg shadow-purple-500/5 ring-1 ring-purple-500/20">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-600/30 border border-purple-400 text-purple-200 shadow-md shadow-purple-500/20">
+              <Sparkles size={18} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-100 text-xs tracking-wide">🤖 ORVYN Autonomous AI Orchestrator</span>
+                <span className="rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold flex items-center gap-1">
+                  <CheckCircle2 size={11} /> Auto-Targeting Active
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                Backend LLM autonomously inspects perimeter recon (WhatWeb tech stack, Nmap service ports, HTTP banners) and dynamically selects the optimal vulnerability attack chain from 30 backend templates (5–9 tools per chain).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4 pt-2 border-t border-slate-800/60">
         {/* Main Controls Row */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           {/* Target Host Input */}
@@ -211,10 +290,11 @@ export function ScanForm({ onStart, disabled }: Props) {
                 onChange={(e) => setProfile(e.target.value)}
                 className="w-full rounded-lg border border-slate-700/80 bg-slate-900/90 px-3 py-2 text-xs text-slate-200 outline-none transition-all focus:border-blue-500 cursor-pointer appearance-none pr-8"
               >
-                <option value="recon">Reconnaissance (~20s)</option>
-                <option value="web">Web Application (~45s)</option>
-                <option value="full">Comprehensive Full (~85s)</option>
-                <option value="unlimited">Exhaustive (No Timeout)</option>
+                <option value="recon">Reconnaissance (~20s quick probe)</option>
+                <option value="web">Web Application (~45-60s standard)</option>
+                <option value="full">Comprehensive Full (~2 mins)</option>
+                <option value="deep">Deep Multi-Tool Audit (~5–10 mins)</option>
+                <option value="unlimited">Exhaustive Enterprise (No Timeout)</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
                 <ChevronDown size={14} />
@@ -241,7 +321,7 @@ export function ScanForm({ onStart, disabled }: Props) {
               ) : (
                 <>
                   <Play size={13} fill="currentColor" />
-                  <span>Start Penetration Assessment</span>
+                  <span>Launch Template Assessment</span>
                 </>
               )}
             </button>
@@ -258,45 +338,33 @@ export function ScanForm({ onStart, disabled }: Props) {
               <button
                 type="button"
                 onClick={() => setScanners(["nuclei", "zap", "nikto", "whatweb", "nmap", "sslyze", "wapiti"])}
-                className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                title="Select all 7 security engines"
+                className="px-1.5 py-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800"
               >
-                All 7
+                All
               </button>
-              <span className="text-slate-700">|</span>
               <button
                 type="button"
-                onClick={() => setScanners(["nuclei", "zap", "nikto", "wapiti"])}
-                className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                title="Select Web DAST engines"
+                onClick={() => setScanners(["nuclei", "whatweb"])}
+                className="px-1.5 py-0.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800"
               >
-                Web DAST
-              </button>
-              <span className="text-slate-700">|</span>
-              <button
-                type="button"
-                onClick={() => setScanners(["nmap", "sslyze", "whatweb"])}
-                className="px-1.5 py-0.5 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                title="Select Network & Cryptography engines"
-              >
-                Infra
+                Fast
               </button>
             </div>
-            {ALL_SCANNERS.map(({ id, label, icon }) => {
-              const active = scanners.includes(id);
+            {ALL_SCANNERS.map((s) => {
+              const active = scanners.includes(s.id);
               return (
                 <button
+                  key={s.id}
                   type="button"
-                  key={id}
-                  onClick={() => toggleScanner(id)}
-                  className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all cursor-pointer border ${
+                  onClick={() => toggleScanner(s.id)}
+                  className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-all cursor-pointer select-none ${
                     active
-                      ? "border-blue-500/40 bg-blue-500/15 text-blue-300"
-                      : "border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+                      ? "border-blue-500/40 bg-blue-500/10 text-blue-300 font-medium"
+                      : "border-slate-800 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300"
                   }`}
                 >
-                  <span className={active ? "text-blue-400" : "text-slate-500"}>{icon}</span>
-                  <span>{label}</span>
+                  {s.icon}
+                  <span>{s.label}</span>
                 </button>
               );
             })}
@@ -305,178 +373,167 @@ export function ScanForm({ onStart, disabled }: Props) {
           <button
             type="button"
             onClick={() => setShowScopePanel(!showScopePanel)}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+            className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded cursor-pointer ${
+              showScopePanel
+                ? "text-blue-300 bg-blue-500/10 border border-blue-500/30"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
           >
-            <Sliders size={12} className="text-slate-400" />
-            <span>Scope Rules ({outOfScope.length} excluded)</span>
-            {showScopePanel ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <Sliders size={12} />
+            <span>Scope Perimeter</span>
+            {showScopePanel ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           </button>
         </div>
 
-        {/* Expandable Scope & Exclusion Drawer */}
+        {/* Scope Management Panel */}
         <AnimatePresence>
           {showScopePanel && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-3.5 text-xs space-y-3"
+              className="rounded-lg border border-slate-800 bg-slate-900/60 p-4 space-y-4 text-xs"
             >
-              {/* Scope Presets */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-slate-400 text-[11px] font-medium">Mode:</span>
-                <div className="flex rounded-md border border-slate-800 bg-slate-950 p-0.5 text-xs font-mono">
-                  <button
-                    type="button"
-                    onClick={() => setScopeMode("strict")}
-                    className={`rounded px-2 py-0.5 transition-all ${
-                      scopeMode === "strict"
-                        ? "bg-blue-600 text-white font-semibold shadow-xs"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    {activeDomain} (Strict Host)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScopeMode("wildcard")}
-                    className={`rounded px-2 py-0.5 transition-all ${
-                      scopeMode === "wildcard"
-                        ? "bg-blue-600 text-white font-semibold shadow-xs"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    *.{activeDomain} (Wildcard)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScopeMode("custom")}
-                    className={`rounded px-2 py-0.5 transition-all ${
-                      scopeMode === "custom"
-                        ? "bg-blue-600 text-white font-semibold shadow-xs"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    Custom
-                  </button>
-                </div>
-              </div>
-
-              {/* In-Scope Rules */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  In-Scope Rules
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5 font-mono">
-                  <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-400 text-[11px]">
-                    {scopeMode === "strict" ? activeDomain : `*.${activeDomain}`}
-                  </span>
-                  {customInScope.map((rule) => (
-                    <span
-                      key={rule}
-                      className="flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-400 text-[11px]"
-                    >
-                      {rule}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveInScope(rule)}
-                        className="text-slate-400 hover:text-rose-400"
-                      >
-                        <X size={11} />
-                      </button>
-                    </span>
-                  ))}
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      value={customInInput}
-                      onChange={(e) => setCustomInInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddInScope();
-                        }
-                      }}
-                      placeholder="Add pattern..."
-                      className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white outline-none focus:border-blue-500"
-                    />
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                <span className="font-semibold text-slate-200">Scan Scope Perimeter & Rules</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400">Mode:</span>
+                  <div className="flex rounded border border-slate-700 bg-slate-950 p-0.5">
                     <button
                       type="button"
-                      onClick={handleAddInScope}
-                      className="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-700"
+                      onClick={() => setScopeMode("strict")}
+                      className={`px-2 py-0.5 rounded text-[11px] cursor-pointer ${
+                        scopeMode === "strict" ? "bg-blue-600 text-white font-medium" : "text-slate-400 hover:text-slate-200"
+                      }`}
                     >
-                      +
+                      Strict Host
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScopeMode("wildcard")}
+                      className={`px-2 py-0.5 rounded text-[11px] cursor-pointer ${
+                        scopeMode === "wildcard" ? "bg-blue-600 text-white font-medium" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      Wildcard (*.{activeDomain})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScopeMode("custom")}
+                      className={`px-2 py-0.5 rounded text-[11px] cursor-pointer ${
+                        scopeMode === "custom" ? "bg-blue-600 text-white font-medium" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      Custom Rules
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Out-of-Scope Deny List */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-800/60">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Out-of-Scope Deny-List
-                </span>
-                <div className="flex flex-wrap items-center gap-1.5 font-mono">
-                  {outOfScope.map((rule) => (
-                    <span
-                      key={rule}
-                      className="flex items-center gap-1 rounded border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-rose-300 text-[11px]"
-                    >
-                      {rule}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOutOfScope(rule)}
-                        className="text-slate-400 hover:text-rose-200"
-                      >
-                        <X size={11} />
-                      </button>
+              {/* Active Rules Breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* In Scope Allow List */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
+                      ✔ In-Scope Allowed Targets
                     </span>
-                  ))}
-                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {scopeMode === "wildcard"
+                        ? `*.${activeDomain}, ${activeDomain}`
+                        : scopeMode === "strict"
+                        ? activeDomain
+                        : `${customInScope.length} custom pattern(s)`}
+                    </span>
+                  </div>
+
+                  {scopeMode === "custom" ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customInInput}
+                          onChange={(e) => setCustomInInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddInScope())}
+                          placeholder="e.g. *.sub.domain.com"
+                          className="flex-1 rounded border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-emerald-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddInScope}
+                          className="rounded bg-emerald-600/20 border border-emerald-500/30 px-2.5 py-1 text-xs text-emerald-300 hover:bg-emerald-600/30 cursor-pointer"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {customInScope.map((rule) => (
+                          <span
+                            key={rule}
+                            className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-mono text-emerald-300"
+                          >
+                            <span>{rule}</span>
+                            <X size={11} className="cursor-pointer hover:text-emerald-100" onClick={() => handleRemoveInScope(rule)} />
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded border border-slate-800 bg-slate-950/40 p-2 text-xs font-mono text-slate-300">
+                      {scopeMode === "wildcard" ? (
+                        <span>Allowed: <code className="text-emerald-400">*.{activeDomain}</code> and <code className="text-emerald-400">{activeDomain}</code></span>
+                      ) : (
+                        <span>Allowed: Exact host <code className="text-emerald-400">{activeDomain}</code></span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Out of Scope Deny List */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider">
+                      ✖ Out-of-Scope Exclusions (Deny List)
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">{outOfScope.length} rule(s)</span>
+                  </div>
+
+                  <div className="flex gap-2">
                     <input
                       type="text"
                       value={outOfScopeInput}
                       onChange={(e) => setOutOfScopeInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddOutOfScope();
-                        }
-                      }}
-                      placeholder="Exclude pattern..."
-                      className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] text-white outline-none focus:border-rose-500"
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddOutOfScope())}
+                      placeholder="e.g. logout, auth.*, billing"
+                      className="flex-1 rounded border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-slate-100 font-mono placeholder:text-slate-600 outline-none focus:border-rose-500"
                     />
                     <button
                       type="button"
                       onClick={() => handleAddOutOfScope()}
-                      className="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-700"
+                      className="rounded bg-rose-600/20 border border-rose-500/30 px-2.5 py-1 text-xs text-rose-300 hover:bg-rose-600/30 cursor-pointer"
                     >
-                      +
+                      Exclude
                     </button>
                   </div>
-                </div>
 
-                {/* Quick Add suggestions */}
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
-                  <span>Quick Exclude:</span>
-                  {["logout", "auth.*", "admin/delete*", "payment.*"].map((sugg) => (
-                    <button
-                      key={sugg}
-                      type="button"
-                      onClick={() => handleAddOutOfScope(sugg)}
-                      disabled={outOfScope.includes(sugg)}
-                      className="rounded border border-slate-800 bg-slate-950 px-1.5 py-0.5 text-slate-400 hover:text-slate-200 disabled:opacity-40"
-                    >
-                      +{sugg}
-                    </button>
-                  ))}
+                  <div className="flex flex-wrap gap-1">
+                    {outOfScope.map((rule) => (
+                      <span
+                        key={rule}
+                        className="flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 text-[11px] font-mono text-rose-300"
+                      >
+                        <span>{rule}</span>
+                        <X size={11} className="cursor-pointer hover:text-rose-100" onClick={() => handleRemoveOutOfScope(rule)} />
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Live Target Health Probe Banner */}
+        {/* Target Reachability Live Banner */}
         <AnimatePresence>
           {probeResult && (
             <motion.div

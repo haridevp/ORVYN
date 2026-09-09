@@ -1,5 +1,5 @@
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
-export type ScannerName = "nuclei" | "zap" | "nikto" | "whatweb" | "nmap" | "sslyze" | "wapiti";
+export type ScannerName = "nuclei" | "zap" | "nikto" | "whatweb" | "nmap" | "sslyze" | "wapiti" | "sqlmap" | "ffuf";
 export type ScannerRunState = "queued" | "running" | "completed" | "error" | "cancelled";
 export type OverallStatus = "queued" | "running" | "completed" | "error" | "cancelled";
 
@@ -24,10 +24,49 @@ export interface ScannerProgress {
   simulated: boolean;
 }
 
+export interface ToolChainStep {
+  tool: ScannerName;
+  order: number;
+  purpose: string;
+  flags?: string[];
+  nuclei_tags?: string[];
+}
+
+export interface ScanTemplate {
+  id: string;
+  name: string;
+  category: string;
+  badge: string;
+  description: string;
+  profile: string;
+  scanners: ScannerName[];
+  tool_chain: ToolChainStep[];
+  nuclei_tags?: string[];
+  target_type?: string;
+  estimated_duration_sec: number;
+  vulnerability_focus: string[];
+  is_default?: boolean;
+}
+
+export interface EnvironmentInfo {
+  os_id: string;
+  os_name: string;
+  is_kali: boolean;
+  is_parrot: boolean;
+  is_docker: boolean;
+  docker_available: boolean;
+  execution_mode: "native_kali" | "native_parrot" | "native_linux" | "dockerized_mcp" | "simulated";
+  available_tools: string[];
+  missing_tools: string[];
+  description: string;
+}
+
 export interface ScanStatusResponse {
   scan_id: string;
   target: string;
   profile: string;
+  template_id?: string | null;
+  template_name?: string | null;
   overall_status: OverallStatus;
   progress_pct: number;
   eta_seconds?: number | null;
@@ -57,6 +96,12 @@ export interface CorrelatedFinding {
   evidence: string[];
   reference?: string | null;
   source_finding_ids: string[];
+  ai_threat_explanation?: string | null;
+  ai_remediation?: string | null;
+  ai_validated_severity?: string | null;
+  ai_confidence?: number | null;
+  ai_status?: "pending" | "completed" | "unavailable" | "error" | null;
+  ai_references?: string[];
 }
 
 export interface SeverityDistribution {
@@ -70,6 +115,9 @@ export interface SeverityDistribution {
 export interface ScanResultsResponse {
   scan_id: string;
   target: string;
+  profile?: string;
+  template_id?: string | null;
+  template_name?: string | null;
   overall_status: string;
   raw_findings: ScannerFinding[];
   correlated_findings: CorrelatedFinding[];

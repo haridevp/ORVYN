@@ -8,7 +8,7 @@ import os
 
 # Default model used for local dev/testing — override via env var when
 # integrating with a different model (e.g. mistral).
-LLM_MODEL = os.environ.get("RAG_LLM_MODEL", "qwen2.5:3b")
+LLM_MODEL = os.environ.get("RAG_LLM_MODEL", "qwen2.5:7b")
 
 # Retrieval defaults
 TOP_K = int(os.environ.get("RAG_TOP_K", 3))

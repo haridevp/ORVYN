@@ -54,7 +54,7 @@ def test_unknown_scan_id_returns_404():
 
 
 def test_single_scanner_job_completes_with_per_scanner_status():
-    status = _start_and_wait("scanme.nmap.org", ["nuclei"])
+    status = _start_and_wait("single-scanner-demo.local", ["nuclei"])
     assert len(status["scanners"]) == 1
     scanner = status["scanners"][0]
     assert scanner["tool"] == "nuclei"

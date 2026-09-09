@@ -51,6 +51,9 @@ htmlcov/
 
 # DB
 *.sqlite3
+*.db
+*.db-wal
+*.db-shm
 history.db
 chroma_security_db/
 

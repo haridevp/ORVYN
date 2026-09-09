@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# 🛡️ AI Automated Penetration Testing Platform - Startup Launcher
+# 🛡️ ORVYN - Offensive Risk and Vulnerability Intelligence Network
+# Startup & Autonomous Security Assessment Launcher
 # ==============================================================================
 # Usage:
 #   ./start.sh          # Auto-detects and launches the platform (Docker or Local)
@@ -32,13 +33,13 @@ NC='\033[0m' # No Color
 print_banner() {
     echo -e "${CYAN}${BOLD}"
     cat << 'EOF'
-    ██████╗ ███████╗███╗   ██╗████████╗███████╗███████╗████████╗
-    ██╔══██╗██╔════╝████╗  ██║╚══██╔══╝██╔════╝██╔════╝╚══██╔══╝
-    ██████╔╝█████╗  ██╔██╗ ██║   ██║   █████╗  ███████╗   ██║   
-    ██╔═══╝ ██╔══╝  ██║╚██╗██║   ██║   ██╔══╝  ╚════██║   ██║   
-    ██║     ███████╗██║ ╚████║   ██║   ███████╗███████║   ██║   
-    ╚═╝     ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝   ╚═╝   
-             Automated Penetration Testing & DAST Platform
+     ██████╗ ██████╗ ██╗   ██╗██╗   ██╗███╗   ██╗
+    ██╔═══██╗██╔══██╗██║   ██║╚██╗ ██╔╝████╗  ██║
+    ██║   ██║██████╔╝██║   ██║ ╚████╔╝ ██╔██╗ ██║
+    ██║   ██║██╔══██╗╚██╗ ██╔╝  ╚██╔╝  ██║╚██╗██║
+    ╚██████╔╝██║  ██║ ╚████╔╝    ██║   ██║ ╚████║
+     ╚═════╝ ╚═╝  ╚═╝  ╚═══╝     ╚═╝   ╚═╝  ╚═══╝
+   Offensive Risk and Vulnerability Intelligence Network
 EOF
     echo -e "${NC}"
 }
@@ -47,6 +48,22 @@ print_success() { echo -e "  ${GREEN}✔${NC} $1"; }
 print_info()    { echo -e "  ${CYAN}ℹ${NC} $1"; }
 print_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
 print_error()   { echo -e "  ${RED}✖${NC} $1"; }
+run_cli() {
+    local PYTHON_BIN="python3"
+    local VENV_CANDIDATES=(
+        "$PROJECT_ROOT/src/backend/.venv/bin/python"
+        "$PROJECT_ROOT/.venv/bin/python"
+        "$PROJECT_ROOT/.venv-backend/bin/python"
+    )
+    for cand in "${VENV_CANDIDATES[@]}"; do
+        if [[ -f "$cand" && -x "$cand" ]]; then
+            PYTHON_BIN="$cand"
+            break
+        fi
+    done
+
+    PYTHONPATH="$BACKEND_DIR:${PYTHONPATH:-}" "$PYTHON_BIN" "$BACKEND_DIR/cli.py" "$@"
+}
 
 check_docker() {
     if ! command -v docker >/dev/null 2>&1; then
@@ -72,6 +89,142 @@ check_docker() {
     return 0
 }
 
+check_system_environment() {
+    echo -e "  ${BOLD}Platform System Requirements & Curated Tools Diagnostic${NC}"
+    echo ""
+
+    # 1. Host Operating System
+    local OS_NAME="Linux Host"
+    local OS_ID="unknown"
+    local IS_KALI=false
+    local IS_PARROT=false
+    if [[ -f /etc/os-release ]]; then
+        source /etc/os-release
+        OS_NAME="${PRETTY_NAME:-$NAME}"
+        OS_ID="${ID:-unknown}"
+        if [[ "$OS_ID" == "kali" || "$ID_LIKE" =~ "kali" ]]; then
+            IS_KALI=true
+        elif [[ "$OS_ID" == "parrot" || "$ID_LIKE" =~ "parrot" ]]; then
+            IS_PARROT=true
+        fi
+    fi
+
+    echo -e "  ${BOLD}1. Host Operating System:${NC}"
+    if [[ "$IS_KALI" == "true" ]]; then
+        print_success "Kali Linux detected: ${CYAN}${OS_NAME}${NC} (Eligible for native tool execution)"
+    elif [[ "$IS_PARROT" == "true" ]]; then
+        print_success "Parrot Security OS detected: ${CYAN}${OS_NAME}${NC} (Eligible for native tool execution)"
+    else
+        print_info "Host Distribution: ${CYAN}${OS_NAME}${NC} (ID: ${OS_ID})"
+        print_info "Non-Kali/Parrot host: Platform will route security tools through curated Docker containers."
+    fi
+    echo ""
+
+    # 2. Host Installed Security Tools (Curated MCP List)
+    echo -e "  ${BOLD}2. Native Host Security Binaries:${NC}"
+    local SECURITY_TOOLS=("nmap" "nuclei" "nikto" "whatweb" "sqlmap" "ffuf" "sslyze" "wapiti" "zap")
+    local HOST_FOUND=0
+    local HOST_MISSING=0
+    for tool in "${SECURITY_TOOLS[@]}"; do
+        if command -v "$tool" >/dev/null 2>&1; then
+            local TOOL_PATH
+            TOOL_PATH=$(command -v "$tool" || true)
+            echo -e "    ${GREEN}✔${NC} ${BOLD}${tool}${NC} (found at ${DIM}${TOOL_PATH}${NC})"
+            HOST_FOUND=$((HOST_FOUND + 1))
+        else
+            echo -e "    ${RED}✖${NC} ${tool} (not found on host PATH)"
+            HOST_MISSING=$((HOST_MISSING + 1))
+        fi
+    done
+    echo ""
+    if [[ $HOST_FOUND -ge 7 ]]; then
+        print_success "${HOST_FOUND}/${#SECURITY_TOOLS[@]} curated security tools available directly on host."
+    else
+        print_warn "${HOST_FOUND}/${#SECURITY_TOOLS[@]} tools found on host PATH (${HOST_MISSING} missing)."
+    fi
+    echo ""
+
+    # 3. Docker Daemon & Curated Container Environment
+    echo -e "  ${BOLD}3. Docker & Curated HexStrike MCP Container:${NC}"
+    local DOCKER_CMD
+    DOCKER_CMD=$(check_docker || true)
+    if [[ "$DOCKER_CMD" == "none" ]]; then
+        print_error "Docker is NOT installed. Containerized tool execution will be disabled."
+    else
+        print_success "Docker Engine: Available (${DOCKER_CMD})"
+        local IMAGE_NAME="pentest-backend:latest"
+        if $DOCKER_CMD image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+            print_success "Curated MCP Container Image: ${CYAN}${IMAGE_NAME}${NC} present"
+            
+            # Verify tools inside container
+            local CONTAINER_CHECK
+            CONTAINER_CHECK=$($DOCKER_CMD run --rm "$IMAGE_NAME" bash -c '
+                found=0; missing=0
+                for t in nmap nuclei nikto whatweb sqlmap ffuf sslyze zap-baseline.py wapiti; do
+                    if which $t >/dev/null 2>&1; then
+                        found=$((found + 1))
+                    else
+                        missing=$((missing + 1))
+                    fi
+                done
+                echo "$found $missing"
+            ' 2>/dev/null || echo "0 9")
+            
+            local C_FOUND
+            C_FOUND=$(echo "$CONTAINER_CHECK" | awk '{print $1}')
+            local C_MISSING
+            C_MISSING=$(echo "$CONTAINER_CHECK" | awk '{print $2}')
+            
+            if [[ "$C_MISSING" -eq 0 && "$C_FOUND" -ge 8 ]]; then
+                print_success "Curated MCP Container: All tools baked in (${C_FOUND} tools active)."
+            else
+                print_warn "Curated MCP Container: ${C_FOUND} tools active, ${C_MISSING} missing."
+                print_info "Run '${CYAN}./start.sh --build${NC}' to bake all 9 latest tools into the container image."
+            fi
+        else
+            print_warn "Image '${IMAGE_NAME}' not found locally. Build with: ${CYAN}./start.sh --build${NC}"
+        fi
+    fi
+    echo ""
+
+    # 4. Local LLM / Ollama Status (for Autonomous Template Selection)
+    echo -e "  ${BOLD}4. Local LLM Autonomous Orchestrator (Ollama):${NC}"
+    if command -v ollama >/dev/null 2>&1; then
+        print_success "Ollama CLI found: $(command -v ollama)"
+        if curl -s -f http://localhost:11434/api/tags >/dev/null 2>&1; then
+            print_success "Ollama Service: Online (http://localhost:11434)"
+            local MODELS
+            MODELS=$(curl -s http://localhost:11434/api/tags | grep -o '"name":"[^"]*"' | cut -d'"' -f4 | tr '\n' ', ' | sed 's/,$//')
+            if [[ -n "$MODELS" ]]; then
+                print_info "Available local models: ${CYAN}${MODELS}${NC}"
+            fi
+        else
+            print_warn "Ollama service is currently offline or unreachable."
+            print_info "Start with: '${CYAN}ollama serve${NC}' and pull model: '${CYAN}ollama pull qwen2.5:7b${NC}'"
+            print_info "(Fallback heuristic template selection will be used automatically if Ollama is offline)"
+        fi
+    else
+        print_warn "Ollama binary not found on PATH."
+        print_info "Install Ollama from https://ollama.com to enable local LLM template orchestration."
+    fi
+    echo ""
+
+    # 5. Distro-Specific Guidance
+    echo -e "  ${BOLD}5. Distro-Specific Toolchain Guidance:${NC}"
+    if [[ "$IS_KALI" == "true" || "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" ]]; then
+        echo -e "    ${CYAN}Debian/Ubuntu/Kali command to install native tools:${NC}"
+        echo -e "    ${DIM}sudo apt update && sudo apt install -y nmap nuclei nikto whatweb sqlmap ffuf sslyze wapiti zaproxy${NC}"
+    elif [[ "$OS_ID" == "fedora" || "$OS_ID" == "rhel" || "$OS_ID" == "centos" ]]; then
+        echo -e "    ${CYAN}Fedora command to install available native tools:${NC}"
+        echo -e "    ${DIM}sudo dnf install -y nmap nmap-ncat nikto sqlmap${NC}"
+        echo -e "    ${DIM}Or use curated container mode (recommended): ./start.sh --build${NC}"
+    elif [[ "$OS_ID" == "arch" || "$ID_LIKE" =~ "arch" ]]; then
+        echo -e "    ${CYAN}Arch Linux command to install native tools:${NC}"
+        echo -e "    ${DIM}sudo pacman -S nmap nuclei nikto sqlmap ffuf${NC}"
+    fi
+    echo ""
+}
+
 # --- Command: HELP & ADVANCED CLI MANUAL ---
 if [[ "$1" == "--help" || "$1" == "-h" || "$1" == "help" ]]; then
     print_banner
@@ -79,7 +232,7 @@ if [[ "$1" == "--help" || "$1" == "-h" || "$1" == "help" ]]; then
 ADVANCED CLI & PLATFORM MANUAL
 ==============================
 
-The AI Automated Penetration Testing platform provides both a full containerized
+ORVYN (Offensive Risk and Vulnerability Intelligence Network) provides both a full containerized
 web dashboard (Vite + FastAPI + Celery + Redis + PostgreSQL) and a powerful,
 high-performance CLI for terminal-driven vulnerability assessments and CI/CD pipelines.
 
@@ -87,13 +240,16 @@ SYNOPSIS:
     ./start.sh [PLATFORM_COMMAND]
     ./start.sh scan <target> [SCAN_OPTIONS]
     ./start.sh probe <target>
-    ./start.sh cli
-    ./cli.py <command> [OPTIONS]
+    ./start.sh templates [--category <category>]
+    ./start.sh check
+    ./start.sh cli [OPTIONS]
 
 --------------------------------------------------------------------------------
 1. PLATFORM & CLUSTER MANAGEMENT
 --------------------------------------------------------------------------------
     ./start.sh              Auto-detects and launches platform cluster via Docker Compose
+    ./start.sh check        Verifies host OS, native security tools, Docker MCP container, and LLM
+    ./start.sh templates    Lists all 30 multi-tool vulnerability assessment templates
     ./start.sh --build      Rebuilds all container images from source without cache
     ./start.sh --local      Launches platform natively using host Python venv & Vite
     ./start.sh --stop       Gracefully stops all platform containers & background processes
@@ -104,7 +260,6 @@ SYNOPSIS:
 2. TERMINAL VULNERABILITY ASSESSMENT (CLI)
 --------------------------------------------------------------------------------
     ./start.sh scan <target> [OPTIONS]
-    ./cli.py scan <target> [OPTIONS]
 
     TARGET SPECIFICATION:
         target                  Hostname, IP address, or full URL (e.g. scanme.nmap.org,
@@ -158,7 +313,6 @@ SYNOPSIS:
 3. TARGET DIAGNOSTICS & PROBING
 --------------------------------------------------------------------------------
     ./start.sh probe <target>
-    ./cli.py probe <target>
 
     Performs rapid non-intrusive pre-flight diagnostics:
       - DNS resolution & IPv4/IPv6 resolution
@@ -184,19 +338,22 @@ SYNOPSIS:
     # Recipe 2: Full web audit with live verbose logs and Markdown report
     ./start.sh scan scanme.nmap.org --profile web -v -o report.md --detailed
 
-    # Recipe 3: Exhaustive deep scan with NO timeouts
-    ./start.sh scan target.com --profile unlimited -o full_audit.md
+    # Recipe 3: Autonomous AI template selection scan
+    ./start.sh scan scanme.nmap.org --template auto -o ai_audit.md
 
-    # Recipe 4: Wildcard perimeter with strict exclusion of sensitive endpoints
+    # Recipe 4: Browse all 30 curated multi-tool templates (filtered by category)
+    ./start.sh templates --category "API & Cloud"
+
+    # Recipe 5: Wildcard perimeter with strict exclusion of sensitive endpoints
     ./start.sh scan example.com \
         --in-scope "*.example.com" \
         --out-of-scope "logout,auth/reset,admin/delete,payment.*" \
         -o perimeter_findings.json
 
-    # Recipe 5: CI/CD Pipeline security gate (JSON exit output)
-    ./cli.py scan staging.internal --profile recon --no-probe --json -o ci_results.json
+    # Recipe 6: CI/CD Pipeline security gate (JSON exit output)
+    ./start.sh scan staging.internal --profile recon --no-probe --json -o ci_results.json
 
-    # Recipe 6: Target a remote platform backend over the network
+    # Recipe 7: Target a remote platform backend over the network
     ./start.sh scan target.com --api http://soc-cluster.corp:8000 -v -o remote_audit.md
 
 EOF
@@ -233,6 +390,11 @@ fi
 
 # --- Command: STATUS ---
 if [[ "$1" == "--status" || "$1" == "status" ]]; then
+    if [[ -n "$2" && "$2" != "--"* ]]; then
+        shift
+        run_cli status "$@"
+        exit $?
+    fi
     print_banner
     echo -e "  ${BOLD}Platform Cluster Health & Status Check${NC}"
     echo ""
@@ -261,22 +423,50 @@ if [[ "$1" == "--status" || "$1" == "status" ]]; then
     exit 0
 fi
 
+# --- Command: CHECK & DOCTOR (System & Toolchain Diagnostic) ---
+if [[ "$1" == "--check" || "$1" == "check" || "$1" == "--env" || "$1" == "env" || "$1" == "doctor" ]]; then
+    print_banner
+    check_system_environment
+    exit 0
+fi
+
 # --- Command: SCAN (Terminal Vulnerability Assessment) ---
 if [[ "$1" == "scan" || "$1" == "--scan" ]]; then
     shift
-    exec "$PROJECT_ROOT/cli.py" scan "$@"
+    run_cli scan "$@"
+    exit $?
 fi
 
 # --- Command: PROBE (Terminal Host Diagnostics) ---
 if [[ "$1" == "probe" || "$1" == "--probe" ]]; then
     shift
-    exec "$PROJECT_ROOT/cli.py" probe "$@"
+    run_cli probe "$@"
+    exit $?
 fi
 
-# --- Command: CLI / INTERACTIVE CONSOLE ---
+# --- Command: TEMPLATES (Autonomous & Multi-tool Templates) ---
+if [[ "$1" == "templates" || "$1" == "--templates" || "$1" == "template" ]]; then
+    shift
+    run_cli templates "$@"
+    exit $?
+fi
+
+# --- Command: RESULTS (Fetch completed scan findings) ---
+if [[ "$1" == "results" || "$1" == "--results" ]]; then
+    shift
+    run_cli results "$@"
+    exit $?
+fi
+
+# --- Command: CLI / INTERACTIVE CONSOLE OR SUBCOMMAND DISPATCH ---
 if [[ "$1" == "cli" || "$1" == "--cli" || "$1" == "-i" || "$1" == "--interactive" ]]; then
+    shift
+    if [[ $# -gt 0 ]]; then
+        run_cli "$@"
+        exit $?
+    fi
     print_banner
-    echo -e "  ${BOLD}🛡️  Interactive Terminal Penetration Testing Console${NC}"
+    echo -e "  ${BOLD}🛡️  ORVYN - Interactive Security Assessment Console${NC}"
     echo ""
     read -r -p "  Enter target domain or URL (e.g. scanme.nmap.org): " INTER_TARGET
     if [[ -z "$INTER_TARGET" ]]; then
@@ -284,27 +474,52 @@ if [[ "$1" == "cli" || "$1" == "--cli" || "$1" == "-i" || "$1" == "--interactive
         exit 1
     fi
     echo ""
-    echo -e "  Select Scan Profile:"
-    echo -e "    ${BOLD}1${NC}) Recon (~20s fast check)"
-    echo -e "    ${BOLD}2${NC}) Web (~45s DAST & injection suite)"
-    echo -e "    ${BOLD}3${NC}) Full (~85s comprehensive audit)"
-    echo -e "    ${BOLD}4${NC}) Unlimited (Exhaustive deep scan, no timeout)"
-    read -r -p "  Choice [1-4] (default: 2): " PROF_SEL
+    echo -e "  Select Scan Profile / Mode:"
+    echo -e "    ${BOLD}1${NC}) Auto Template (AI Autonomous Recon & Dynamic Toolchain)"
+    echo -e "    ${BOLD}2${NC}) Web Standard (~45s DAST & injection suite)"
+    echo -e "    ${BOLD}3${NC}) Recon (~20s fast check)"
+    echo -e "    ${BOLD}4${NC}) Full (~85s comprehensive audit)"
+    echo -e "    ${BOLD}5${NC}) Unlimited (Exhaustive deep scan, no timeout)"
+    read -r -p "  Choice [1-5] (default: 1): " PROF_SEL
     case "$PROF_SEL" in
-        1) PROF_NAME="recon" ;;
-        3) PROF_NAME="full" ;;
-        4) PROF_NAME="unlimited" ;;
-        *) PROF_NAME="web" ;;
+        2) PROF_ARGS=(--profile "web") ;;
+        3) PROF_ARGS=(--profile "recon") ;;
+        4) PROF_ARGS=(--profile "full") ;;
+        5) PROF_ARGS=(--profile "unlimited") ;;
+        *) PROF_ARGS=(--template "auto") ;;
     esac
     echo ""
-    print_info "Starting terminal scan for ${BOLD}$INTER_TARGET${NC} with profile: ${BOLD}$PROF_NAME${NC}..."
+    print_info "Starting terminal scan for ${BOLD}$INTER_TARGET${NC}..."
     echo ""
-    exec "$PROJECT_ROOT/cli.py" scan "$INTER_TARGET" --profile "$PROF_NAME" --detailed -o "$PROJECT_ROOT/terminal_scan_report.md"
+    run_cli scan "$INTER_TARGET" "${PROF_ARGS[@]}" --detailed -o "$PROJECT_ROOT/terminal_scan_report.md"
+    exit $?
 fi
 
 # --- Main Startup Flow ---
 echo ""
 print_info "Initializing platform cluster & security engines..."
+echo ""
+
+echo -e "  ${BOLD}Environment Pre-flight Status:${NC}"
+if [[ -f /etc/os-release ]]; then
+    (
+        source /etc/os-release
+        echo -e "    • Host OS: ${CYAN}${PRETTY_NAME:-$NAME}${NC}"
+        if [[ "$ID" == "kali" || "$ID_LIKE" =~ "kali" ]]; then
+            echo -e "    • Tool Engine: ${GREEN}Kali Linux Native Host Tools${NC}"
+        elif [[ "$ID" == "parrot" || "$ID_LIKE" =~ "parrot" ]]; then
+            echo -e "    • Tool Engine: ${GREEN}Parrot Security OS Native Host Tools${NC}"
+        else
+            echo -e "    • Tool Engine: ${CYAN}Curated HexStrike MCP Containers (Docker)${NC}"
+        fi
+    )
+fi
+if command -v ollama >/dev/null 2>&1 && curl -s -f http://localhost:11434/api/tags >/dev/null 2>&1; then
+    echo -e "    • AI Orchestrator: ${GREEN}Ollama Online (Autonomous Template Selector Active)${NC}"
+else
+    echo -e "    • AI Orchestrator: ${YELLOW}Ollama Offline (Autonomous Heuristic Fallback Active)${NC}"
+fi
+echo -e "    • Template Catalog: ${GREEN}30 Multi-Tool Templates Available${NC}"
 echo ""
 
 DOCKER_CMD=$(check_docker || true)
@@ -339,6 +554,27 @@ if [[ "$MODE" == "docker" ]]; then
         fi
     done
 
+    # Verify whether curated container image needs automated build
+    if [[ -z "$REBUILD_FLAG" ]]; then
+        IMAGE_NAME="pentest-backend:latest"
+        if ! $DOCKER_CMD image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+            print_info "Curated HexStrike MCP container image not found. Building now (includes all 9 security tools)..."
+            REBUILD_FLAG="--build"
+        else
+            MISSING_TOOLS=$($DOCKER_CMD run --rm "$IMAGE_NAME" bash -c '
+                missing=0
+                for t in nmap nuclei nikto whatweb sqlmap ffuf sslyze zap-baseline.py wapiti; do
+                    which $t >/dev/null 2>&1 || missing=$((missing + 1))
+                done
+                echo "$missing"
+            ' 2>/dev/null || echo "1")
+            if [[ "$MISSING_TOOLS" -gt 0 ]]; then
+                print_warn "Curated container image is missing updated tools (${MISSING_TOOLS} missing). Auto-rebuilding with all 9 tools..."
+                REBUILD_FLAG="--build"
+            fi
+        fi
+    fi
+
     # Release any leftover host background processes on port 5173/8000 so docker can bind cleanly
     if [[ -f "$PROJECT_ROOT/.frontend.pid" ]]; then
         kill $(cat "$PROJECT_ROOT/.frontend.pid") >/dev/null 2>&1 || true
@@ -347,7 +583,7 @@ if [[ "$MODE" == "docker" ]]; then
     fuser -k 5173/tcp >/dev/null 2>&1 || true
 
     if [[ -n "$REBUILD_FLAG" ]]; then
-        print_info "Rebuilding container images (--build specified)..."
+        print_info "Building curated container images (incorporating all 9 security tools & wordlists)..."
         $DOCKER_CMD compose up --build -d
     else
         $DOCKER_CMD compose up -d
@@ -434,7 +670,8 @@ print_banner
 
 # Final Output Card
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}   ${GREEN}${BOLD}🚀 AUTOMATED PENETRATION TESTING PLATFORM READY${NC}                     ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${GREEN}${BOLD}🚀 ORVYN INTELLIGENCE PLATFORM READY${NC}                                ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${DIM}Offensive Risk and Vulnerability Intelligence Network${NC}               ${CYAN}║${NC}"
 echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${CYAN}║${NC}  🌐 ${BOLD}Web Dashboard:${NC}   ${CYAN}http://localhost:5173${NC}                            ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  🔑 ${BOLD}Default Login:${NC}   Username: ${YELLOW}admin${NC} | Password: ${YELLOW}admin${NC}             ${CYAN}║${NC}"
@@ -455,22 +692,24 @@ if [ -t 0 ]; then
         read -r -p "  Enter target domain or URL (e.g. scanme.nmap.org): " TERM_TARGET
         if [[ -n "$TERM_TARGET" ]]; then
             echo ""
-            echo -e "  Select Intensity Profile:"
-            echo -e "    1) Recon (~20s fast check)"
-            echo -e "    2) Web (~45s standard DAST)"
-            echo -e "    3) Full (~85s comprehensive)"
-            echo -e "    4) Unlimited (Exhaustive, no timeout)"
-            read -r -p "  Profile [1-4] (default: 2): " PROF_SEL
+            echo -e "  Select Intensity Profile / Mode:"
+            echo -e "    1) Auto Template (AI Autonomous Recon & Dynamic Toolchain)"
+            echo -e "    2) Web Standard (~45s standard DAST)"
+            echo -e "    3) Recon (~20s fast check)"
+            echo -e "    4) Full (~85s comprehensive)"
+            echo -e "    5) Unlimited (Exhaustive, no timeout)"
+            read -r -p "  Profile [1-5] (default: 1): " PROF_SEL
             case "$PROF_SEL" in
-                1) P_NAME="recon" ;;
-                3) P_NAME="full" ;;
-                4) P_NAME="unlimited" ;;
-                *) P_NAME="web" ;;
+                2) P_ARGS=(--profile "web") ;;
+                3) P_ARGS=(--profile "recon") ;;
+                4) P_ARGS=(--profile "full") ;;
+                5) P_ARGS=(--profile "unlimited") ;;
+                *) P_ARGS=(--template "auto") ;;
             esac
             echo ""
             print_info "Executing terminal penetration assessment for ${BOLD}$TERM_TARGET${NC}..."
             echo ""
-            "$PROJECT_ROOT/cli.py" scan "$TERM_TARGET" --profile "$P_NAME" --detailed --force -o "$PROJECT_ROOT/scan_report.md"
+            run_cli scan "$TERM_TARGET" "${P_ARGS[@]}" --detailed --force -o "$PROJECT_ROOT/scan_report.md"
             echo ""
             print_success "Assessment complete! Audit report saved to ${BOLD}scan_report.md${NC}"
         fi

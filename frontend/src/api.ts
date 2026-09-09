@@ -1,4 +1,10 @@
-import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./types";
+import type {
+  EnvironmentInfo,
+  ScannerName,
+  ScanResultsResponse,
+  ScanStatusResponse,
+  ScanTemplate,
+} from "./types";
 
 // Backend runs via docker-compose (Celery/Redis/Postgres/real scanners don't
 // fit static hosting), so a GitHub-Pages-hosted dashboard has no backend to
@@ -55,10 +61,33 @@ export function startScan(
   profile: string,
   in_scope?: string[],
   out_of_scope?: string[],
+  template?: string | null,
 ) {
   return request<ScanStatusResponse>("/scan/start", {
     method: "POST",
-    body: JSON.stringify({ target, scanners, profile, in_scope, out_of_scope }),
+    body: JSON.stringify({
+      target,
+      scanners,
+      profile,
+      in_scope,
+      out_of_scope,
+      template: template || undefined,
+    }),
+  });
+}
+
+export function getTemplates() {
+  return request<ScanTemplate[]>("/templates");
+}
+
+export function getEnvironment() {
+  return request<EnvironmentInfo>("/environment");
+}
+
+export function recommendTemplate(technologies: string[], open_ports?: number[]) {
+  return request<ScanTemplate>("/mcp/templates/recommend", {
+    method: "POST",
+    body: JSON.stringify({ technologies, open_ports }),
   });
 }
 
@@ -72,6 +101,16 @@ export function getScanResults(scanId: string) {
 
 export function getScanLogs(scanId: string) {
   return request<{ scan_id: string; logs: string[] }>(`/scan/logs/${scanId}`);
+}
+
+export function listScans(): Promise<ScanStatusResponse[]> {
+  return request<ScanStatusResponse[]>("/scans");
+}
+
+export function deleteScan(scanId: string): Promise<{ status: string; scan_id: string }> {
+  return request<{ status: string; scan_id: string }>(`/scan/${scanId}`, {
+    method: "DELETE",
+  });
 }
 
 export function probeTarget(target: string) {

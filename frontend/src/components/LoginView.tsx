@@ -39,11 +39,11 @@ export function LoginView({ onLogin }: LoginViewProps) {
             Console Authentication
           </div>
 
-          <h1 className="text-lg font-bold tracking-tight text-white">
-            Security Assessment Platform
+          <h1 className="text-xl font-bold tracking-tight text-white font-mono">
+            ORVYN
           </h1>
           <p className="mt-1 text-xs text-slate-400">
-            Multi-Engine DAST & Attack Surface Management
+            Offensive Risk and Vulnerability Intelligence Network
           </p>
         </div>
 
