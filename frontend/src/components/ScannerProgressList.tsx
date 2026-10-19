@@ -146,7 +146,23 @@ export function ScannerProgressList({
   const [expandedEngines, setExpandedEngines] = useState<Record<string, boolean>>({});
   const [showLlmCard, setShowLlmCard] = useState<boolean>(true);
   const [showRagCard, setShowRagCard] = useState<boolean>(true);
-  const [viewMode, setViewMode] = useState<"workflow" | "telemetry">("workflow");
+  const [viewMode, setViewMode] = useState<"workflow" | "telemetry">(() => {
+    try {
+      const saved = localStorage.getItem("orvyn_pipeline_view_mode");
+      return saved === "telemetry" ? "telemetry" : "workflow";
+    } catch {
+      return "workflow";
+    }
+  });
+
+  const handleSetViewMode = (mode: "workflow" | "telemetry") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("orvyn_pipeline_view_mode", mode);
+    } catch {
+      // Ignore
+    }
+  };
 
   const toggleEngine = (tool: string) => {
     setExpandedEngines((prev) => ({
@@ -189,7 +205,7 @@ export function ScannerProgressList({
           <div className="flex items-center gap-1 rounded-xl bg-[#090b14] p-1 border border-cyan-500/30 shadow-inner">
             <button
               type="button"
-              onClick={() => setViewMode("workflow")}
+              onClick={() => handleSetViewMode("workflow")}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
                 viewMode === "workflow"
                   ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_10px_rgba(0,240,255,0.25)]"
@@ -202,7 +218,7 @@ export function ScannerProgressList({
             </button>
             <button
               type="button"
-              onClick={() => setViewMode("telemetry")}
+              onClick={() => handleSetViewMode("telemetry")}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
                 viewMode === "telemetry"
                   ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-[0_0_10px_rgba(168,85,247,0.25)]"

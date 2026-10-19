@@ -27,7 +27,7 @@ import { IssuesView } from "./components/IssuesView";
 import { DomainsView } from "./components/DomainsView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { CommandPalette } from "./components/CommandPalette";
-import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./types";
+import type { ScannerName, ScannerProgress, ScanResultsResponse, ScanStatusResponse } from "./types";
 import {
   Target,
   Download,
@@ -45,6 +45,16 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 type ApiState = "checking" | "online" | "offline";
+
+const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
+  { tool: "nmap", status: "queued", findings_count: 0, simulated: false },
+  { tool: "whatweb", status: "queued", findings_count: 0, simulated: false },
+  { tool: "sslyze", status: "queued", findings_count: 0, simulated: false },
+  { tool: "nikto", status: "queued", findings_count: 0, simulated: false },
+  { tool: "zap", status: "queued", findings_count: 0, simulated: false },
+  { tool: "nuclei", status: "queued", findings_count: 0, simulated: false },
+  { tool: "wapiti", status: "queued", findings_count: 0, simulated: false },
+];
 
 export default function App() {
   // Authentication State
@@ -66,7 +76,40 @@ export default function App() {
   const [status, setStatus] = useState<ScanStatusResponse | null>(null);
   const [results, setResults] = useState<ScanResultsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
+
+  // Persist activeTab across refreshes and tab switches to prevent jumping back to dashboard
+  const [activeTab, setActiveTabState] = useState<NavTab>(() => {
+    try {
+      const saved = localStorage.getItem("orvyn_active_tab");
+      const validTabs: NavTab[] = [
+        "dashboard",
+        "pentests",
+        "issues",
+        "domains",
+        "topology",
+        "terminal",
+        "knowledge",
+        "history",
+        "settings",
+      ];
+      if (saved && validTabs.includes(saved as NavTab)) {
+        return saved as NavTab;
+      }
+    } catch {
+      // Fallback
+    }
+    return "dashboard";
+  });
+
+  const setActiveTab = (tab: NavTab) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem("orvyn_active_tab", tab);
+    } catch {
+      // Ignore
+    }
+  };
+
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -86,7 +129,7 @@ export default function App() {
           .then((scans) => {
             setAllScans(scans);
             if (scans.length > 0 && !selectedScanIdRef.current) {
-              handleSelectScan(scans[0].scan_id);
+              handleSelectScan(scans[0].scan_id, scans[0]);
             }
           })
           .catch(() => {});
@@ -113,10 +156,10 @@ export default function App() {
     setUser(null);
   }
 
-  async function handleSelectScan(scanId: string) {
+  async function handleSelectScan(scanId: string, directScan?: ScanStatusResponse) {
     setSelectedScanId(scanId);
     setResults(null);
-    const existing = allScans.find((s) => s.scan_id === scanId);
+    const existing = directScan || allScans.find((s) => s.scan_id === scanId);
     if (existing) {
       setStatus(existing);
     }
@@ -642,26 +685,24 @@ export default function App() {
                 engineNames={status?.scanners?.length ? status.scanners.map((s) => s.tool.toUpperCase()).join(" • ") : "Nuclei • ZAP • Nikto • WhatWeb • Nmap • SSLyze • Wapiti"}
               />
 
-              {/* Live Telemetry Progress Card (when scanning) */}
-              {status && (
-                <ScannerProgressList
-                  scanners={status.scanners}
-                  onOpenTerminal={() => setActiveTab("terminal")}
-                  terminalOpen={false}
-                  onCancelScan={() => handleCancelScan()}
-                  logsCount={currentLogs.length}
-                  progressPct={status.progress_pct}
-                  etaSeconds={status.eta_seconds}
-                  elapsedSeconds={status.elapsed_seconds}
-                  overallStatus={status.overall_status}
-                  currentPhase={status.current_phase}
-                  llmDecision={status.llm_decision}
-                  ragComparison={status.rag_comparison_summary}
-                  liveFindings={status.live_findings || rawFindings}
-                  allLogs={currentLogs}
-                  target={currentTarget}
-                />
-              )}
+              {/* Live Telemetry Progress Card & Redamon Recon Pipeline (Always Mounted) */}
+              <ScannerProgressList
+                scanners={status?.scanners || DEFAULT_STANDBY_SCANNERS}
+                onOpenTerminal={() => setActiveTab("terminal")}
+                terminalOpen={false}
+                onCancelScan={() => handleCancelScan()}
+                logsCount={currentLogs.length}
+                progressPct={status?.progress_pct ?? 0}
+                etaSeconds={status?.eta_seconds ?? null}
+                elapsedSeconds={status?.elapsed_seconds ?? 0}
+                overallStatus={status?.overall_status || "idle"}
+                currentPhase={status?.current_phase || "initial_scanning"}
+                llmDecision={status?.llm_decision}
+                ragComparison={status?.rag_comparison_summary}
+                liveFindings={status?.live_findings || rawFindings}
+                allLogs={currentLogs}
+                target={currentTarget}
+              />
 
               {/* Live Findings Feed */}
               {(isRunning || (status?.live_findings && status.live_findings.length > 0) || rawFindings.length > 0) && (
@@ -727,22 +768,20 @@ export default function App() {
                 isOpen={true}
                 onToggle={() => {}}
               />
-              {status && (
-                <ScannerProgressList
-                  scanners={status.scanners}
-                  onCancelScan={() => handleCancelScan()}
-                  overallStatus={status.overall_status}
-                  progressPct={status.progress_pct}
-                  etaSeconds={status.eta_seconds}
-                  elapsedSeconds={status.elapsed_seconds}
-                  currentPhase={status.current_phase}
-                  llmDecision={status.llm_decision}
-                  ragComparison={status.rag_comparison_summary}
-                  liveFindings={status.live_findings || rawFindings}
-                  allLogs={currentLogs}
-                  target={currentTarget}
-                />
-              )}
+              <ScannerProgressList
+                scanners={status?.scanners || DEFAULT_STANDBY_SCANNERS}
+                onCancelScan={() => handleCancelScan()}
+                overallStatus={status?.overall_status || "idle"}
+                progressPct={status?.progress_pct ?? 0}
+                etaSeconds={status?.eta_seconds ?? null}
+                elapsedSeconds={status?.elapsed_seconds ?? 0}
+                currentPhase={status?.current_phase || "initial_scanning"}
+                llmDecision={status?.llm_decision}
+                ragComparison={status?.rag_comparison_summary}
+                liveFindings={status?.live_findings || rawFindings}
+                allLogs={currentLogs}
+                target={currentTarget}
+              />
             </motion.div>
           )}
 
