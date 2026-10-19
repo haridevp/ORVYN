@@ -87,7 +87,7 @@ export default function App() {
         // Fallback
       }
     }
-    return { username: "haridevp", role: "Lead Security Architect (Local Dev)" };
+    return { username: "haridevp", role: "Security Team" };
   });
 
   const [apiState, setApiState] = useState<ApiState>("checking");

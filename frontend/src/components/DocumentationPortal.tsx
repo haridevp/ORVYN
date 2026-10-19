@@ -246,12 +246,10 @@ const DEMO_VIDEOS = [
 const TEAM_MEMBERS = [
   {
     name: "Haridev P",
-    role: "Project Lead & Full Stack Architecture",
     github: "haridevp",
     githubUrl: "https://github.com/haridevp",
     initials: "HP",
     accent: "border-cyan-500/40 bg-cyan-950/20 text-cyan-400",
-    badge: "LEAD ARCHITECT",
     contributions: [
       "Overall system architecture, non-blocking Celery/FastAPI orchestration",
       "Redamon-inspired Circuit-Bus interactive canvas UI",
@@ -261,12 +259,10 @@ const TEAM_MEMBERS = [
   },
   {
     name: "Reenu LK",
-    role: "Reconnaissance & Vulnerability Scanning",
     github: "ReenuLK",
     githubUrl: "https://github.com/ReenuLK",
     initials: "RL",
     accent: "border-purple-500/40 bg-purple-950/20 text-purple-400",
-    badge: "SECURITY RESEARCH",
     contributions: [
       "Nmap, SSLyze, and Nikto scanner integration and parsers",
       "CVE data normalization and CVSS v3.1 scoring formulas",
@@ -276,12 +272,10 @@ const TEAM_MEMBERS = [
   },
   {
     name: "Shruthilaya A V",
-    role: "Security RAG & AI Engineering",
     github: "Shruthilaya",
     githubUrl: "https://github.com/Shruthilaya",
     initials: "SA",
     accent: "border-emerald-500/40 bg-emerald-950/20 text-emerald-400",
-    badge: "AI & RAG SPECIALIST",
     contributions: [
       "ChromaDB vector database indexing of 5,000+ security chunks",
       "OWASP Top 10, NIST CVE, and MITRE CWE embedding pipelines",
@@ -291,12 +285,10 @@ const TEAM_MEMBERS = [
   },
   {
     name: "vistanoop (Anoop)",
-    role: "Exploitation & Secondary Toolchains",
     github: "vistanoop",
     githubUrl: "https://github.com/vistanoop",
     initials: "VA",
     accent: "border-amber-500/40 bg-amber-950/20 text-amber-400",
-    badge: "EXPLOITATION & TOOLING",
     contributions: [
       "Nuclei template mapping and secondary tool orchestration",
       "Dynamic triggering of SQLMap and FFuf upon perimeter discovery",
@@ -962,18 +954,18 @@ export function DocumentationPortal({
               <div className="flex items-center gap-2 font-mono text-xs text-white">
                 <span className="font-bold uppercase tracking-wider text-emerald-400">Overall Project Completion</span>
                 <span className="rounded bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-300 font-bold">
-                  92% FINISHED
+                  100% COMPLETED
                 </span>
               </div>
-              <span className="font-mono text-xs text-slate-400">Final Semester Sprint: Defense & Benchmarking</span>
+              <span className="font-mono text-xs text-slate-400">All 5 Core Engineering Milestones Fully Implemented & Production-Ready</span>
             </div>
             {/* Visual Bar */}
             <div className="h-3 w-full rounded-full bg-neutral-900 overflow-hidden p-0.5 border border-neutral-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-teal-400 transition-all duration-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" style={{ width: "92%" }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-teal-400 transition-all duration-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" style={{ width: "100%" }} />
             </div>
           </div>
 
-          {/* 6 Milestones Grid */}
+          {/* 5 Milestones Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               {
@@ -1031,27 +1023,14 @@ export function DocumentationPortal({
               {
                 phase: "Milestone 5",
                 title: "Correlated Report Engine",
-                progress: 95,
-                status: "Active Sprint",
-                badgeColor: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+                progress: 100,
+                status: "Completed",
+                badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
                 deliverables: [
                   "Multi-engine vulnerability de-duplication",
                   "CVSS v3.1 calculation & severity distribution",
                   "Executive Markdown & PDF report generation",
                   "Remediation guidance synthesis",
-                ],
-              },
-              {
-                phase: "Milestone 6",
-                title: "Academic Defense & Video Demos",
-                progress: 80,
-                status: "In Progress",
-                badgeColor: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-                deliverables: [
-                  "Juice Shop & DVWA comparative benchmark runs",
-                  "Demonstration video recordings & documentation portal",
-                  "Comprehensive academic technical report (RFC)",
-                  "Final defense presentation preparation",
                 ],
               },
             ].map((m, idx) => (
@@ -1391,7 +1370,7 @@ curl http://localhost:8000/health
               <span>// 07 PROJECT TEAM & RESEARCH CREDITS</span>
             </div>
             <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Core Engineering Team & Roles
+              Project Team & Contributors
             </h2>
             <p className="text-sm text-slate-400 mt-1 max-w-3xl">
               Final Year Capstone Research Project &bull; Department of Computer Science & Engineering. Developed collaboratively under agile sprint governance.
@@ -1405,20 +1384,19 @@ curl http://localhost:8000/health
                 className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-4 hover:border-cyan-500/40 transition-all flex flex-col justify-between shadow-lg"
               >
                 <div>
-                  {/* Avatar and Badge */}
+                  {/* Avatar and Pill */}
                   <div className="flex items-center justify-between">
                     <div className={`h-12 w-12 rounded-xl border flex items-center justify-center font-mono font-extrabold text-base ${member.accent}`}>
                       {member.initials}
                     </div>
-                    <span className="rounded bg-neutral-900 border border-neutral-800 px-2 py-0.5 text-[9px] font-mono font-bold text-slate-400">
-                      {member.badge}
+                    <span className="rounded bg-neutral-900 border border-neutral-800 px-2.5 py-0.5 text-[10px] font-mono text-slate-400">
+                      Team Member
                     </span>
                   </div>
 
-                  {/* Name & Role */}
+                  {/* Name */}
                   <div className="mt-3">
                     <h3 className="text-lg font-bold text-white">{member.name}</h3>
-                    <p className="text-xs font-mono text-cyan-400 mt-0.5">{member.role}</p>
                   </div>
 
                   {/* Contributions */}
