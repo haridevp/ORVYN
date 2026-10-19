@@ -61,6 +61,37 @@ export interface EnvironmentInfo {
   description: string;
 }
 
+export interface LLMDecision {
+  selected_template_id: string;
+  template_name: string;
+  confidence: number;
+  reasoning: string;
+  recommended_nuclei_tags?: string[];
+  recommended_tools?: string[];
+  is_llm_decided?: boolean;
+  model_name?: string;
+}
+
+export interface RAGKnowledgeMatch {
+  vulnerability: string;
+  verdict: string;
+  validated_severity: string;
+  confidence: number;
+  cve_citations?: string[];
+  cwe_citations?: string[];
+  owasp_citations?: string[];
+  reasoning?: string;
+}
+
+export interface RAGComparisonSummary {
+  total_validated: number;
+  confirmed_count: number;
+  suspected_count: number;
+  informational_count: number;
+  citations_count: number;
+  knowledge_base_matches?: RAGKnowledgeMatch[];
+}
+
 export interface ScanStatusResponse {
   scan_id: string;
   target: string;
@@ -68,6 +99,9 @@ export interface ScanStatusResponse {
   template_id?: string | null;
   template_name?: string | null;
   overall_status: OverallStatus;
+  current_phase?: "initial_scanning" | "llm_template_selection" | "targeted_tool_execution" | "rag_triage" | "completed" | string | null;
+  llm_decision?: LLMDecision | null;
+  rag_comparison_summary?: RAGComparisonSummary | null;
   progress_pct: number;
   eta_seconds?: number | null;
   elapsed_seconds: number;
@@ -101,6 +135,11 @@ export interface CorrelatedFinding {
   ai_validated_severity?: string | null;
   ai_confidence?: number | null;
   ai_status?: "pending" | "completed" | "unavailable" | "error" | null;
+  ai_verdict?: "CONFIRMED_VULNERABILITY" | "CONFIRMED" | "SUSPECTED_VULNERABILITY" | "SUSPECTED" | "FALSE_POSITIVE" | "INFORMATIONAL_FINDING" | "INFORMATIONAL" | string | null;
+  ai_judge_reasoning?: string | null;
+  ai_cve_citations?: string[];
+  ai_cwe_citations?: string[];
+  ai_owasp_citations?: string[];
   ai_references?: string[];
 }
 
@@ -119,6 +158,9 @@ export interface ScanResultsResponse {
   template_id?: string | null;
   template_name?: string | null;
   overall_status: string;
+  current_phase?: string | null;
+  llm_decision?: LLMDecision | null;
+  rag_comparison_summary?: RAGComparisonSummary | null;
   raw_findings: ScannerFinding[];
   correlated_findings: CorrelatedFinding[];
   severity_distribution: SeverityDistribution;

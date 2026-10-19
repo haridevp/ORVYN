@@ -252,14 +252,22 @@ class PentestPDFBuilder:
             conf = item.get("confidence", 80)
             evidence = item.get("evidence") or []
             first_ev = evidence[0] if evidence else "N/A"
-            remediation = item.get("remediation") or "Apply standard principle of least privilege, update component, and restrict access."
+            remediation = item.get("ai_remediation") or item.get("remediation") or "Apply standard principle of least privilege, update component, and restrict access."
             ref = item.get("reference") or "OWASP / NIST Security Framework"
+            verdict = item.get("ai_verdict") or "CONFIRMED"
+            judge_reasoning = item.get("ai_judge_reasoning") or ""
+            cve_cits = item.get("ai_cve_citations") or []
+            cwe_cits = item.get("ai_cwe_citations") or []
+            owasp_cits = item.get("ai_owasp_citations") or []
 
             # Estimate card height
             desc_lines = _wrap_text(vuln, 65)
             ev_lines = _wrap_text(first_ev, 70)
             rem_lines = _wrap_text(remediation, 72)
-            card_h = 44.0 + (len(desc_lines) * 11.0) + (len(ev_lines) * 10.0) + (len(rem_lines) * 10.0) + 24.0
+            judge_lines = _wrap_text(judge_reasoning, 72) if judge_reasoning else []
+            extra_h = (len(judge_lines) * 9.0) if judge_lines else 0.0
+            citation_h = 10.0 if (cve_cits or cwe_cits or owasp_cits) else 0.0
+            card_h = 48.0 + (len(desc_lines) * 11.0) + (len(ev_lines) * 10.0) + (len(rem_lines) * 10.0) + extra_h + citation_h + 24.0
 
             self.ensure_space(card_h + 10.0)
             p = self.current_page
@@ -281,29 +289,50 @@ class PentestPDFBuilder:
 
             cur_y = card_top - 30.0
 
-            # Telemetry: Engines & Confidence
+            # Telemetry: Engines & Confidence & RAG Verdict
             p.text(self.margin_left + 12.0, cur_y, "Engines:", font="/F2", size=7.5, color=(0.45, 0.50, 0.58))
             p.text(self.margin_left + 54.0, cur_y, tools, font="/F1", size=7.5, color=(0.15, 0.20, 0.30))
 
-            p.text(self.margin_left + 220.0, cur_y, "Confidence:", font="/F2", size=7.5, color=(0.45, 0.50, 0.58))
-            p.text(self.margin_left + 276.0, cur_y, f"{conf}% Verified", font="/F2", size=7.5, color=(0.10, 0.45, 0.20))
+            p.text(self.margin_left + 190.0, cur_y, "RAG Verdict:", font="/F2", size=7.5, color=(0.45, 0.50, 0.58))
+            verdict_short = verdict.replace("_VULNERABILITY", "").replace("_FINDING", "")
+            p.text(self.margin_left + 248.0, cur_y, verdict_short, font="/F2", size=7.5, color=(0.10, 0.45, 0.20) if "CONFIRMED" in verdict else (0.75, 0.40, 0.05))
 
-            p.text(self.margin_left + 360.0, cur_y, "Ref:", font="/F2", size=7.5, color=(0.45, 0.50, 0.58))
-            p.text(self.margin_left + 382.0, cur_y, str(ref)[:28], font="/F1", size=7.0, color=(0.20, 0.40, 0.70))
+            p.text(self.margin_left + 330.0, cur_y, "Confidence:", font="/F2", size=7.5, color=(0.45, 0.50, 0.58))
+            conf_val = item.get("ai_confidence") or conf
+            p.text(self.margin_left + 386.0, cur_y, f"{conf_val}% Verified", font="/F2", size=7.5, color=(0.10, 0.45, 0.20))
             cur_y -= 14.0
+
+            # Judge Reasoning
+            if judge_lines:
+                p.text(self.margin_left + 12.0, cur_y, "AI Judge Rationale:", font="/F2", size=7.5, color=(0.35, 0.20, 0.60))
+                cur_y -= 10.0
+                for jline in judge_lines[:2]:
+                    p.text(self.margin_left + 16.0, cur_y, jline, font="/F1", size=7.0, color=(0.25, 0.20, 0.45))
+                    cur_y -= 9.0
 
             # Evidence
             p.text(self.margin_left + 12.0, cur_y, "Evidence / Payload:", font="/F2", size=7.5, color=(0.45, 0.50, 0.58))
             cur_y -= 10.0
-            for eline in ev_lines[:3]:
+            for eline in ev_lines[:2]:
                 p.text(self.margin_left + 16.0, cur_y, eline, font="/F3", size=7.0, color=(0.20, 0.25, 0.35))
                 cur_y -= 10.0
 
+            # Citations (CVE / CWE / OWASP)
+            if cve_cits or cwe_cits or owasp_cits:
+                cited_str = " | ".join(filter(None, [
+                    cwe_cits[0].split(" (")[0] if cwe_cits else "",
+                    owasp_cits[0].split(" (")[0] if owasp_cits else "",
+                    cve_cits[0].split(" -")[0].split(" (")[0] if cve_cits else ""
+                ]))
+                p.text(self.margin_left + 12.0, cur_y, "Authoritative Citations:", font="/F2", size=7.5, color=(0.15, 0.35, 0.65))
+                p.text(self.margin_left + 115.0, cur_y, cited_str[:65], font="/F3", size=7.0, color=(0.10, 0.30, 0.60))
+                cur_y -= 11.0
+
             # Remediation
-            cur_y -= 2.0
+            cur_y -= 1.0
             p.text(self.margin_left + 12.0, cur_y, "Recommended Remediation:", font="/F2", size=7.5, color=(0.10, 0.40, 0.20))
             cur_y -= 10.0
-            for rline in rem_lines[:3]:
+            for rline in rem_lines[:2]:
                 p.text(self.margin_left + 16.0, cur_y, rline, font="/F1", size=7.5, color=(0.25, 0.30, 0.38))
                 cur_y -= 10.0
 

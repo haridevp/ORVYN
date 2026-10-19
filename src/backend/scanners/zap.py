@@ -120,12 +120,21 @@ async def _run_real_scan(
             else:
                 await proc.wait()
         except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
+            try:
+                proc.terminate()
+                await asyncio.sleep(1)
+                if proc.returncode is None:
+                    proc.kill()
+            except Exception:
+                pass
             if log_cb:
                 log_cb(f"ZAP baseline scan reached profile timeout ({scan_timeout}s). Parsing collected findings.")
         finally:
-            await reader_task
+            if not reader_task.done():
+                try:
+                    await asyncio.wait_for(reader_task, timeout=1.5)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    reader_task.cancel()
 
         findings: list[ScannerFinding] = []
         resolved_path = None
@@ -163,16 +172,10 @@ async def _run_real_scan(
             if log_cb:
                 log_cb(f"Parsed {len(findings)} real findings from ZAP report at {resolved_path}.")
 
-        # If the real engine exited with an error or couldn't generate findings (e.g. missing yaml),
-        # gracefully fall back to simulated findings so the user has full vulnerability visibility.
         if not findings:
             if log_cb:
-                log_cb(f"Real ZAP engine exited (code {proc.returncode}) without generating alerts. Providing fallback findings.")
-            sim = build_simulated_findings(ScannerName.zap, target)
-            if finding_cb:
-                for f in sim:
-                    finding_cb(f)
-            return sim
+                log_cb(f"Real ZAP engine exited (code {proc.returncode}) without generating alerts.")
+            return []
 
         return findings
 
@@ -190,7 +193,7 @@ class ZapWrapper(ScannerWrapper):
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
-        if self.is_available() and not (target.endswith(".local") or "demo" in target.lower()):
+        if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
             return await _run_real_scan(
@@ -203,13 +206,5 @@ class ZapWrapper(ScannerWrapper):
             )
 
         if log_cb:
-            log_cb(f"Script '{self.binary}' not found on PATH. Using fallback simulated findings.")
-        sim_findings = build_simulated_findings(ScannerName.zap, target)
-        delay = 0.005 if (".local" in target or "demo" in target) else min(0.04, 1.0 / max(1, len(sim_findings)))
-        if finding_cb:
-            for f in sim_findings:
-                await asyncio.sleep(delay)
-                finding_cb(f)
-        else:
-            await asyncio.sleep(delay)
-        return sim_findings
+            log_cb(f"Script '{self.binary}' not found on PATH. Real scan skipped.")
+        return []

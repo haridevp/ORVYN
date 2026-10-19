@@ -13,12 +13,8 @@ import {
 } from "./api";
 import { openPrintablePentestReport } from "./utils/pdfExport";
 import { WildcardPerimeterTracker } from "./components/WildcardPerimeterTracker";
-import { CorrelatedFindingsTable } from "./components/CorrelatedFindingsTable";
 import { LiveTerminal } from "./components/LiveTerminal";
-import { RawFindingsPanel } from "./components/RawFindingsPanel";
-import { ScanForm } from "./components/ScanForm";
 import { ScannerProgressList } from "./components/ScannerProgressList";
-import { SeverityBreakdownCard } from "./components/SeverityBreakdownCard";
 import { Sidebar, type NavTab } from "./components/Sidebar";
 import { ExecutiveMetrics } from "./components/ExecutiveMetrics";
 import { ApiTopologyGraph } from "./components/ApiTopologyGraph";
@@ -26,23 +22,24 @@ import { AssetInventoryTable } from "./components/AssetInventoryTable";
 import { ScanHistoryView } from "./components/ScanHistoryView";
 import { LoginView } from "./components/LoginView";
 import { LiveFindingsFeed } from "./components/LiveFindingsFeed";
+import { NewPentestWizard } from "./components/NewPentestWizard";
+import { IssuesView } from "./components/IssuesView";
+import { DomainsView } from "./components/DomainsView";
+import { KnowledgeView } from "./components/KnowledgeView";
+import { CommandPalette } from "./components/CommandPalette";
 import type { ScannerName, ScanResultsResponse, ScanStatusResponse } from "./types";
 import {
   Target,
   Download,
   RotateCw,
-  GitBranch,
-  ShieldAlert,
-  Terminal,
-  Cpu,
-  Layers,
   ChevronRight,
-  LogOut,
-  UserCheck,
   StopCircle,
   FileText,
   Printer,
   ChevronDown,
+  Plus,
+  Settings,
+  LogOut,
   History,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -69,8 +66,10 @@ export default function App() {
   const [status, setStatus] = useState<ScanStatusResponse | null>(null);
   const [results, setResults] = useState<ScanResultsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<NavTab>("overview");
+  const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const selectedScanIdRef = useRef<string | null>(null);
   const pollersRef = useRef<Map<string, number>>(new Map());
@@ -177,21 +176,38 @@ export default function App() {
     inScope?: string[],
     outOfScope?: string[],
     template?: string | null,
+    enableSecondaryTools?: boolean,
   ) {
     setError(null);
     setResults(null);
     try {
-      const initial = await startScan(target, scanners, profile, inScope, outOfScope, template);
+      const initial = await startScan(
+        target,
+        scanners,
+        profile,
+        inScope,
+        outOfScope,
+        template,
+        enableSecondaryTools
+      );
       setAllScans((prev) => [initial, ...prev.filter((s) => s.scan_id !== initial.scan_id)]);
       setSelectedScanId(initial.scan_id);
       setStatus(initial);
+      setActiveTab("dashboard");
       const existingPoller = pollersRef.current.get(initial.scan_id);
       if (existingPoller) {
         window.clearInterval(existingPoller);
         pollersRef.current.delete(initial.scan_id);
       }
 
+      let pollCount = 0;
       const intervalId = window.setInterval(async () => {
+        pollCount += 1;
+        if (pollCount > 300) {
+          window.clearInterval(intervalId);
+          pollersRef.current.delete(initial.scan_id);
+          return;
+        }
         try {
           const next = await getScanStatus(initial.scan_id);
           setAllScans((prev) =>
@@ -328,9 +344,19 @@ export default function App() {
     ? (results.correlated_findings?.length ?? results.duplicate_groups ?? 0)
     : (status?.correlated_count ?? status?.duplicate_groups ?? 0);
 
+  const correlatedFindings = results?.correlated_findings || [];
+
   return (
-    <div className="flex min-h-screen text-[var(--text-primary)] bg-[#080c14]">
-      {/* Sidebar Navigation */}
+    <div className="flex min-h-screen text-[var(--text-primary)] bg-[#07080c]">
+      {/* Command Palette (Ctrl+K shortcut) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={(tab) => setActiveTab(tab as NavTab)}
+        onNewPentest={() => setActiveTab("pentests")}
+      />
+
+      {/* Sidebar Navigation (Matching Screenshot 1-4) */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -339,52 +365,50 @@ export default function App() {
         historyCount={allScans.length}
         user={user}
         onLogout={handleLogout}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
 
       <div className="min-w-0 flex-1 relative flex flex-col">
-        {/* Professional Enterprise Top Bar */}
-        <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl px-8 py-3.5">
+        {/* Enterprise Top Bar */}
+        <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800/80 bg-[#07080c]/90 backdrop-blur-xl px-8 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span className="text-slate-500">Target</span>
-              <ChevronRight size={13} className="text-slate-600" />
-              <span className="font-semibold text-slate-200 font-mono flex items-center gap-1.5">
-                <Target size={14} className="text-blue-400" />
+            <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
+              <span className="text-neutral-500">Target</span>
+              <ChevronRight size={13} className="text-neutral-600" />
+              <span className="font-semibold text-white font-mono flex items-center gap-1.5">
+                <Target size={14} className="text-purple-400" />
                 {currentTarget}
               </span>
               {status?.in_scope && status.in_scope.length > 0 && (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded bg-slate-900 border border-slate-800 px-2 py-0.5 text-[11px] font-mono text-slate-300">
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-neutral-900 border border-neutral-800 px-2 py-0.5 text-[11px] font-mono text-neutral-300">
                   Scope: {status.in_scope[0]}
                 </span>
               )}
-              {status?.out_of_scope && status.out_of_scope.length > 0 && (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 text-[11px] font-mono text-rose-300 font-medium">
-                  {status.out_of_scope.length} Excluded
-                </span>
-              )}
             </div>
 
-            <span className="rounded border border-slate-800 bg-slate-900 px-2 py-0.5 text-[10px] font-mono text-slate-400">
-              ORVYN Cluster
+            <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-[10px] font-mono text-purple-300 font-bold">
+              AI Pentest Engine Connected
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs font-mono">
-              <UserCheck size={13} className="text-emerald-400" />
-              <span className="text-slate-200 font-semibold">{user.username}</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-slate-400 text-[11px]">SecOps Clearance</span>
-            </div>
+          <div className="flex items-center gap-2.5">
+            {/* New Pentest Button (Primary CTA) */}
+            <button
+              onClick={() => setActiveTab("pentests")}
+              className="flex items-center gap-1.5 rounded-full bg-white hover:bg-neutral-200 px-4 py-1.5 text-xs font-bold text-black transition-all cursor-pointer shadow-md"
+            >
+              <Plus size={13} />
+              <span>New Pentest</span>
+            </button>
 
             {isRunning && (
               <button
                 onClick={() => handleCancelScan()}
-                className="flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 px-3 py-1.5 text-xs font-semibold text-rose-300 transition-all cursor-pointer shadow-xs"
+                className="flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 px-3.5 py-1.5 text-xs font-semibold text-rose-300 transition-all cursor-pointer shadow-xs"
                 title="Abort and end current scan execution"
               >
                 <StopCircle size={13} className="text-rose-400 animate-pulse" />
-                <span>Abort Scan</span>
+                <span>Abort</span>
               </button>
             )}
 
@@ -397,9 +421,9 @@ export default function App() {
                 )
               }
               disabled={!!isRunning}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all disabled:opacity-40 cursor-pointer"
+              className="flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/80 hover:bg-neutral-800 px-3.5 py-1.5 text-xs font-medium text-neutral-200 transition-all disabled:opacity-40 cursor-pointer"
             >
-              <RotateCw size={12} className={isRunning ? "animate-spin text-blue-400" : ""} />
+              <RotateCw size={12} className={isRunning ? "animate-spin text-purple-400" : ""} />
               <span>Rescan</span>
             </button>
 
@@ -408,7 +432,7 @@ export default function App() {
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
                 disabled={!results}
-                className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all disabled:opacity-40 shadow-xs cursor-pointer"
+                className="flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/80 hover:bg-neutral-800 px-3.5 py-1.5 text-xs font-medium text-neutral-200 transition-all disabled:opacity-40 cursor-pointer"
               >
                 <Download size={12} />
                 <span>Export Report</span>
@@ -421,41 +445,41 @@ export default function App() {
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 4 }}
-                    className="absolute right-0 mt-1.5 w-56 rounded-lg border border-slate-800 bg-slate-900/95 backdrop-blur-xl shadow-xl z-50 p-1.5 text-xs font-mono"
+                    className="absolute right-0 mt-1.5 w-56 rounded-xl border border-neutral-800 bg-[#0c0d12] shadow-2xl z-50 p-1.5 text-xs font-mono"
                   >
                     <button
                       onClick={() => handleDownloadReport("pdf")}
-                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-slate-200 hover:bg-blue-600/20 hover:text-blue-300 transition-colors cursor-pointer text-left"
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-neutral-200 hover:bg-neutral-800 transition-colors cursor-pointer text-left"
                     >
                       <FileText size={13} className="text-rose-400" />
                       <div>
-                        <div className="font-semibold text-slate-200">Download PDF Report</div>
-                        <div className="text-[10px] text-slate-400">Executive formatted .pdf file</div>
+                        <div className="font-semibold text-white">Download PDF Report</div>
+                        <div className="text-[10px] text-neutral-500">Executive formatted .pdf file</div>
                       </div>
                     </button>
                     <button
                       onClick={() => handleDownloadReport("print")}
-                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-slate-200 hover:bg-blue-600/20 hover:text-blue-300 transition-colors cursor-pointer text-left"
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-neutral-200 hover:bg-neutral-800 transition-colors cursor-pointer text-left"
                     >
-                      <Printer size={13} className="text-blue-400" />
+                      <Printer size={13} className="text-cyan-400" />
                       <div>
-                        <div className="font-semibold text-slate-200">Print / Save as PDF</div>
-                        <div className="text-[10px] text-slate-400">Print-optimized vector audit view</div>
+                        <div className="font-semibold text-white">Print / Save as PDF</div>
+                        <div className="text-[10px] text-neutral-500">Print-optimized vector audit view</div>
                       </div>
                     </button>
-                    <div className="my-1 border-t border-slate-800" />
+                    <div className="my-1 border-t border-neutral-800" />
                     <button
                       onClick={() => handleDownloadReport("json")}
-                      className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer text-left"
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-neutral-300 hover:bg-neutral-800 transition-colors cursor-pointer text-left"
                     >
-                      <Download size={12} className="text-slate-500" />
+                      <Download size={12} className="text-neutral-500" />
                       <span>Export Raw JSON Data</span>
                     </button>
                     <button
                       onClick={() => handleDownloadReport("markdown")}
-                      className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer text-left"
+                      className="flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-neutral-300 hover:bg-neutral-800 transition-colors cursor-pointer text-left"
                     >
-                      <FileText size={12} className="text-slate-500" />
+                      <FileText size={12} className="text-neutral-500" />
                       <span>Export Markdown (.md)</span>
                     </button>
                   </motion.div>
@@ -463,46 +487,78 @@ export default function App() {
               </AnimatePresence>
             </div>
 
-            <button
-              onClick={handleLogout}
-              title="Sign Out"
-              className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-rose-500/10 hover:border-rose-500/30 px-2.5 py-1.5 text-xs text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
-            >
-              <LogOut size={13} />
-            </button>
+            {/* Admin Profile Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowAdminMenu((prev) => !prev)}
+                className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 hover:bg-neutral-800 px-3 py-1.5 text-xs text-neutral-200 transition-all cursor-pointer shadow-xs"
+                title="Account & Admin Menu"
+              >
+                <div className="h-5 w-5 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center font-bold text-purple-300 text-[10px] font-mono">
+                  {(user?.username || "A").charAt(0).toUpperCase()}
+                </div>
+                <span className="font-semibold text-white capitalize">{user?.username || "admin"}</span>
+                <ChevronDown size={12} className={`text-neutral-400 transition-transform ${showAdminMenu ? "rotate-180" : ""}`} />
+              </button>
+
+              <AnimatePresence>
+                {showAdminMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    className="absolute right-0 mt-1.5 w-60 rounded-xl border border-neutral-800 bg-[#0c0d12] shadow-2xl z-50 p-2 space-y-2 text-xs"
+                  >
+                    <div className="p-2.5 rounded-lg bg-neutral-900/80 border border-neutral-800">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white capitalize">{user?.username || "admin"}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-semibold">Active</span>
+                      </div>
+                      <div className="text-[10px] text-neutral-400 mt-0.5">{user?.role || "SecOps Lead (Admin)"}</div>
+                      <div className="text-[9px] text-neutral-500 font-mono mt-0.5">{(user?.username || "admin")}@secops.io</div>
+                    </div>
+                    <div className="space-y-0.5 border-t border-neutral-800 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("settings");
+                          setShowAdminMenu(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors cursor-pointer text-left"
+                      >
+                        <Settings size={13} className="text-neutral-400" />
+                        <span>Platform Settings</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab("history");
+                          setShowAdminMenu(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors cursor-pointer text-left"
+                      >
+                        <History size={13} className="text-neutral-400" />
+                        <span>Scan History</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAdminMenu(false);
+                          handleLogout();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer text-left font-medium"
+                      >
+                        <LogOut size={13} />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
-
-        {/* Secondary Navigation Tabs */}
-        <div className="flex items-center gap-1 border-b border-slate-800/70 bg-slate-950/60 px-8 py-2 overflow-x-auto text-xs">
-          {[
-            { id: "overview" as NavTab, label: "Overview & ASM", icon: <Layers size={13} /> },
-            { id: "topology" as NavTab, label: "API Attack Graph", icon: <GitBranch size={13} /> },
-            { id: "findings" as NavTab, label: "Threats & Findings", icon: <ShieldAlert size={13} />, count: totalFindings },
-            { id: "terminal" as NavTab, label: "Live Console", icon: <Terminal size={13} />, count: currentLogs.length, pulse: isRunning },
-            { id: "scanners" as NavTab, label: "Engine Cluster", icon: <Cpu size={13} /> },
-            { id: "history" as NavTab, label: "Scan History", icon: <History size={13} />, count: allScans.length },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md font-medium transition-all select-none cursor-pointer ${
-                activeTab === tab.id
-                  ? "bg-blue-600/15 border border-blue-500/40 text-blue-300 font-semibold shadow-xs"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/40"
-              }`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-              {tab.count !== undefined && tab.count > 0 && (
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-300 border border-rose-500/20">
-                  {tab.count}
-                </span>
-              )}
-              {tab.pulse && <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-ping" />}
-            </button>
-          ))}
-        </div>
 
         {/* Main Content Body */}
         <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 px-6 py-6 md:px-8">
@@ -511,10 +567,10 @@ export default function App() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-300 flex items-center justify-between"
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-300 flex items-center justify-between"
               >
                 <span>
-                  <strong>Backend API Offline</strong> — API unreachable at <code className="font-mono bg-black/40 px-1 py-0.5 rounded">{API_BASE_URL}</code>.
+                  <strong>Backend API Offline</strong> — Running in offline/demo mode at <code className="font-mono bg-black/40 px-1 py-0.5 rounded">{API_BASE_URL}</code>.
                 </span>
               </motion.div>
             )}
@@ -523,14 +579,13 @@ export default function App() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center justify-between rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 font-mono"
+                className="flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300 font-mono"
               >
                 <span>{typeof error === "string" ? error : JSON.stringify(error)}</span>
                 <button
                   type="button"
                   onClick={() => setError(null)}
                   className="ml-3 text-rose-400 hover:text-white cursor-pointer px-1.5 py-0.5 rounded hover:bg-rose-500/20"
-                  title="Dismiss alert"
                 >
                   ✕
                 </button>
@@ -538,10 +593,46 @@ export default function App() {
             )}
           </AnimatePresence>
 
-          {/* TAB 1: OVERVIEW & ATTACK SURFACE MANAGEMENT */}
-          {activeTab === "overview" && (
+          {/* VIEW 1: PENTESTS WIZARD (Matching Strix AI Screenshot 1 & 5) */}
+          {activeTab === "pentests" && (
+            <NewPentestWizard
+              onStart={handleStart}
+              isScanning={!!isRunning}
+              onCancel={() => setActiveTab("dashboard")}
+            />
+          )}
+
+          {/* VIEW 2: ISSUES & RAG VERDICTS (Matching Strix AI Screenshot 2) */}
+          {activeTab === "issues" && (
+            <IssuesView
+              findings={correlatedFindings}
+              distribution={distribution}
+              onNewPentest={() => setActiveTab("pentests")}
+            />
+          )}
+
+          {/* VIEW 4: DOMAINS & APIS (Matching Strix AI Screenshot 3) */}
+          {activeTab === "domains" && (
+            <DomainsView
+              currentTarget={currentTarget}
+              onSelectDomainForScan={(domain) => {
+                handleStart(
+                  domain,
+                  ["nuclei", "zap", "nikto", "whatweb", "nmap", "sslyze", "wapiti"],
+                  "web"
+                );
+              }}
+            />
+          )}
+
+          {/* VIEW 5: KNOWLEDGE BASE 5,000+ CHUNKS (Matching Strix AI Screenshot 4) */}
+          {activeTab === "knowledge" && (
+            <KnowledgeView />
+          )}
+
+          {/* VIEW 6: DASHBOARD & EXECUTIVE OVERVIEW */}
+          {activeTab === "dashboard" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              {/* Executive Metrics Row */}
               <ExecutiveMetrics
                 distribution={distribution}
                 totalFindings={totalFindings}
@@ -551,19 +642,7 @@ export default function App() {
                 engineNames={status?.scanners?.length ? status.scanners.map((s) => s.tool.toUpperCase()).join(" • ") : "Nuclei • ZAP • Nikto • WhatWeb • Nmap • SSLyze • Wapiti"}
               />
 
-              {/* Scan Launcher Card - Allows launching concurrent scans anytime */}
-              <ScanForm onStart={handleStart} disabled={false} />
-
-              {/* Wildcard Perimeter Reconnaissance Tracker */}
-              <WildcardPerimeterTracker
-                target={currentTarget}
-                inScope={status?.in_scope}
-                outOfScope={status?.out_of_scope}
-                isScanning={!!isRunning}
-                findingsCount={totalFindings}
-              />
-
-              {/* Live Telemetry Progress Card */}
+              {/* Live Telemetry Progress Card (when scanning) */}
               {status && (
                 <ScannerProgressList
                   scanners={status.scanners}
@@ -575,17 +654,32 @@ export default function App() {
                   etaSeconds={status.eta_seconds}
                   elapsedSeconds={status.elapsed_seconds}
                   overallStatus={status.overall_status}
+                  currentPhase={status.current_phase}
+                  llmDecision={status.llm_decision}
+                  ragComparison={status.rag_comparison_summary}
+                  liveFindings={status.live_findings || rawFindings}
+                  allLogs={currentLogs}
+                  target={currentTarget}
                 />
               )}
 
-              {/* Live Findings Feed: Intercepted in real time while scanning */}
+              {/* Live Findings Feed */}
               {(isRunning || (status?.live_findings && status.live_findings.length > 0) || rawFindings.length > 0) && (
                 <LiveFindingsFeed
                   findings={status?.live_findings || rawFindings}
                   isScanning={!!isRunning}
-                  onSelectFinding={() => setActiveTab("findings")}
+                  onSelectFinding={() => setActiveTab("issues")}
                 />
               )}
+
+              {/* Wildcard Reconnaissance Tracker */}
+              <WildcardPerimeterTracker
+                target={currentTarget}
+                inScope={status?.in_scope}
+                outOfScope={status?.out_of_scope}
+                isScanning={!!isRunning}
+                findingsCount={totalFindings}
+              />
 
               {/* Asset Inventory */}
               <AssetInventoryTable
@@ -602,7 +696,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* TAB 2: API ATTACK GRAPH (ESCAPE.DEV TOPOLOGY) */}
+          {/* VIEW 7: API ATTACK GRAPH (TOPOLOGY) */}
           {activeTab === "topology" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <ApiTopologyGraph
@@ -624,50 +718,7 @@ export default function App() {
             </motion.div>
           )}
 
-          {/* TAB 3: THREATS & FINDINGS */}
-          {activeTab === "findings" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              <ExecutiveMetrics
-                distribution={distribution}
-                totalFindings={totalFindings}
-                duplicateGroups={duplicateGroups}
-                isScanning={!!isRunning}
-                enginesCount={status?.scanners?.length ? status.scanners.length : 7}
-                engineNames={status?.scanners?.length ? status.scanners.map((s) => s.tool.toUpperCase()).join(" • ") : "Nuclei • ZAP • Nikto • WhatWeb • Nmap • SSLyze • Wapiti"}
-              />
-
-              {results && results.correlated_findings.length > 0 ? (
-                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-                  <div className="lg:col-span-2">
-                    <CorrelatedFindingsTable findings={results.correlated_findings} />
-                  </div>
-                  <div className="lg:col-span-1">
-                    <SeverityBreakdownCard distribution={results.severity_distribution} />
-                  </div>
-                </div>
-              ) : (
-                <div className="p-12 text-center text-gray-500 bg-white/[0.02] rounded-2xl border border-gray-800">
-                  <ShieldAlert size={36} className="mx-auto mb-3 text-gray-600" />
-                  <p className="text-base font-bold text-gray-300">
-                    {totalFindings === 0 && results
-                      ? "Target Verified Clean — 0 Vulnerabilities Flagged"
-                      : "Awaiting Scan Execution"}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1.5 max-w-md mx-auto">
-                    {results
-                      ? "The scanner cluster completed testing against the specified target. No high or critical security alerts were found."
-                      : "Enter a live host or URL in the Overview tab to launch an automated assessment and populate real-time findings."}
-                  </p>
-                </div>
-              )}
-
-              {results && results.raw_findings.length > 0 && (
-                <RawFindingsPanel findings={results.raw_findings} />
-              )}
-            </motion.div>
-          )}
-
-          {/* TAB 4: LIVE SCANNER CONSOLE */}
+          {/* VIEW 8: LIVE SCANNER CONSOLE */}
           {activeTab === "terminal" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <LiveTerminal
@@ -684,34 +735,18 @@ export default function App() {
                   progressPct={status.progress_pct}
                   etaSeconds={status.eta_seconds}
                   elapsedSeconds={status.elapsed_seconds}
+                  currentPhase={status.current_phase}
+                  llmDecision={status.llm_decision}
+                  ragComparison={status.rag_comparison_summary}
+                  liveFindings={status.live_findings || rawFindings}
+                  allLogs={currentLogs}
+                  target={currentTarget}
                 />
               )}
             </motion.div>
           )}
 
-          {/* TAB 5: SCANNER CLUSTER */}
-          {activeTab === "scanners" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              {status && (
-                <ScannerProgressList
-                  scanners={status.scanners}
-                  onCancelScan={() => handleCancelScan()}
-                  overallStatus={status.overall_status}
-                  progressPct={status.progress_pct}
-                  etaSeconds={status.eta_seconds}
-                  elapsedSeconds={status.elapsed_seconds}
-                />
-              )}
-              <LiveTerminal
-                logs={currentLogs}
-                isRunning={!!isRunning}
-                isOpen={true}
-                onToggle={() => {}}
-              />
-            </motion.div>
-          )}
-
-          {/* TAB 6: SCAN HISTORY */}
+          {/* VIEW 9: SCAN HISTORY */}
           {activeTab === "history" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <ScanHistoryView
@@ -719,9 +754,45 @@ export default function App() {
                 selectedScanId={selectedScanId}
                 onSelectScan={handleSelectScan}
                 onDeleteScan={handleDeleteScan}
-                onNavigateToOverview={() => setActiveTab("overview")}
-                onNewScanClick={() => setActiveTab("overview")}
+                onNavigateToOverview={() => setActiveTab("dashboard")}
+                onNewScanClick={() => setActiveTab("pentests")}
               />
+            </motion.div>
+          )}
+
+          {/* VIEW 10: SETTINGS & CLUSTER STATUS */}
+          {activeTab === "settings" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <div className="rounded-2xl border border-neutral-800 bg-[#0c0d12] p-6 space-y-4">
+                <h2 className="text-base font-bold text-white tracking-wide">
+                  Security Engine Cluster Configuration
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Manage installed penetration testing engines, MCP bridges, and local LLM judicial integrations.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs font-mono">
+                  {[
+                    { name: "Nuclei v3", status: "Active Engine", type: "Template DAST" },
+                    { name: "OWASP ZAP", status: "Active Engine", type: "Web Proxy / Spider" },
+                    { name: "Nikto 2.5", status: "Active Engine", type: "Server Scanner" },
+                    { name: "WhatWeb", status: "Active Engine", type: "Tech Fingerprint" },
+                    { name: "Nmap NSE", status: "Active Engine", type: "Network Recon" },
+                    { name: "SSLyze", status: "Active Engine", type: "Cryptographic Audit" },
+                    { name: "Wapiti", status: "Active Engine", type: "Web Vulnerabilities" },
+                    { name: "SQLMap", status: "Secondary Tool", type: "SQL Injection" },
+                    { name: "FFUF", status: "Secondary Tool", type: "Fuzzing & Paths" },
+                  ].map((eng) => (
+                    <div key={eng.name} className="p-3 rounded-xl border border-neutral-800 bg-neutral-900/60 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white">{eng.name}</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      </div>
+                      <div className="text-[10px] text-neutral-400">{eng.type}</div>
+                      <div className="text-[10px] text-emerald-400 font-bold">{eng.status}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
           )}
         </main>

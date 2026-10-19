@@ -139,13 +139,6 @@ async def _run_real_scan(
                 except Exception:
                     pass
 
-    if not findings:
-        sim = build_simulated_findings(ScannerName.ffuf, target)
-        if finding_cb:
-            for f in sim:
-                finding_cb(f)
-        return sim
-
     return findings
 
 
@@ -171,9 +164,8 @@ class FfufWrapper(ScannerWrapper):
                 return await _run_real_scan(target, profile, in_scope, out_of_scope, log_cb, finding_cb)
             except Exception as e:
                 if log_cb:
-                    log_cb(f"Ffuf real execution fallback: {e}")
-        sim = build_simulated_findings(ScannerName.ffuf, target)
-        if finding_cb:
-            for f in sim:
-                finding_cb(f)
-        return sim
+                    log_cb(f"Ffuf real execution error: {e}")
+                return []
+        if log_cb:
+            log_cb(f"Binary '{BINARY}' not found on PATH. Real scan skipped.")
+        return []

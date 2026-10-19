@@ -12,8 +12,22 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 from typing import Optional
 from pydantic import BaseModel, Field
+
+# Ensure local venv and user go/local binary directories are on PATH for tool discovery
+_extra_bins = [
+    str(Path(sys.prefix) / "bin"),
+    str(Path.home() / "go" / "bin"),
+    str(Path.home() / ".local" / "bin"),
+    "/usr/local/bin",
+]
+_current_path = os.environ.get("PATH", "")
+for _bin_path in _extra_bins:
+    if _bin_path not in _current_path.split(os.pathsep):
+        _current_path = f"{_bin_path}{os.pathsep}{_current_path}"
+os.environ["PATH"] = _current_path
 
 
 class ExecutionMode(str, Enum):
@@ -120,7 +134,7 @@ def detect_environment() -> EnvironmentInfo:
     available_tools: list[str] = []
     missing_tools: list[str] = []
     for tool in SECURITY_TOOLS:
-        if shutil.which(tool):
+        if shutil.which(tool) or (tool == "zap" and (shutil.which("zap-baseline.py") or shutil.which("zap.sh"))):
             available_tools.append(tool)
         else:
             missing_tools.append(tool)

@@ -35,6 +35,7 @@ async def _run_real_scan(
     command = [
         BINARY,
         "-sV",
+        "-Pn",
         "-T4",
         "--script=vuln",
         "-p", ports,
@@ -44,22 +45,28 @@ async def _run_real_scan(
     if log_cb:
         log_cb(f"Executing: {' '.join(command)}")
 
+    output_text = ""
     try:
         proc = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=90.0)
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=180.0)
         output_text = stdout.decode("utf-8", errors="replace")
+    except asyncio.TimeoutError:
+        if log_cb:
+            log_cb("Nmap scan timed out; parsing partial outputs.")
+        try:
+            proc.kill()
+            stdout, _ = await proc.communicate()
+            output_text = stdout.decode("utf-8", errors="replace") if stdout else ""
+        except Exception:
+            output_text = ""
     except Exception as exc:
         if log_cb:
-            log_cb(f"Nmap error: {exc}. Providing fallback findings.")
-        sim = build_simulated_findings(ScannerName.nmap, target)
-        if finding_cb:
-            for f in sim:
-                finding_cb(f)
-        return sim
+            log_cb(f"Nmap error: {exc}.")
+        return []
 
     findings: list[ScannerFinding] = []
     # Parse Nmap NSE script output blocks
@@ -106,13 +113,6 @@ async def _run_real_scan(
             if finding_cb:
                 finding_cb(finding)
 
-    if not findings:
-        sim = build_simulated_findings(ScannerName.nmap, target)
-        if finding_cb:
-            for f in sim:
-                finding_cb(f)
-        return sim
-
     return findings
 
 
@@ -142,13 +142,5 @@ class NmapWrapper(ScannerWrapper):
             )
 
         if log_cb:
-            log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
-        sim_findings = build_simulated_findings(ScannerName.nmap, target)
-        delay = 0.005 if (".local" in target or "demo" in target) else min(0.04, 1.0 / max(1, len(sim_findings)))
-        if finding_cb:
-            for f in sim_findings:
-                await asyncio.sleep(delay)
-                finding_cb(f)
-        else:
-            await asyncio.sleep(delay)
-        return sim_findings
+            log_cb(f"Binary '{self.binary}' not found on PATH. Real scan skipped.")
+        return []

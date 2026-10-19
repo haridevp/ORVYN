@@ -46,24 +46,27 @@ async def _run_real_scan(
     out_of_scope: Optional[list[str]] = None,
     log_cb: Optional[Callable[[str], None]] = None,
     finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
+    template_tags: Optional[str] = None,
+    template_ids: Optional[str] = None,
 ) -> list[ScannerFinding]:
-    """Invoke the real `nuclei` binary if it's installed. Streams verbose execution logs."""
-    # Profile-tuned configuration
-    if profile == "recon":
-        scan_timeout = timeout or 35
-        tags = "cve,exposure,tech,misconfig,dns,ssl"
-        extra_args = ["-tags", tags, "-timeout", "3", "-rate-limit", "150", "-concurrency", "25"]
-    elif profile == "full":
-        scan_timeout = timeout or 120
-        extra_args = ["-severity", "info,low,medium,high,critical", "-timeout", "5", "-rate-limit", "150", "-concurrency", "30"]
-    elif profile == "unlimited":
-        # Unlimited mode: no artificial timeout threshold
-        scan_timeout = timeout  # None -> runs until completion
-        extra_args = ["-severity", "info,low,medium,high,critical", "-timeout", "8", "-rate-limit", "150", "-concurrency", "30"]
-    else:  # "web" (default)
-        scan_timeout = timeout or 60
-        tags = "cve,xss,sqli,exposure,misconfig,auth,ssl,generic"
-        extra_args = ["-tags", tags, "-timeout", "4", "-rate-limit", "150", "-concurrency", "25"]
+    """Invoke the real `nuclei` binary if it's installed. Streams verbose execution logs and live findings."""
+    target_url = target if target.startswith(("http://", "https://")) else f"http://{target}"
+
+    # Default to fast, targeted tags or LLM-selected tags to avoid hanging on 6,000+ templates
+    tags = template_tags or "tech,exposure,misconfig,cve"
+    scan_timeout = timeout or 45
+
+    extra_args = [
+        "-tags", tags,
+        "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "-timeout", "3",
+        "-rate-limit", "25",
+        "-concurrency", "10",
+        "-retries", "1",
+    ]
+
+    if template_ids:
+        extra_args.extend(["-id", template_ids])
 
     # Exclude out-of-scope hosts
     if out_of_scope:
@@ -71,20 +74,24 @@ async def _run_real_scan(
         if exclude_hosts:
             extra_args.extend(["-exclude-hosts", ",".join(exclude_hosts)])
 
+    findings: list[ScannerFinding] = []
+    seen_vulns = set()
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "nuclei_output.json")
         command = [
             BINARY,
-            "-u", target,
+            "-u", target_url,
             "-duc",  # disable update check to prevent waiting on github api
-            "-json-export", output_file,
+            "-j",    # jsonl format
+            "-o", output_file,
             "-no-color",
             "-v",
             *extra_args,
         ]
-        timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED (no timeout)"
+        timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED"
         if log_cb:
-            log_cb(f"Executing: {' '.join(command)} (timeout: {timeout_label}, profile: {profile})")
+            log_cb(f"Executing: {' '.join(command)} (timeout: {timeout_label}, tags: {tags})")
 
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -94,12 +101,8 @@ async def _run_real_scan(
             )
         except Exception as exc:
             if log_cb:
-                log_cb(f"Failed to spawn Nuclei process: {exc}. Providing fallback findings.")
-            sim = build_simulated_findings(ScannerName.nuclei, target)
-            if finding_cb:
-                for f in sim:
-                    finding_cb(f)
-            return sim
+                log_cb(f"Failed to spawn Nuclei process: {exc}.")
+            return []
 
         async def read_stream():
             while True:
@@ -107,7 +110,24 @@ async def _run_real_scan(
                 if not line:
                     break
                 text = line.decode("utf-8", errors="replace").strip()
-                if text and log_cb:
+                if not text:
+                    continue
+                # Try parsing real-time json finding from stream
+                if text.startswith("{") and ("\"template-id\"" in text or "\"info\"" in text):
+                    try:
+                        parsed = json.loads(text)
+                        finding = _normalize_raw_line(parsed, target)
+                        if finding and (finding.vulnerability, finding.evidence) not in seen_vulns:
+                            seen_vulns.add((finding.vulnerability, finding.evidence))
+                            findings.append(finding)
+                            if finding_cb:
+                                finding_cb(finding)
+                            if log_cb:
+                                log_cb(f"🎯 Nuclei finding: [{finding.severity.upper()}] {finding.vulnerability} at {finding.evidence}")
+                            continue
+                    except Exception:
+                        pass
+                if log_cb:
                     log_cb(text)
 
         reader_task = asyncio.create_task(read_stream())
@@ -117,41 +137,50 @@ async def _run_real_scan(
             else:
                 await proc.wait()
         except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
+            try:
+                proc.terminate()
+                await asyncio.sleep(1)
+                if proc.returncode is None:
+                    proc.kill()
+            except Exception:
+                pass
             if log_cb:
-                log_cb(f"Nuclei execution reached profile timeout ({scan_timeout}s). Wrapping up available findings.")
+                log_cb(f"Nuclei execution reached profile timeout ({scan_timeout}s). Wrapping up {len(findings)} available findings.")
         finally:
-            await reader_task
+            if not reader_task.done():
+                try:
+                    await asyncio.wait_for(reader_task, timeout=1.5)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    reader_task.cancel()
 
-        findings: list[ScannerFinding] = []
+        # Also read output file for any lines not captured in stdout
         if os.path.exists(output_file):
-            with open(output_file, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        parsed = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    items = parsed if isinstance(parsed, list) else [parsed]
-                    for item in items:
-                        if isinstance(item, dict):
-                            finding = _normalize_raw_line(item, target)
-                            if finding:
-                                findings.append(finding)
-                                if finding_cb:
-                                    finding_cb(finding)
+            try:
+                with open(output_file, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            parsed = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        items = parsed if isinstance(parsed, list) else [parsed]
+                        for item in items:
+                            if isinstance(item, dict):
+                                finding = _normalize_raw_line(item, target)
+                                if finding and (finding.vulnerability, finding.evidence) not in seen_vulns:
+                                    seen_vulns.add((finding.vulnerability, finding.evidence))
+                                    findings.append(finding)
+                                    if finding_cb:
+                                        finding_cb(finding)
+            except Exception as e:
+                if log_cb:
+                    log_cb(f"Note reading output file: {e}")
 
         if not findings and proc.returncode != 0:
             if log_cb:
-                log_cb(f"Nuclei exited (code {proc.returncode}) without findings. Providing fallback findings.")
-            sim = build_simulated_findings(ScannerName.nuclei, target)
-            if finding_cb:
-                for f in sim:
-                    finding_cb(f)
-            return sim
+                log_cb(f"Nuclei finished (code {proc.returncode}). No vulnerabilities identified.")
 
         return findings
 
@@ -168,8 +197,9 @@ class NucleiWrapper(ScannerWrapper):
         out_of_scope: Optional[list[str]] = None,
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
+        **kwargs,
     ) -> list[ScannerFinding]:
-        if self.is_available() and not (target.endswith(".local") or "demo" in target.lower()):
+        if self.is_available():
             if log_cb:
                 log_cb(f"Using live binary: {shutil.which(self.binary)}")
             return await _run_real_scan(
@@ -179,18 +209,11 @@ class NucleiWrapper(ScannerWrapper):
                 out_of_scope=out_of_scope,
                 log_cb=log_cb,
                 finding_cb=finding_cb,
+                template_tags=kwargs.get("template_tags"),
+                template_ids=kwargs.get("template_ids"),
             )
 
-        # Binary not installed in this environment - return simulated findings staggered live
         if log_cb:
-            log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
-        sim_findings = build_simulated_findings(ScannerName.nuclei, target)
-        delay = 0.005 if (".local" in target or "demo" in target) else min(0.04, 1.0 / max(1, len(sim_findings)))
-        if finding_cb:
-            for f in sim_findings:
-                await asyncio.sleep(delay)
-                finding_cb(f)
-        else:
-            await asyncio.sleep(delay)
-        return sim_findings
+            log_cb(f"Binary '{self.binary}' not found on PATH. Real scan skipped.")
+        return []
 

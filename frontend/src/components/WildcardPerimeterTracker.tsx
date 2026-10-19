@@ -96,22 +96,22 @@ export function WildcardPerimeterTracker({
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 space-y-2 text-xs"
+      className="rounded-xl border border-neutral-800 bg-[#0c0d12] px-4 py-3 space-y-2 text-xs"
     >
       {/* Sleek Minimal Summary Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            <Radio size={13} className={isScanning ? "animate-pulse text-blue-400" : "text-blue-400"} />
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <Radio size={13} className={isScanning ? "animate-pulse text-purple-400" : "text-purple-400"} />
           </div>
           <div className="flex items-center gap-2 font-mono text-[11px]">
-            <span className="font-semibold text-slate-300">
+            <span className="font-semibold text-neutral-300">
               {isScanning ? "Scanning" : "Audited"} {subdomains.length} perimeter assets
             </span>
-            <span className="text-slate-500">(*.{baseDomain})</span>
+            <span className="text-neutral-500">(*.{baseDomain})</span>
             {isScanning && (
-              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-ping" />
+              <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-ping" />
                 Active: {currentSubdomain}
               </span>
             )}
@@ -122,7 +122,7 @@ export function WildcardPerimeterTracker({
         <button
           type="button"
           onClick={() => setIsExpanded((prev) => !prev)}
-          className="flex items-center gap-1 rounded border border-slate-700/80 bg-slate-800/60 px-2 py-1 text-[11px] font-mono text-slate-300 hover:bg-slate-700/80 hover:text-white transition-all cursor-pointer"
+          className="flex items-center gap-1 rounded-lg border border-neutral-700/80 bg-neutral-850 px-2.5 py-1 text-[11px] font-mono text-neutral-300 hover:bg-neutral-800 hover:text-white transition-all cursor-pointer"
         >
           <span>{isExpanded ? "Hide Asset List" : `View Asset List (${subdomains.length})`}</span>
           {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -136,7 +136,7 @@ export function WildcardPerimeterTracker({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="pt-2 border-t border-slate-800/80 overflow-hidden"
+            className="pt-2 border-t border-neutral-800/80 overflow-hidden"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
               {subdomains.map((node) => {
@@ -144,18 +144,18 @@ export function WildcardPerimeterTracker({
                 return (
                   <div
                     key={node.subdomain}
-                    className={`flex items-center justify-between rounded border px-2.5 py-1.5 text-xs transition-all ${
+                    className={`flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-xs transition-all ${
                       isCurrentScanning
-                        ? "border-blue-500/50 bg-blue-500/10 text-blue-200 shadow-sm"
+                        ? "border-purple-500/50 bg-purple-500/10 text-purple-200 shadow-xs"
                         : node.status === "excluded"
-                        ? "border-slate-800/50 bg-slate-950/40 text-slate-500"
+                        ? "border-neutral-800/50 bg-black/40 text-neutral-500"
                         : node.status === "findings"
-                        ? "border-rose-500/30 bg-rose-500/5 text-rose-300"
-                        : "border-slate-800/80 bg-slate-900/40 text-slate-300"
+                        ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                        : "border-neutral-800 bg-[#12131a]/60 text-neutral-300"
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate">
-                      <Globe size={12} className={isCurrentScanning ? "text-blue-400" : "text-slate-500"} />
+                      <Globe size={12} className={isCurrentScanning ? "text-purple-400" : "text-neutral-500"} />
                       <span className="font-mono text-[11px] truncate" title={node.subdomain}>
                         {node.subdomain}
                       </span>
@@ -163,12 +163,12 @@ export function WildcardPerimeterTracker({
 
                     <div>
                       {isCurrentScanning ? (
-                        <span className="flex items-center gap-1 text-[10px] font-medium text-blue-400">
-                          <span className="h-1 w-1 rounded-full bg-blue-400 animate-ping" />
+                        <span className="flex items-center gap-1 text-[10px] font-medium text-purple-400">
+                          <span className="h-1 w-1 rounded-full bg-purple-400 animate-ping" />
                           scanning
                         </span>
                       ) : node.status === "excluded" ? (
-                        <span className="flex items-center gap-0.5 text-[10px] text-slate-500" title="Excluded by Out-of-Scope filter">
+                        <span className="flex items-center gap-0.5 text-[10px] text-neutral-500" title="Excluded by Out-of-Scope filter">
                           <Ban size={10} /> deny
                         </span>
                       ) : node.status === "findings" ? (

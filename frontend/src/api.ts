@@ -62,6 +62,7 @@ export function startScan(
   in_scope?: string[],
   out_of_scope?: string[],
   template?: string | null,
+  enable_secondary_tools?: boolean,
 ) {
   return request<ScanStatusResponse>("/scan/start", {
     method: "POST",
@@ -72,6 +73,7 @@ export function startScan(
       in_scope,
       out_of_scope,
       template: template || undefined,
+      enable_secondary_tools,
     }),
   });
 }

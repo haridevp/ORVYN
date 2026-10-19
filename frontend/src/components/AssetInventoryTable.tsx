@@ -121,21 +121,21 @@ export function AssetInventoryTable({
   const filtered = filterType === "All" ? assets : assets.filter((a) => a.type === filterType);
 
   return (
-    <div className="rounded-2xl border border-gray-800 bg-[#080c14]/90 shadow-2xl backdrop-blur-xl overflow-hidden">
+    <div className="rounded-2xl border border-neutral-800 bg-[#0a0b10] shadow-2xl backdrop-blur-xl overflow-hidden">
       {/* Table Header Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-800/80 bg-gray-900/40 px-6 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800/80 bg-neutral-900/40 px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
             <Layers size={18} />
           </div>
           <div>
             <h3 className="text-base font-bold text-white tracking-wide flex items-center gap-2">
               Attack Surface & Real Monitored Assets
-              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-blue-950/80 border border-blue-700/50 text-blue-300">
+              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-purple-950/80 border border-purple-700/50 text-purple-300">
                 {filtered.length} Discovered Endpoint{filtered.length === 1 ? "" : "s"}
               </span>
             </h3>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-neutral-400">
               Live inventory derived from target network probes and scanner engine findings.
             </p>
           </div>
@@ -146,10 +146,10 @@ export function AssetInventoryTable({
             <button
               key={t}
               onClick={() => setFilterType(t)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 filterType === t
-                  ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-                  : "text-gray-400 hover:text-white bg-black/30 border border-gray-800"
+                  ? "bg-white text-black font-bold shadow-md"
+                  : "text-neutral-400 hover:text-white bg-black/40 border border-neutral-800"
               }`}
             >
               {t}
@@ -162,7 +162,7 @@ export function AssetInventoryTable({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-gray-800 bg-black/40 text-[11px] font-mono uppercase tracking-wider text-gray-400">
+            <tr className="border-b border-neutral-800 bg-black/40 text-[11px] font-mono uppercase tracking-wider text-neutral-400">
               <th className="py-3.5 pl-6 pr-3 w-10">
                 <input
                   type="checkbox"
@@ -170,7 +170,7 @@ export function AssetInventoryTable({
                   onChange={() =>
                     setSelectedAssets(selectedAssets.length === assets.length ? [] : assets.map((a) => a.id))
                   }
-                  className="rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-0 cursor-pointer"
+                  className="rounded border-neutral-700 bg-neutral-900 text-purple-600 focus:ring-0 cursor-pointer"
                 />
               </th>
               <th className="px-4 py-3.5">Asset / Group</th>
@@ -183,34 +183,34 @@ export function AssetInventoryTable({
               <th className="py-3.5 pl-4 pr-6 text-right">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/50">
+          <tbody className="divide-y divide-neutral-800/50">
             {filtered.map((asset) => {
               const isChecked = selectedAssets.includes(asset.id);
               return (
                 <tr
                   key={asset.id}
-                  className={`transition-colors hover:bg-white/[0.03] ${isChecked ? "bg-blue-950/20" : ""}`}
+                  className={`transition-colors hover:bg-white/[0.03] ${isChecked ? "bg-purple-950/20" : ""}`}
                 >
                   <td className="py-3.5 pl-6 pr-3">
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleAsset(asset.id)}
-                      className="rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-0 cursor-pointer"
+                      className="rounded border-neutral-700 bg-neutral-900 text-purple-600 focus:ring-0 cursor-pointer"
                     />
                   </td>
 
-                  <td className="px-4 py-3.5 font-medium text-gray-200">
-                    <span className="rounded-md border border-gray-700/60 bg-black/40 px-2 py-1 font-mono text-[11px] text-gray-300">
+                  <td className="px-4 py-3.5 font-medium text-neutral-200">
+                    <span className="rounded-md border border-neutral-700/60 bg-black/40 px-2 py-1 font-mono text-[11px] text-neutral-300">
                       {asset.project}
                     </span>
                   </td>
 
                   <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-1.5 font-medium text-gray-300">
+                    <div className="flex items-center gap-1.5 font-medium text-neutral-300">
                       {asset.type === "GraphQL API" && <Cpu size={14} className="text-cyan-400" />}
                       {asset.type === "REST API" && <Server size={14} className="text-purple-400" />}
-                      {asset.type === "Web App" && <Globe size={14} className="text-blue-400" />}
+                      {asset.type === "Web App" && <Globe size={14} className="text-emerald-400" />}
                       {asset.type === "Endpoint" && <Layers size={14} className="text-amber-400" />}
                       <span>{asset.type}</span>
                     </div>
@@ -243,7 +243,7 @@ export function AssetInventoryTable({
                       </span>
                     )}
                     {asset.pentesting === "Multi-Engine" && (
-                      <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-blue-300 uppercase flex items-center gap-1 w-fit">
+                      <span className="rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-purple-300 uppercase flex items-center gap-1 w-fit">
                         <Zap size={10} /> Multi-Engine
                       </span>
                     )}
@@ -263,7 +263,7 @@ export function AssetInventoryTable({
                           </span>
                         )}
                         {asset.risks.low > 0 && (
-                          <span className="rounded bg-blue-500/20 border border-blue-500/40 px-1.5 py-0.5 text-blue-300">
+                          <span className="rounded bg-cyan-500/20 border border-cyan-500/40 px-1.5 py-0.5 text-cyan-300">
                             L {asset.risks.low}
                           </span>
                         )}
@@ -273,14 +273,14 @@ export function AssetInventoryTable({
                     )}
                   </td>
 
-                  <td className="px-4 py-3.5 text-gray-400 font-mono text-[11px]">
+                  <td className="px-4 py-3.5 text-neutral-400 font-mono text-[11px]">
                     {asset.lastScanned}
                   </td>
 
                   <td className="py-3.5 pl-4 pr-6 text-right">
                     <button
                       onClick={() => onTriggerScan(asset.url)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-blue-500/40 bg-blue-500/10 hover:bg-blue-600 px-2.5 py-1 text-[11px] font-semibold text-blue-300 hover:text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 rounded-lg border border-neutral-700 bg-neutral-800 hover:bg-white hover:text-black px-2.5 py-1 text-[11px] font-semibold text-neutral-200 transition-colors cursor-pointer"
                     >
                       <Play size={11} /> Scan
                     </button>

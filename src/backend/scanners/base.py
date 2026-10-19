@@ -1,6 +1,22 @@
 from abc import ABC, abstractmethod
+import os
+from pathlib import Path
 import shutil
+import sys
 from typing import Callable, Optional
+
+# Ensure local venv and user go/local binary directories are on PATH
+_extra_bins = [
+    str(Path(sys.prefix) / "bin"),
+    str(Path.home() / "go" / "bin"),
+    str(Path.home() / ".local" / "bin"),
+    "/usr/local/bin",
+]
+_current_path = os.environ.get("PATH", "")
+for _bin_path in _extra_bins:
+    if _bin_path not in _current_path.split(os.pathsep):
+        _current_path = f"{_bin_path}{os.pathsep}{_current_path}"
+os.environ["PATH"] = _current_path
 
 from schemas import ScannerFinding, ScannerName
 

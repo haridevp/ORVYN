@@ -86,8 +86,9 @@ Select the optimal template to uncover maximum vulnerabilities on this target.""
     if "OLLAMA_API_BASE" in os.environ:
         candidate_bases.append(os.environ["OLLAMA_API_BASE"])
     candidate_bases.extend([
-        "http://host.docker.internal:11434/v1",
         "http://localhost:11434/v1",
+        "http://127.0.0.1:11434/v1",
+        "http://host.docker.internal:11434/v1",
         "http://172.17.0.1:11434/v1",
     ])
 

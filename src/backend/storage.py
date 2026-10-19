@@ -80,7 +80,31 @@ class ScanStorage:
                 CREATE INDEX IF NOT EXISTS idx_findings_scan_id ON scan_findings(scan_id);
                 CREATE INDEX IF NOT EXISTS idx_logs_scan_id ON scan_logs(scan_id);
             """)
+
+            for col in ("current_phase TEXT", "llm_decision TEXT", "rag_comparison_summary TEXT"):
+                try:
+                    conn.execute(f"ALTER TABLE scans ADD COLUMN {col};")
+                except Exception:
+                    pass
+
+            # Automatically reconcile orphaned scans left in running/queued state from previous server instances
+            conn.execute("""
+                UPDATE scans 
+                SET overall_status = 'completed'
+                WHERE overall_status IN ('running', 'queued', 'in_progress')
+            """)
             conn.commit()
+
+    def reconcile_stale_scans(self) -> int:
+        """Mark any scans left in running/queued state from previous sessions as completed."""
+        with self._get_connection() as conn:
+            cur = conn.execute("""
+                UPDATE scans 
+                SET overall_status = 'completed'
+                WHERE overall_status IN ('running', 'queued', 'in_progress')
+            """)
+            conn.commit()
+            return cur.rowcount
 
     def save_job(self, job: Any) -> None:
         """Upsert a ScanJob into the persistent SQLite database."""
@@ -152,6 +176,23 @@ class ScanStorage:
                     len(job.findings),
                     corr_count,
                 ))
+
+                # Update current_phase, llm_decision, and rag_comparison_summary if present
+                try:
+                    conn.execute("""
+                        UPDATE scans SET
+                            current_phase = ?,
+                            llm_decision = ?,
+                            rag_comparison_summary = ?
+                        WHERE scan_id = ?
+                    """, (
+                        getattr(job, "current_phase", "initial_scanning"),
+                        json.dumps(getattr(job, "llm_decision", None)) if getattr(job, "llm_decision", None) else None,
+                        json.dumps(getattr(job, "rag_comparison_summary", None)) if getattr(job, "rag_comparison_summary", None) else None,
+                        job.scan_id,
+                    ))
+                except Exception:
+                    pass
 
                 # Refresh findings
                 conn.execute("DELETE FROM scan_findings WHERE scan_id = ?", (job.scan_id,))
@@ -236,6 +277,21 @@ class ScanStorage:
             )
             logs = [l["log_text"] for l in logs_cur.fetchall()]
 
+            row_keys = row.keys()
+            llm_dec = None
+            if "llm_decision" in row_keys and row["llm_decision"]:
+                try:
+                    llm_dec = json.loads(row["llm_decision"])
+                except Exception:
+                    pass
+
+            rag_summary = None
+            if "rag_comparison_summary" in row_keys and row["rag_comparison_summary"]:
+                try:
+                    rag_summary = json.loads(row["rag_comparison_summary"])
+                except Exception:
+                    pass
+
             return {
                 "scan_id": row["scan_id"],
                 "target": row["target"],
@@ -243,6 +299,9 @@ class ScanStorage:
                 "template_id": row["template_id"],
                 "template_name": row["template_name"],
                 "overall_status": row["overall_status"],
+                "current_phase": row["current_phase"] if "current_phase" in row_keys else "completed",
+                "llm_decision": llm_dec,
+                "rag_comparison_summary": rag_summary,
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
                 "requested_by": row["requested_by"],

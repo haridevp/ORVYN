@@ -53,19 +53,19 @@ export function ScanHistoryView({
   return (
     <div className="space-y-6">
       {/* Top Header Card */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/70 p-6 backdrop-blur-xl">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-neutral-800 bg-[#0a0b10] p-6 backdrop-blur-xl">
         <div className="flex items-center gap-3.5">
           <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl text-purple-400">
             <History size={24} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
               Historical Assessments Catalog
-              <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+              <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-300">
                 {scans.length} recorded
               </span>
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-neutral-400 mt-0.5">
               Persistent repository of past vulnerability evaluations, findings footprints, and autonomous audit logs.
             </p>
           </div>
@@ -73,7 +73,7 @@ export function ScanHistoryView({
 
         <button
           onClick={onNewScanClick}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-semibold text-white transition-all shadow-md shadow-blue-900/30 cursor-pointer"
+          className="flex items-center gap-2 rounded-full bg-white hover:bg-neutral-200 px-4 py-2 text-xs font-bold text-black transition-all shadow-md cursor-pointer"
         >
           <Play size={13} />
           <span>Launch New Scan</span>
@@ -82,57 +82,52 @@ export function ScanHistoryView({
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Total Audits</span>
-          <span className="text-2xl font-bold text-slate-100 mt-1 block">{scans.length}</span>
+        <div className="rounded-xl border border-neutral-800 bg-[#0a0b10] p-4">
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">Total Audits</span>
+          <span className="text-2xl font-bold text-white mt-1 block">{scans.length}</span>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Active Scans</span>
-          <span className="text-2xl font-bold text-blue-400 mt-1 block flex items-center gap-2">
+        <div className="rounded-xl border border-neutral-800 bg-[#0a0b10] p-4">
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">Active Scans</span>
+          <span className="text-2xl font-bold text-purple-400 mt-1 block flex items-center gap-2">
             {activeCount}
-            {activeCount > 0 && <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping" />}
+            {activeCount > 0 && <span className="h-2 w-2 rounded-full bg-purple-400 animate-ping" />}
           </span>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Completed</span>
+        <div className="rounded-xl border border-neutral-800 bg-[#0a0b10] p-4">
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">Completed</span>
           <span className="text-2xl font-bold text-emerald-400 mt-1 block">{completedCount}</span>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Total Vulnerabilities</span>
+        <div className="rounded-xl border border-neutral-800 bg-[#0a0b10] p-4">
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider block">Total Vulnerabilities</span>
           <span className="text-2xl font-bold text-rose-400 mt-1 block">{totalVulns}</span>
         </div>
       </div>
 
       {/* Search & Filter Strip */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-[#0a0b10] p-3">
         <div className="relative w-full sm:w-80">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
           <input
             type="text"
-            placeholder="Search target domain, scan ID or template..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-slate-800 bg-slate-950 pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-purple-500/60 font-mono transition-colors"
+            placeholder="Search by target, scan ID, or template..."
+            className="w-full rounded-md border border-neutral-800 bg-black/60 pl-9 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:border-neutral-600 focus:outline-none font-mono"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 self-end sm:self-auto text-xs font-mono">
-          {[
-            { id: "all", label: "All" },
-            { id: "running", label: "Running" },
-            { id: "completed", label: "Completed" },
-            { id: "error", label: "Error / Cancelled" },
-          ].map((tab) => (
+        <div className="flex items-center gap-1.5 text-xs font-mono self-end sm:self-auto">
+          {(["all", "running", "completed", "error"] as const).map((filter) => (
             <button
-              key={tab.id}
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                statusFilter === tab.id
-                  ? "bg-purple-600/20 border border-purple-500/40 text-purple-300 font-semibold"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              key={filter}
+              onClick={() => setStatusFilter(filter)}
+              className={`px-3 py-1 rounded-md capitalize transition-colors cursor-pointer ${
+                statusFilter === filter
+                  ? "bg-white text-black font-bold"
+                  : "bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white"
               }`}
             >
-              {tab.label}
+              {filter}
             </button>
           ))}
         </div>
@@ -140,10 +135,10 @@ export function ScanHistoryView({
 
       {/* Historical Scans List */}
       {filteredScans.length === 0 ? (
-        <div className="rounded-xl border border-slate-800/80 bg-slate-900/20 p-12 text-center">
-          <History size={36} className="mx-auto text-slate-600 mb-3" />
-          <h3 className="text-sm font-semibold text-slate-300">No Assessment Records Found</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+        <div className="rounded-xl border border-neutral-800 bg-[#0a0b10] p-12 text-center">
+          <History size={36} className="mx-auto text-neutral-600 mb-3" />
+          <h3 className="text-sm font-semibold text-neutral-300">No Assessment Records Found</h3>
+          <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
             {searchQuery
               ? "No historical scans match your current filter parameters."
               : "Launch an automated penetration scan to begin cataloging target security evaluations."}
@@ -172,16 +167,16 @@ export function ScanHistoryView({
                 layout
                 className={`rounded-xl border p-4 transition-all ${
                   isSelected
-                    ? "border-purple-500/50 bg-slate-900/90 shadow-lg shadow-purple-950/20"
-                    : "border-slate-800/80 bg-slate-950/60 hover:border-slate-700/90 hover:bg-slate-900/40"
+                    ? "border-purple-500/50 bg-neutral-900 shadow-lg shadow-purple-950/20"
+                    : "border-neutral-800/80 bg-[#0a0b10] hover:border-neutral-700 hover:bg-neutral-900/40"
                 }`}
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   {/* Left Info */}
                   <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-sm text-slate-100 font-mono flex items-center gap-1.5">
-                        <Target size={14} className="text-blue-400" />
+                      <span className="font-semibold text-sm text-white font-mono flex items-center gap-1.5">
+                        <Target size={14} className="text-purple-400" />
                         {s.target}
                       </span>
 
@@ -189,7 +184,7 @@ export function ScanHistoryView({
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold ${
                           isRunning
-                            ? "bg-blue-500/15 border border-blue-500/30 text-blue-300"
+                            ? "bg-purple-500/15 border border-purple-500/30 text-purple-300"
                             : s.overall_status === "completed"
                             ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
                             : "bg-rose-500/15 border border-rose-500/30 text-rose-300"
@@ -198,7 +193,7 @@ export function ScanHistoryView({
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${
                             isRunning
-                              ? "bg-blue-400 animate-ping"
+                              ? "bg-purple-400 animate-ping"
                               : s.overall_status === "completed"
                               ? "bg-emerald-400"
                               : "bg-rose-400"
@@ -214,17 +209,17 @@ export function ScanHistoryView({
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono">
-                      <span className="text-slate-500">ID: {s.scan_id}</span>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400 font-mono">
+                      <span className="text-neutral-500">ID: {s.scan_id}</span>
                       <span>•</span>
                       <span className="flex items-center gap-1">
-                        <Clock size={11} className="text-slate-500" />
+                        <Clock size={11} className="text-neutral-500" />
                         {dateStr}
                       </span>
                       {s.template_name && (
                         <>
                           <span>•</span>
-                          <span className="flex items-center gap-1 text-slate-300">
+                          <span className="flex items-center gap-1 text-neutral-300">
                             <Layers size={11} className="text-purple-400" />
                             {s.template_name}
                           </span>
@@ -234,7 +229,7 @@ export function ScanHistoryView({
 
                     {/* Severity Pills */}
                     <div className="flex items-center gap-1.5 pt-1">
-                      <span className="text-[10px] font-mono text-slate-500 mr-1">Vulnerabilities:</span>
+                      <span className="text-[10px] font-mono text-neutral-500 mr-1">Vulnerabilities:</span>
                       <span className="text-[10px] font-mono font-semibold rounded px-1.5 py-0.2 bg-rose-500/20 text-rose-300 border border-rose-500/30">
                         {sev.critical || 0} Crit
                       </span>
@@ -244,13 +239,13 @@ export function ScanHistoryView({
                       <span className="text-[10px] font-mono font-semibold rounded px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/30">
                         {sev.medium || 0} Med
                       </span>
-                      <span className="text-[10px] font-mono font-semibold rounded px-1.5 py-0.2 bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      <span className="text-[10px] font-mono font-semibold rounded px-1.5 py-0.2 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                         {sev.low || 0} Low
                       </span>
-                      <span className="text-[10px] font-mono font-semibold rounded px-1.5 py-0.2 bg-slate-800 text-slate-400 border border-slate-700">
+                      <span className="text-[10px] font-mono font-semibold rounded px-1.5 py-0.2 bg-neutral-900 text-neutral-400 border border-neutral-800">
                         {sev.info || 0} Info
                       </span>
-                      <span className="text-[11px] font-mono font-bold text-slate-200 ml-1">
+                      <span className="text-[11px] font-mono font-bold text-white ml-1">
                         ({s.findings_count || 0} Total)
                       </span>
                     </div>
@@ -263,16 +258,16 @@ export function ScanHistoryView({
                         onSelectScan(s.scan_id);
                         onNavigateToOverview();
                       }}
-                      className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 transition-all cursor-pointer shadow-xs"
+                      className="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 text-xs font-semibold text-neutral-200 transition-all cursor-pointer shadow-xs"
                       title="Inspect results on Overview dashboard"
                     >
-                      <ExternalLink size={13} className="text-blue-400" />
+                      <ExternalLink size={13} className="text-purple-400" />
                       <span>Inspect Scan</span>
                     </button>
 
                     <button
                       onClick={() => onDeleteScan(s.scan_id)}
-                      className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900/60 hover:bg-rose-500/20 hover:border-rose-500/40 p-2 text-slate-400 hover:text-rose-300 transition-all cursor-pointer"
+                      className="flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900/60 hover:bg-rose-500/20 hover:border-rose-500/40 p-2 text-neutral-400 hover:text-rose-300 transition-all cursor-pointer"
                       title="Permanently remove from historical storage"
                     >
                       <Trash2 size={14} />

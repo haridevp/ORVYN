@@ -59,7 +59,7 @@ from rich.table import Table
 # Intra-package imports
 from correlation import correlate_findings, duplicate_group_count, severity_distribution
 from environment import detect_environment
-from job_manager import is_item_in_scope
+from job_manager import is_item_in_scope, identify_secondary_tools_from_findings
 from scanners import REGISTRY
 from schemas import ScannerName
 from templates.registry import template_registry
@@ -213,12 +213,24 @@ def print_report(
     console.print(Panel(summary, border_style="cyan", title="Executive Summary"))
 
     if correlated:
-        table = Table(title="Correlated Threat Findings (Deduplicated)", box=box.SIMPLE_HEAVY, header_style="bold cyan")
+        table = Table(title="Correlated Threat Findings & RAG Validation", box=box.SIMPLE_HEAVY, header_style="bold cyan")
         table.add_column("Severity", no_wrap=True)
         table.add_column("Vulnerability")
+        table.add_column("RAG Verdict", no_wrap=True)
         table.add_column("Engines")
         table.add_column("Confidence", justify="right", no_wrap=True)
         table.add_column("Flags")
+
+        verdict_styles = {
+            "CONFIRMED_VULNERABILITY": "bold green",
+            "CONFIRMED": "bold green",
+            "SUSPECTED_VULNERABILITY": "bold yellow",
+            "SUSPECTED": "bold yellow",
+            "FALSE_POSITIVE": "bold blue",
+            "INFORMATIONAL_FINDING": "dim cyan",
+            "INFORMATIONAL": "dim cyan",
+        }
+
         for c in sorted(correlated, key=lambda c: c.get("confidence", 0), reverse=True):
             flags = []
             tools = c.get("contributing_tools", [])
@@ -226,26 +238,46 @@ def print_report(
                 flags.append(f"{len(tools)}x corroborated")
             if c.get("conflicting_severity"):
                 flags.append("conflicting severity")
+
+            raw_verdict = c.get("ai_verdict") or "CONFIRMED"
+            style_code = verdict_styles.get(raw_verdict, "white")
+            v_short = raw_verdict.replace("_VULNERABILITY", "").replace("_FINDING", "")
+            verdict_badge = f"[{style_code}]{v_short}[/]"
+
             table.add_row(
                 _sev(c["severity"]),
                 c["vulnerability"],
+                verdict_badge,
                 ", ".join(tools),
-                f"{c.get('confidence', 70)}%",
+                f"{c.get('ai_confidence') or c.get('confidence', 70)}%",
                 ", ".join(flags),
             )
         console.print(table)
 
         if detailed:
-            console.print("\n[bold cyan]─── Detailed Threat Evidence ───[/]")
+            console.print("\n[bold cyan]─── Detailed Threat Evidence & RAG Validation Citations ───[/]")
             for i, c in enumerate(correlated, 1):
                 tools_str = ", ".join(c.get("contributing_tools", []))
+                raw_verdict = c.get("ai_verdict") or "CONFIRMED"
+                style_code = verdict_styles.get(raw_verdict, "white")
                 console.print(f"\n[bold]{i}. [{_sev(c['severity'])}] {c['vulnerability']}[/] (Discovered by: {tools_str})")
+                console.print(f"   [bold]RAG Verdict:[/] [{style_code}]{raw_verdict}[/]")
+                if c.get("ai_judge_reasoning"):
+                    console.print(f"   [bold]Judge Reasoning:[/] {c['ai_judge_reasoning']}")
                 console.print(f"   [bold]Description:[/] {c.get('description', 'N/A')}")
                 if c.get("evidence"):
                     console.print("   [bold]Evidence / Endpoints:[/]")
                     for ev in c["evidence"]:
                         console.print(f"     • [yellow]{ev}[/]")
-                if c.get("reference"):
+                if c.get("ai_cve_citations"):
+                    console.print("   [bold]Cited CVEs:[/] " + ", ".join(f"[bold cyan]{cite}[/]" for cite in c["ai_cve_citations"]))
+                if c.get("ai_cwe_citations"):
+                    console.print("   [bold]Cited CWEs:[/] " + ", ".join(f"[bold green]{cite}[/]" for cite in c["ai_cwe_citations"]))
+                if c.get("ai_owasp_citations"):
+                    console.print("   [bold]Cited OWASP:[/] " + ", ".join(f"[bold magenta]{cite}[/]" for cite in c["ai_cwe_citations"]))
+                if c.get("ai_remediation"):
+                    console.print(f"   [bold]Remediation Guidance:[/] [green]{c['ai_remediation']}[/]")
+                elif c.get("reference"):
                     console.print(f"   [bold]Remediation / References:[/] [blue underline]{c['reference']}[/]")
     else:
         console.print("\n[bold green]✔ Zero active exploits detected across targeted perimeter.[/]")
@@ -292,16 +324,23 @@ def save_report_file(filepath: str, data: dict) -> None:
             lines.append(f"| **{sev.capitalize()}** | {count} |")
 
         lines.extend([
-            "\n## Correlated Vulnerability Findings",
-            "| Severity | Vulnerability | Discovered By | Confidence | Evidence / Affected Endpoint | Reference |",
-            "| :--- | :--- | :--- | :--- | :--- | :--- |",
+            "\n## Correlated Vulnerability Findings & RAG Validation",
+            "| Severity | Vulnerability | RAG Verdict | Discovered By | Confidence | Evidence / Affected Endpoint | Cited CVE / CWE / OWASP |",
+            "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
         ])
         for c in correlated:
             tools = ", ".join(c.get("contributing_tools", []))
             evidence_first = (c.get("evidence") or ["N/A"])[0].replace("|", "\\|")
-            ref = c.get("reference") or "N/A"
-            ref_md = f"[{ref}]({ref})" if ref.startswith("http") else ref
-            lines.append(f"| **{c['severity'].upper()}** | {c['vulnerability']} | {tools} | {c.get('confidence', 75)}% | `{evidence_first}` | {ref_md} |")
+            verdict = c.get("ai_verdict") or "CONFIRMED"
+            cits = []
+            if c.get("ai_cwe_citations"):
+                cits.append(c["ai_cwe_citations"][0].split(" (")[0])
+            if c.get("ai_owasp_citations"):
+                cits.append(c["ai_owasp_citations"][0].split(" (")[0])
+            if c.get("ai_cve_citations"):
+                cits.append(c["ai_cve_citations"][0].split(" -")[0].split(" (")[0])
+            citations_str = "<br>".join(cits) if cits else (c.get("reference") or "N/A")
+            lines.append(f"| **{c['severity'].upper()}** | {c['vulnerability']} | `{verdict}` | {tools} | {c.get('ai_confidence') or c.get('confidence', 75)}% | `{evidence_first}` | {citations_str} |")
 
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
@@ -409,9 +448,37 @@ async def run_local_scan(
             if not as_json:
                 console.print(f"[yellow]Autonomous template selection note: {exc}[/]")
 
+    # Phase 2b: Analyze scanner outputs to launch secondary security tools to find real vulnerabilities
+    current_findings = [f for findings in results_by_tool.values() for f in findings]
+    sec_candidates = identify_secondary_tools_from_findings(current_findings, target)
+    needed_sec_tools = [tool for tool, _ in sec_candidates if tool not in results_by_tool]
+    if needed_sec_tools:
+        if not as_json:
+            console.print(f"\n[bold cyan]⚡ Running Secondary Security Tools[/] to uncover real vulnerabilities:")
+            for tool, reason in sec_candidates:
+                if tool in needed_sec_tools:
+                    console.print(f"   • [bold green]{tool.value}[/]: {reason}")
+            console.print("")
+        await asyncio.gather(*(run_one(t) for t in needed_sec_tools))
+
     all_findings = [f for findings in results_by_tool.values() for f in findings]
     raw_findings = [f.model_dump(mode="json") for f in all_findings]
     correlated_models = correlate_findings(all_findings)
+
+    # Phase 3: AI RAG Validator (Retrieve -> Judge -> Verdict with Citations)
+    try:
+        from rag_triage import triage_all_correlated
+        def rag_log_cli(msg: str):
+            if verbose and not as_json:
+                ts = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                console.print(f"[dim]{ts}[/] [[cyan]ai-rag[/]] {msg}")
+        if not as_json and verbose:
+            console.print("\n[bold cyan]⚖️ Executing AI RAG Validator (Retrieve -> Judge -> Verdict with Citations)...[/]")
+        correlated_models = await triage_all_correlated(correlated_models, log_cb=rag_log_cli if verbose else None)
+    except Exception as exc:
+        if verbose and not as_json:
+            console.print(f"[yellow]RAG validation note: {exc}[/]")
+
     correlated = [c.model_dump(mode="json") for c in correlated_models]
     dist = severity_distribution(all_findings).model_dump()
     dup_groups = duplicate_group_count(correlated_models)

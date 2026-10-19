@@ -54,6 +54,7 @@ class ScannerFinding(BaseModel):
     description: str
     evidence: Optional[str] = None
     reference: Optional[str] = None
+    confidence: Optional[int] = None
 
 
 class ScanStartRequest(BaseModel):
@@ -70,7 +71,7 @@ class ScanStartRequest(BaseModel):
         ],
         description="Which scanners to run for this job",
     )
-    profile: Literal["recon", "web", "full", "unlimited"] = "web"
+    profile: Literal["recon", "web", "full", "unlimited", "fast", "deep", "api"] = "web"
     template: Optional[str] = Field(
         default=None,
         description="Optional vulnerability audit template ID (e.g. web_owasp_deep_audit, full_infrastructure_audit)",
@@ -82,6 +83,10 @@ class ScanStartRequest(BaseModel):
     out_of_scope: list[str] = Field(
         default_factory=list,
         description="Excluded domains, endpoints, or keywords (e.g. logout, auth.*)",
+    )
+    enable_secondary_tools: Optional[bool] = Field(
+        default=None,
+        description="Trigger secondary security tools (sqlmap, ffuf, sslyze, wapiti, nuclei) based on findings",
     )
     requested_by: str = Field(default="panel-review-demo")
 
@@ -111,6 +116,9 @@ class ScanStatusResponse(BaseModel):
     template_id: Optional[str] = None
     template_name: Optional[str] = None
     overall_status: Literal["queued", "running", "completed", "error", "cancelled"]
+    current_phase: Optional[str] = "initial_scanning"
+    llm_decision: Optional[dict] = None
+    rag_comparison_summary: Optional[dict] = None
     progress_pct: int = 0
     eta_seconds: Optional[int] = None
     elapsed_seconds: int = 0
@@ -142,12 +150,17 @@ class CorrelatedFinding(BaseModel):
     reference: Optional[str] = None
     source_finding_ids: list[str]
 
-    # AI RAG Triage enrichment (Module 3 / Ollama Qwen 2.5)
+    # AI RAG Validator & Triage enrichment (Module 3 / Ollama Qwen 2.5)
+    ai_verdict: Optional[str] = None
+    ai_judge_reasoning: Optional[str] = None
     ai_threat_explanation: Optional[str] = None
     ai_remediation: Optional[str] = None
     ai_validated_severity: Optional[str] = None
     ai_confidence: Optional[int] = None
     ai_status: Optional[str] = "pending"
+    ai_cve_citations: list[str] = Field(default_factory=list)
+    ai_cwe_citations: list[str] = Field(default_factory=list)
+    ai_owasp_citations: list[str] = Field(default_factory=list)
     ai_references: list[str] = Field(default_factory=list)
 
 
@@ -158,6 +171,9 @@ class ScanResultsResponse(BaseModel):
     template_id: Optional[str] = None
     template_name: Optional[str] = None
     overall_status: str
+    current_phase: Optional[str] = "completed"
+    llm_decision: Optional[dict] = None
+    rag_comparison_summary: Optional[dict] = None
     raw_findings: list[ScannerFinding]
     correlated_findings: list[CorrelatedFinding]
     severity_distribution: SeverityDistribution
@@ -176,6 +192,11 @@ class TriageResult(BaseModel):
     remediation_guidance: str
     retrieved_references: list[str] = Field(default_factory=list)
     status: str
+    verdict: str = Field(default="CONFIRMED_VULNERABILITY")
+    judge_reasoning: str = Field(default="")
+    cve_citations: list[str] = Field(default_factory=list)
+    cwe_citations: list[str] = Field(default_factory=list)
+    owasp_citations: list[str] = Field(default_factory=list)
 
 
 def now_iso() -> str:

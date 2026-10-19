@@ -9,9 +9,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/scan': 'http://backend:8000',
-      '/health': 'http://backend:8000',
-      '/architecture': 'http://backend:8000',
+      '/scan': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/health': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/architecture': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
     }
   }
 })

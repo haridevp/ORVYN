@@ -4,29 +4,33 @@ services:
     image: pentest-backend:latest
     container_name: fastapi_app
     init: true
-    ports:
-      - "8000:8000"
+    network_mode: "host"
     volumes:
       - ./src/backend:/app
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - ./src/security_rag_engine:/app/security_rag_engine
+      - ./chroma_security_db:/app/chroma_security_db
+    environment:
+      - OLLAMA_API_BASE=http://localhost:11434/v1
     depends_on:
       - redis
       - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   worker:
     build: ./src/worker
     image: pentest-worker:latest
     container_name: celery_worker
     init: true
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+    network_mode: "host"
     depends_on:
       - redis
+    healthcheck:
+      disable: true
 
   frontend:
     build: ./frontend
@@ -34,16 +38,23 @@ services:
     container_name: frontend_app
     ports:
       - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
 
   redis:
     image: redis:7
     container_name: redis
+    ports:
+      - "6379:6379"
 
   db:
     image: postgres:15
     container_name: postgres
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password

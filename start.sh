@@ -49,6 +49,17 @@ print_info()    { echo -e "  ${CYAN}ℹ${NC} $1"; }
 print_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
 print_error()   { echo -e "  ${RED}✖${NC} $1"; }
 run_cli() {
+    local DOCKER_BIN
+    DOCKER_BIN=$(check_docker || true)
+    if [[ "$DOCKER_BIN" != "none" ]] && $DOCKER_BIN ps --format '{{.Names}}' 2>/dev/null | grep -q "^fastapi_app$"; then
+        local TTY_FLAG="-i"
+        if [ -t 0 ] && [ -t 1 ]; then
+            TTY_FLAG="-it"
+        fi
+        $DOCKER_BIN exec $TTY_FLAG fastapi_app python3 cli.py "$@"
+        return $?
+    fi
+
     local PYTHON_BIN="python3"
     local VENV_CANDIDATES=(
         "$PROJECT_ROOT/src/backend/.venv/bin/python"
@@ -576,10 +587,15 @@ if [[ "$MODE" == "docker" ]]; then
     fi
 
     # Release any leftover host background processes on port 5173/8000 so docker can bind cleanly
+    if [[ -f "$PROJECT_ROOT/.backend.pid" ]]; then
+        kill $(cat "$PROJECT_ROOT/.backend.pid") >/dev/null 2>&1 || true
+        rm -f "$PROJECT_ROOT/.backend.pid"
+    fi
     if [[ -f "$PROJECT_ROOT/.frontend.pid" ]]; then
         kill $(cat "$PROJECT_ROOT/.frontend.pid") >/dev/null 2>&1 || true
         rm -f "$PROJECT_ROOT/.frontend.pid"
     fi
+    fuser -k 8000/tcp >/dev/null 2>&1 || true
     fuser -k 5173/tcp >/dev/null 2>&1 || true
 
     if [[ -n "$REBUILD_FLAG" ]]; then

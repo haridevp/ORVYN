@@ -47,7 +47,7 @@ export function ExecutiveMetrics({
       {/* 1. Total Threats & Critical Card */}
       <div
         className={`enterprise-panel p-4 space-y-3 transition-colors ${
-          hasThreats ? "border-rose-500/30" : "border-slate-800"
+          hasThreats ? "border-rose-500/30" : "border-neutral-800"
         }`}
       >
         <div className="flex items-center justify-between">
@@ -60,7 +60,7 @@ export function ExecutiveMetrics({
               <span className="text-2xl font-bold tracking-tight text-white font-mono">
                 {totalFindings}
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-neutral-400">
                 {hasThreats ? `${duplicateGroups} groups` : "Zero exploits"}
               </span>
             </div>
@@ -73,7 +73,7 @@ export function ExecutiveMetrics({
                 cx="38"
                 cy="38"
                 r={radius}
-                className={hasThreats ? "stroke-slate-800" : "stroke-emerald-950"}
+                className={hasThreats ? "stroke-neutral-800" : "stroke-emerald-950"}
                 strokeWidth="7"
                 fill="transparent"
               />
@@ -139,8 +139,8 @@ export function ExecutiveMetrics({
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] font-mono">
-          <span className="text-slate-400">Surface Severity</span>
+        <div className="flex items-center justify-between border-t border-neutral-800/80 pt-2.5 text-[11px] font-mono">
+          <span className="text-neutral-400">Surface Severity</span>
           <span className="flex items-center gap-1.5 font-medium">
             <span
               className={`h-1.5 w-1.5 rounded-full ${
@@ -188,7 +188,7 @@ export function ExecutiveMetrics({
               <span className="text-2xl font-bold tracking-tight text-white font-mono">
                 {duplicateGroups}
               </span>
-              <span className="text-[11px] text-slate-400">Correlated Vectors</span>
+              <span className="text-[11px] text-neutral-400">Correlated Vectors</span>
             </div>
           </div>
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
@@ -196,7 +196,7 @@ export function ExecutiveMetrics({
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] text-slate-400 font-mono">
+        <div className="flex items-center justify-between border-t border-neutral-800/80 pt-2.5 text-[11px] text-neutral-400 font-mono">
           <span>Deduplication</span>
           <span className="text-emerald-400 font-medium">
             {isScanning ? "Correlating Live..." : (hasThreats ? "Cross-Engine Linked" : "Standby")}
@@ -208,7 +208,7 @@ export function ExecutiveMetrics({
       <div className="enterprise-panel p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-purple-400">
               <Clock size={14} />
               <span>Audit Time Saved</span>
             </div>
@@ -216,17 +216,17 @@ export function ExecutiveMetrics({
               <span className="text-2xl font-bold tracking-tight text-white font-mono">
                 {hoursSaved}h
               </span>
-              <span className="text-[11px] text-slate-400">~{engineerDays}d manual</span>
+              <span className="text-[11px] text-neutral-400">~{engineerDays}d manual</span>
             </div>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400">
             <TrendingUp size={18} />
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] text-slate-400 font-mono">
+        <div className="flex items-center justify-between border-t border-neutral-800/80 pt-2.5 text-[11px] text-neutral-400 font-mono">
           <span>Execution Velocity</span>
-          <span className="text-blue-400 font-medium">Parallel DAST</span>
+          <span className="text-purple-400 font-medium">Parallel DAST</span>
         </div>
       </div>
 
@@ -234,28 +234,28 @@ export function ExecutiveMetrics({
       <div className="enterprise-panel p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300">
-              <Zap size={14} className="text-blue-400" />
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-300">
+              <Zap size={14} className="text-purple-400" />
               <span>Active Engines</span>
             </div>
             <div className="mt-1.5 flex items-baseline gap-2">
               <span className="text-2xl font-bold tracking-tight text-white font-mono">
                 {enginesCount} Scanners
               </span>
-              <span className="text-[11px] text-slate-400 truncate max-w-[170px]" title={engineNames}>
+              <span className="text-[11px] text-neutral-400 truncate max-w-[170px]" title={engineNames}>
                 {engineNames}
               </span>
             </div>
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-slate-300">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-300">
             <Zap size={18} />
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 text-[11px] font-mono">
-          <span className="text-slate-400">Cluster Status</span>
+        <div className="flex items-center justify-between border-t border-neutral-800/80 pt-2.5 text-[11px] font-mono">
+          <span className="text-neutral-400">Cluster Status</span>
           <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-            <span className={`h-1.5 w-1.5 rounded-full ${isScanning ? "bg-blue-400 animate-ping" : "bg-emerald-400"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full ${isScanning ? "bg-purple-400 animate-ping" : "bg-emerald-400"}`} />
             {isScanning ? "Scanning Live" : "Cluster Ready"}
           </span>
         </div>

@@ -31,13 +31,14 @@ async def _run_real_scan(
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "wapiti_results.json")
+        # Use exact Wapiti lowercase module names including http_headers and csp
         command = [
             BINARY,
             "-u", target_url,
             "-f", "json",
             "-o", output_file,
-            "-m", "xss,sql,exec,file,ssrf,redirect,cookieFlags,hsts",
-            "--max-scan-time", "60",
+            "-m", "http_headers,csp,xss,sql,exec,file,ssrf,redirect,cookieflags",
+            "--max-scan-time", "40",
             "--flush-session",
         ]
 
@@ -50,15 +51,37 @@ async def _run_real_scan(
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=70.0)
+            
+            async def read_stream():
+                while True:
+                    line = await proc.stdout.readline()
+                    if not line:
+                        break
+                    text = line.decode("utf-8", errors="replace").strip()
+                    if text and log_cb:
+                        if not text.startswith("█") and not text.startswith("Problem with local"):
+                            log_cb(text)
+
+            reader_task = asyncio.create_task(read_stream())
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=50.0)
+            except asyncio.TimeoutError:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+                if log_cb:
+                    log_cb("Wapiti scan reached max scan time. Collecting parsed results.")
+            finally:
+                if not reader_task.done():
+                    try:
+                        await asyncio.wait_for(reader_task, timeout=1.5)
+                    except (asyncio.TimeoutError, asyncio.CancelledError):
+                        reader_task.cancel()
         except Exception as exc:
             if log_cb:
-                log_cb(f"Wapiti execution error: {exc}. Providing fallback findings.")
-            sim = build_simulated_findings(ScannerName.wapiti, target)
-            if finding_cb:
-                for f in sim:
-                    finding_cb(f)
-            return sim
+                log_cb(f"Wapiti execution error: {exc}. Scan skipped.")
+            return []
 
         findings: list[ScannerFinding] = []
         if os.path.exists(output_file):
@@ -66,34 +89,49 @@ async def _run_real_scan(
                 with open(output_file, "r", encoding="utf-8", errors="ignore") as f:
                     data = json.load(f)
                 vulnerabilities = data.get("vulnerabilities", {})
+                seen_vulns = set()
                 for cat, items in vulnerabilities.items():
                     for item in items:
-                        desc = item.get("info") or cat
+                        info_msg = item.get("info") or cat
                         path = item.get("path") or target_url
                         param = item.get("parameter") or ""
+                        level = item.get("level", 1)
+                        sev = SEVERITY_MAP.get(level, Severity.medium)
+                        
+                        vuln_title = f"{cat}: {info_msg}" if info_msg != cat else cat
+                        if vuln_title in seen_vulns:
+                            continue
+                        seen_vulns.add(vuln_title)
+
+                        curl_cmd = item.get("curl_command") or ""
+                        req_str = item.get("http_request") or ""
+                        evidence_parts = [f"Path: {path}"]
+                        if param:
+                            evidence_parts.append(f"Param: {param}")
+                        if curl_cmd:
+                            evidence_parts.append(f"Reproduce: {curl_cmd}")
+                        elif req_str:
+                            evidence_parts.append(f"Request: {req_str.splitlines()[0]}")
+
                         finding = ScannerFinding(
                             tool=ScannerName.wapiti,
                             target=target,
-                            vulnerability=cat,
-                            severity=Severity.medium,
-                            description=f"{cat}: {desc}",
-                            evidence=f"Endpoint: {path} Parameter: {param}".strip(),
+                            vulnerability=vuln_title,
+                            severity=sev,
+                            description=f"Wapiti web application audit detected {vuln_title}. {info_msg}",
+                            evidence=" | ".join(evidence_parts),
                             reference=enrich_reference(cat, "https://wapiti-scanner.github.io/"),
                         )
                         findings.append(finding)
                         if finding_cb:
                             finding_cb(finding)
-            except Exception:
-                pass
+                        if log_cb:
+                            log_cb(f"🎯 Wapiti finding: [{finding.severity.upper()}] {finding.vulnerability}")
+            except Exception as e:
+                if log_cb:
+                    log_cb(f"Wapiti report parsing note: {e}")
 
-        if not findings:
-            sim = build_simulated_findings(ScannerName.wapiti, target)
-            if finding_cb:
-                for f in sim:
-                    finding_cb(f)
-            return sim
-
-        return findings
+    return findings
 
 
 class WapitiWrapper(ScannerWrapper):
@@ -122,13 +160,5 @@ class WapitiWrapper(ScannerWrapper):
             )
 
         if log_cb:
-            log_cb(f"Binary '{self.binary}' not found on PATH. Using fallback simulated findings.")
-        sim_findings = build_simulated_findings(ScannerName.wapiti, target)
-        delay = 0.005 if (".local" in target or "demo" in target) else min(0.04, 1.0 / max(1, len(sim_findings)))
-        if finding_cb:
-            for f in sim_findings:
-                await asyncio.sleep(delay)
-                finding_cb(f)
-        else:
-            await asyncio.sleep(delay)
-        return sim_findings
+            log_cb(f"Binary '{self.binary}' not found on PATH. Real scan skipped.")
+        return []

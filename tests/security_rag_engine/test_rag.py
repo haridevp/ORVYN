@@ -74,3 +74,28 @@ def test_triage_finding_mock(monkeypatch):
     assert result.confidence_score == 95
     assert result.status == "Triaged"
     assert len(result.retrieved_references) > 0
+
+
+def test_rag_validator_rule_based_judge_and_citations():
+    pipeline = SecurityRAGPipeline()
+    finding = ScannerFinding(
+        tool="nuclei",
+        target="http://example.com/api/v1/user?id=1",
+        vulnerability="SQL Injection parameter",
+        severity="High",
+        description="SQL injection in id parameter syntax error in SQL statement"
+    )
+
+    result = pipeline.validate_finding(finding)
+    assert result.verdict in [
+        "CONFIRMED_VULNERABILITY",
+        "SUSPECTED_VULNERABILITY",
+        "FALSE_POSITIVE",
+        "INFORMATIONAL_FINDING",
+    ]
+    assert result.judge_reasoning is not None and len(result.judge_reasoning) > 0
+    assert len(result.cwe_citations) > 0
+    assert any("CWE-89" in cwe for cwe in result.cwe_citations)
+    assert len(result.owasp_citations) > 0
+    assert any("A03" in o or "Injection" in o for o in result.owasp_citations)
+
