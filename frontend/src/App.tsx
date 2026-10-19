@@ -68,13 +68,13 @@ export default function App() {
       window.location.hostname === "0.0.0.0" ||
       window.location.hostname.endsWith(".local"));
 
-  // On localhost: Mode can seamlessly toggle between "app" (Cyber-Deck Console) and "docs" (Documentation Portal).
-  // Defaults to "app" on localhost for instant, unrestricted testing of all scanners and features!
+  // On localhost: Mode can seamlessly toggle between "docs" (Documentation Portal) and "app" (Cyber-Deck Console).
+  // Defaults to "docs" so the Documentation Portal showcase is immediately visible upon opening!
   const [localViewMode, setLocalViewMode] = useState<"app" | "docs">(() => {
-    if (typeof window !== "undefined" && window.location.hash === "#docs") {
-      return "docs";
+    if (typeof window !== "undefined" && window.location.hash === "#app") {
+      return "app";
     }
-    return "app";
+    return "docs";
   });
 
   // Authentication State: On localhost, provide default developer session so local testing is never blocked
