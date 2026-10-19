@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   Shield,
-  Zap,
   Brain,
   GitBranch,
   Server,
@@ -20,11 +19,10 @@ import {
   Scale,
   Target,
 } from "lucide-react";
-import { RedamonWorkflowGraph } from "./RedamonWorkflowGraph";
 import type { ScannerProgress } from "../types";
-
+import { RedamonWorkflowGraph } from "./RedamonWorkflowGraph";
 interface DocumentationPortalProps {
-  onLaunchApp: () => void;
+  // Pure Documentation Portal showcasing the private project
 }
 
 const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
@@ -186,7 +184,7 @@ const SAMPLE_RAG_QUERIES = [
   },
 ];
 
-export function DocumentationPortal({ onLaunchApp }: DocumentationPortalProps) {
+export function DocumentationPortal({}: DocumentationPortalProps = {}) {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [activeRagSample, setActiveRagSample] = useState<number>(0);
@@ -227,7 +225,7 @@ export function DocumentationPortal({ onLaunchApp }: DocumentationPortalProps) {
                   ORVYN
                 </span>
                 <span className="rounded bg-cyan-500/15 border border-cyan-500/30 px-2 py-0.5 text-[9px] font-mono text-cyan-300 font-bold">
-                  DOCS & SHOWCASE
+                  PROJECT DOCUMENTATION
                 </span>
               </div>
               <p className="text-[10px] font-mono text-slate-400 hidden sm:block">
@@ -256,27 +254,23 @@ export function DocumentationPortal({ onLaunchApp }: DocumentationPortalProps) {
             ))}
           </nav>
 
-          {/* Right Action CTAs */}
+          {/* Right Header Badges & Actions */}
           <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-[#0b0d18] px-3 py-1.5 text-xs font-mono text-slate-400">
+              <Shield size={12} className="text-cyan-400" />
+              <span>Private Research Engine</span>
+            </div>
+
             <a
               href="https://github.com/haridevp/ORVYN"
               target="_blank"
               rel="noreferrer"
-              className="hidden sm:flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-[#0c0e18] hover:bg-[#121524] px-3 py-1.5 text-xs font-mono text-slate-300 hover:text-white transition-all cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-[#0c0e18] hover:bg-[#121524] px-3.5 py-1.5 text-xs font-mono text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm"
             >
               <FolderGit2 size={13} className="text-cyan-400" />
               <span>GitHub</span>
               <ExternalLink size={11} className="text-slate-500" />
             </a>
-
-            <button
-              onClick={onLaunchApp}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-4 py-2 text-xs font-bold text-black font-mono shadow-[0_0_20px_rgba(0,240,255,0.35)] transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            >
-              <Zap size={14} className="fill-black" />
-              <span>Launch Cyber-Deck App</span>
-              <ArrowRight size={13} />
-            </button>
           </div>
         </div>
       </header>
@@ -303,14 +297,14 @@ export function DocumentationPortal({ onLaunchApp }: DocumentationPortalProps) {
             Eliminating static, uncoordinated vulnerability scanners by orchestrating a dynamic <strong>5-phase autonomous reconnaissance pipeline</strong>. Powered by local LLM template selection (<strong>Qwen 2.5:7b</strong>), an interactive <strong>Redamon Recon Workflow</strong> canvas, and vector RAG triage over <strong>5,000+ authoritative security chunks</strong> in ChromaDB.
           </p>
 
-          {/* Quick CTA Actions */}
+          {/* Documentation CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
-              onClick={onLaunchApp}
+              onClick={() => document.getElementById("architecture")?.scrollIntoView({ behavior: "smooth" })}
               className="flex items-center gap-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 px-6 py-3 text-sm font-bold text-black font-mono shadow-[0_0_25px_rgba(0,240,255,0.4)] transition-all cursor-pointer"
             >
-              <Zap size={15} className="fill-black" />
-              <span>Launch Interactive Cyber-Deck</span>
+              <BookOpen size={15} />
+              <span>Explore Technical Architecture</span>
               <ArrowRight size={15} />
             </button>
 
@@ -319,15 +313,15 @@ export function DocumentationPortal({ onLaunchApp }: DocumentationPortalProps) {
               className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-[#0b0e1b] hover:bg-[#12162a] hover:border-cyan-500/50 px-6 py-3 text-sm font-semibold text-slate-200 transition-all cursor-pointer"
             >
               <GitBranch size={15} className="text-cyan-400" />
-              <span>Explore Recon Workflow Graph</span>
+              <span>View Recon Workflow Graph</span>
             </button>
 
             <button
-              onClick={() => document.getElementById("architecture")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() => document.getElementById("rag-engine")?.scrollIntoView({ behavior: "smooth" })}
               className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 hover:bg-neutral-800 px-5 py-3 text-sm font-semibold text-slate-300 transition-all cursor-pointer"
             >
-              <BookOpen size={15} className="text-purple-400" />
-              <span>Technical Specs (RFC)</span>
+              <Scale size={15} className="text-purple-400" />
+              <span>Security RAG Triage</span>
             </button>
           </div>
 
@@ -372,13 +366,10 @@ export function DocumentationPortal({ onLaunchApp }: DocumentationPortalProps) {
                 Modeled after the Redamon reconnaissance framework specifications: A high-density interactive node-graph organizing data flow across upper entity bands, 9 tool stages, and lower enriched artifact bands.
               </p>
             </div>
-            <button
-              onClick={onLaunchApp}
-              className="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-950/40 px-3.5 py-1.5 text-xs font-mono text-cyan-300 hover:bg-cyan-900/50 cursor-pointer"
-            >
-              <span>Test Live in Console</span>
-              <ArrowRight size={13} />
-            </button>
+            <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-3.5 py-1.5 text-xs font-mono text-cyan-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+              <span>Circuit-Bus Architecture v3.0</span>
+            </div>
           </div>
 
           {/* Three Bands Architecture Explainer */}
@@ -976,10 +967,10 @@ docker compose up --build -d`}</pre>
 
           <div className="flex items-center gap-4 text-[11px]">
             <button
-              onClick={onLaunchApp}
+              onClick={() => document.getElementById("architecture")?.scrollIntoView({ behavior: "smooth" })}
               className="text-cyan-400 hover:text-white transition-colors cursor-pointer"
             >
-              Launch Cyber-Deck App
+              Technical Architecture
             </button>
             <span>•</span>
             <a

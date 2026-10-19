@@ -59,36 +59,15 @@ const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
 ];
 
 export default function App() {
-  // Documentation Portal vs. Cyber-Deck Console mode
-  // Defaults to "showcase" for the publication portal showcasing the project
-  const [portalMode, setPortalModeState] = useState<"showcase" | "app">(() => {
-    if (typeof window !== "undefined" && window.location.hash === "#app") {
-      return "app";
-    }
-    try {
-      const saved = localStorage.getItem("orvyn_portal_mode");
-      if (saved === "app") return "app";
-    } catch {
-      // Fallback
-    }
-    return "showcase";
-  });
+  // Security & Privacy Guard:
+  // ORVYN is a private research project. The publication (GitHub Pages / public URLs)
+  // is strictly a Documentation & Project Showcase Portal with zero access to the private pentest console.
+  const isInternalConsole =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+    window.location.search.includes("mode=internal_console");
 
-  const setPortalMode = (mode: "showcase" | "app") => {
-    setPortalModeState(mode);
-    try {
-      localStorage.setItem("orvyn_portal_mode", mode);
-      if (mode === "app") {
-        window.location.hash = "#app";
-      } else {
-        window.location.hash = "#docs";
-      }
-    } catch {
-      // Ignore
-    }
-  };
-
-  // Authentication State (Default guest reviewer so visitors can explore the Cyber-Deck immediately)
+  // Authentication State for internal local development
   const [user, setUser] = useState<{ username: string; role: string } | null>(() => {
     const saved = localStorage.getItem("pentest_user");
     if (saved) {
@@ -98,7 +77,7 @@ export default function App() {
         return null;
       }
     }
-    return { username: "secops-evaluator", role: "SecOps Lead (Academic Review)" };
+    return null;
   });
 
   const [apiState, setApiState] = useState<ApiState>("checking");
@@ -395,9 +374,11 @@ export default function App() {
     }
   }
 
-  // If in documentation portal showcase mode, render DocumentationPortal
-  if (portalMode === "showcase") {
-    return <DocumentationPortal onLaunchApp={() => setPortalMode("app")} />;
+  // Security & Privacy Guard:
+  // Unless explicitly in internal console mode on localhost, ALWAYS render the Documentation Showcase Portal.
+  // The private pentesting console is completely unreachable on GitHub Pages or any public URL.
+  if (!isInternalConsole) {
+    return <DocumentationPortal />;
   }
 
   // If user is not authenticated, render Login Portal
@@ -445,7 +426,9 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        onOpenDocs={() => setPortalMode("showcase")}
+        onOpenDocs={() => {
+          window.location.href = window.location.origin + window.location.pathname;
+        }}
       />
 
       <div className="min-w-0 flex-1 relative flex flex-col">
@@ -454,7 +437,9 @@ export default function App() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setPortalMode("showcase")}
+              onClick={() => {
+                window.location.href = window.location.origin + window.location.pathname;
+              }}
               className="flex items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 px-3 py-1 text-xs font-mono font-semibold text-purple-300 transition-all cursor-pointer shadow-xs"
               title="Return to Documentation & Project Showcase Portal"
             >
