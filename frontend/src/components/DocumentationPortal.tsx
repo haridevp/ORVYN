@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   Shield,
-  Brain,
   GitBranch,
   Server,
   Code2,
@@ -11,18 +10,25 @@ import {
   BookOpen,
   Cpu,
   CheckCircle2,
-  ArrowRight,
-  Layers,
   Sparkles,
   Clock,
   FolderGit2,
   Scale,
   Target,
+  Play,
+  Film,
+  Users,
+  AlertTriangle,
+  TrendingUp,
+  Terminal,
+  X,
+  FileText,
 } from "lucide-react";
 import type { ScannerProgress } from "../types";
 import { RedamonWorkflowGraph } from "./RedamonWorkflowGraph";
+
 interface DocumentationPortalProps {
-  // Pure Documentation Portal showcasing the private project
+  // Pure Documentation Portal showcasing the private research project
 }
 
 const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
@@ -184,10 +190,127 @@ const SAMPLE_RAG_QUERIES = [
   },
 ];
 
+const DEMO_VIDEOS = [
+  {
+    id: "full-run",
+    title: "End-to-End Autonomous 5-Phase Pentest Execution",
+    badge: "PRIMARY DEMO",
+    duration: "05:20",
+    quality: "1080p 60fps",
+    desc: "Complete walkthrough from entering target scope to executing Phase 1 (Recon & Ports), Phase 2 (LLM Template Selection), Phase 3 (Nuclei/Wapiti Fuzzing), Phase 4 (ChromaDB RAG Triage), and downloading the consolidated executive report.",
+    topics: [
+      "Target Scope Setup & Pre-flight Validation",
+      "Asynchronous Celery Non-blocking Execution",
+      "Live Port Scanning & WhatWeb Fingerprinting",
+      "Ollama (Qwen 2.5:7b) Template Reasoning",
+      "RAG Knowledge Triage (OWASP & CVE)",
+      "Correlated Executive Markdown/PDF Export",
+    ],
+    videoUrlSlot: "https://youtube.com/watch?v=ORVYN_DEMO_PHASE_1_TO_5",
+  },
+  {
+    id: "circuit-workflow",
+    title: "Interactive Redamon Circuit-Bus Pipeline Walkthrough",
+    badge: "WORKFLOW CANVAS",
+    duration: "03:15",
+    quality: "1080p 60fps",
+    desc: "Demonstration of the interactive Circuit-Bus canvas inspired by the Redamon recon framework. Clicking nodes highlights signal propagation across the upper entity band, center tool band, and lower artifact band.",
+    topics: [
+      "Three-Band Circuit-Bus Topology Overview",
+      "Real-time Tool Node Status Indicators",
+      "Dependency Data Signals & In-Flight Traces",
+      "Secondary Dynamic Triggers (SQLMap, FFuf)",
+      "Air-gapped Canvas State Synchronization",
+    ],
+    videoUrlSlot: "https://youtube.com/watch?v=ORVYN_CIRCUIT_BUS_WORKFLOW",
+  },
+  {
+    id: "ai-rag-triage",
+    title: "Local LLM Reasoning & ChromaDB Vector RAG Triage",
+    badge: "AI & VECTOR RAG",
+    duration: "04:10",
+    quality: "1080p 60fps",
+    desc: "Deep-dive into the AI decision layer: How discovered perimeter technologies prompt the local Qwen 2.5:7b model to select pentest templates, followed by ChromaDB cosine similarity matching against 5,000+ security chunks.",
+    topics: [
+      "Local Ollama Qwen 2.5:7b Execution",
+      "Zero Cloud Leakage Safeguard Protocol",
+      "ChromaDB 5,000+ Chunk Vector Embeddings",
+      "Cosine Similarity Threshold Validation",
+      "Automated Remediation Code Generation",
+    ],
+    videoUrlSlot: "https://youtube.com/watch?v=ORVYN_LLM_RAG_TRIAGE",
+  },
+];
+
+const TEAM_MEMBERS = [
+  {
+    name: "Haridev P",
+    role: "Project Lead & Full Stack Architecture",
+    github: "haridevp",
+    githubUrl: "https://github.com/haridevp",
+    initials: "HP",
+    accent: "border-cyan-500/40 bg-cyan-950/20 text-cyan-400",
+    badge: "LEAD ARCHITECT",
+    contributions: [
+      "Overall system architecture, non-blocking Celery/FastAPI orchestration",
+      "Redamon-inspired Circuit-Bus interactive canvas UI",
+      "Multi-scanner Docker containerization & timeout guards",
+      "Autonomous 5-phase reconnaissance and triage pipeline design",
+    ],
+  },
+  {
+    name: "Reenu LK",
+    role: "Reconnaissance & Vulnerability Scanning",
+    github: "ReenuLK",
+    githubUrl: "https://github.com/ReenuLK",
+    initials: "RL",
+    accent: "border-purple-500/40 bg-purple-950/20 text-purple-400",
+    badge: "SECURITY RESEARCH",
+    contributions: [
+      "Nmap, SSLyze, and Nikto scanner integration and parsers",
+      "CVE data normalization and CVSS v3.1 scoring formulas",
+      "Perimeter network reconnaissance algorithms & service mapping",
+      "Vulnerability deduplication and severity distribution logic",
+    ],
+  },
+  {
+    name: "Shruthilaya A V",
+    role: "Security RAG & AI Engineering",
+    github: "Shruthilaya",
+    githubUrl: "https://github.com/Shruthilaya",
+    initials: "SA",
+    accent: "border-emerald-500/40 bg-emerald-950/20 text-emerald-400",
+    badge: "AI & RAG SPECIALIST",
+    contributions: [
+      "ChromaDB vector database indexing of 5,000+ security chunks",
+      "OWASP Top 10, NIST CVE, and MITRE CWE embedding pipelines",
+      "Ollama local LLM prompt engineering & structured template selection",
+      "False positive pruning benchmarks and similarity scoring",
+    ],
+  },
+  {
+    name: "vistanoop (Anoop)",
+    role: "Exploitation & Secondary Toolchains",
+    github: "vistanoop",
+    githubUrl: "https://github.com/vistanoop",
+    initials: "VA",
+    accent: "border-amber-500/40 bg-amber-950/20 text-amber-400",
+    badge: "EXPLOITATION & TOOLING",
+    contributions: [
+      "Nuclei template mapping and secondary tool orchestration",
+      "Dynamic triggering of SQLMap and FFuf upon perimeter discovery",
+      "Executive report generator & PDF export pipeline",
+      "FastAPI REST endpoints and backend schema validation",
+    ],
+  },
+];
+
 export function DocumentationPortal({}: DocumentationPortalProps = {}) {
-  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeTab, setActiveTab] = useState<string>("problem");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [activeRagSample, setActiveRagSample] = useState<number>(0);
+  const [activeDocTab, setActiveDocTab] = useState<"arch" | "scanners" | "rag" | "api" | "cli" | "deploy">("arch");
+  const [selectedDemoVideo, setSelectedDemoVideo] = useState<typeof DEMO_VIDEOS[0] | null>(null);
 
   const handleCopy = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
@@ -196,22 +319,20 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
   };
 
   const navLinks = [
-    { id: "overview", label: "Project Overview" },
-    { id: "recon-pipeline", label: "Recon Pipeline" },
-    { id: "phases", label: "5-Phase Workflow" },
-    { id: "architecture", label: "Technical Architecture" },
-    { id: "rag-engine", label: "Security RAG" },
-    { id: "scanners", label: "Tool Matrix" },
-    { id: "mcp-ai", label: "LLM & MCP" },
-    { id: "api", label: "API & CLI" },
-    { id: "roadmap", label: "Roadmap & Team" },
-    { id: "quickstart", label: "Deployment" },
+    { id: "problem", label: "Problem Statement" },
+    { id: "objectives", label: "Project Objectives" },
+    { id: "methodology", label: "Methodology" },
+    { id: "demo-videos", label: "Demo Videos" },
+    { id: "progress", label: "Project Progress" },
+    { id: "documentation", label: "Documentation" },
+    { id: "team", label: "Team Details" },
+    { id: "repository", label: "GitHub Repo" },
   ];
 
   return (
     <div className="min-h-screen bg-[#06070c] text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       {/* 1. TOP STICKY HEADER & COMMAND MATRIX */}
-      <header className="sticky top-0 z-50 border-b border-cyan-500/20 bg-[#07080e]/90 backdrop-blur-xl px-4 lg:px-8 py-3">
+      <header className="sticky top-0 z-50 border-b border-cyan-500/20 bg-[#07080e]/95 backdrop-blur-xl px-4 lg:px-8 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Logo & Identity */}
           <div className="flex items-center gap-3">
@@ -225,7 +346,7 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
                   ORVYN
                 </span>
                 <span className="rounded bg-cyan-500/15 border border-cyan-500/30 px-2 py-0.5 text-[9px] font-mono text-cyan-300 font-bold">
-                  PROJECT DOCUMENTATION
+                  DOCUMENTATION PORTAL
                 </span>
               </div>
               <p className="text-[10px] font-mono text-slate-400 hidden sm:block">
@@ -236,14 +357,14 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
 
           {/* Navigation Items (Desktop) */}
           <nav className="hidden xl:flex items-center gap-1 text-xs font-mono">
-            {navLinks.slice(0, 6).map((link) => (
+            {navLinks.map((link) => (
               <button
                 key={link.id}
                 onClick={() => {
                   setActiveTab(link.id);
                   document.getElementById(link.id)?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
                   activeTab === link.id
                     ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-xs"
                     : "text-slate-400 hover:text-white hover:bg-neutral-900/60"
@@ -258,14 +379,14 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-[#0b0d18] px-3 py-1.5 text-xs font-mono text-slate-400">
               <Shield size={12} className="text-cyan-400" />
-              <span>Private Research Engine</span>
+              <span>Academic Research</span>
             </div>
 
             <a
               href="https://github.com/haridevp/ORVYN"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-[#0c0e18] hover:bg-[#121524] px-3.5 py-1.5 text-xs font-mono text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-[#0c0e18] hover:bg-[#121524] hover:border-cyan-400/50 px-3.5 py-1.5 text-xs font-mono text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm"
             >
               <FolderGit2 size={13} className="text-cyan-400" />
               <span>GitHub</span>
@@ -277,7 +398,6 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
 
       {/* 2. HERO SHOWCASE SECTION */}
       <section className="relative overflow-hidden pt-12 pb-16 lg:pt-20 lg:pb-24 px-4 lg:px-8 border-b border-cyan-500/10">
-        {/* Futuristic Background Glow Orbs */}
         <div className="pointer-events-none absolute -top-40 left-1/4 h-96 w-96 rounded-full bg-cyan-500/10 blur-[120px]" />
         <div className="pointer-events-none absolute top-1/3 right-10 h-96 w-96 rounded-full bg-purple-500/10 blur-[140px]" />
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#0f172a15_1px,transparent_1px),linear-gradient(to_bottom,#0f172a15_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
@@ -285,43 +405,58 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
         <div className="max-w-6xl mx-auto relative z-10 text-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full bg-cyan-950/60 border border-cyan-500/30 px-4 py-1.5 text-xs font-mono text-cyan-300 shadow-[0_0_15px_rgba(0,240,255,0.2)]">
             <Sparkles size={13} className="text-cyan-400 animate-pulse" />
-            <span>ACADEMIC RESEARCH & NEXT-GEN PRODUCTION SECURITY PLATFORM</span>
+            <span>FINAL YEAR CAPSTONE RESEARCH & ACADEMIC DOCUMENTATION PORTAL</span>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight">
-            ORVYN: Autonomous <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-purple-400">Pentest & Security RAG</span> Intelligence Network
+            ORVYN: Autonomous <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-purple-400">Penetration Testing & Security RAG</span> Intelligence Network
           </h1>
 
           <p className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Eliminating static, uncoordinated vulnerability scanners by orchestrating a dynamic <strong>5-phase autonomous reconnaissance pipeline</strong>. Powered by local LLM template selection (<strong>Qwen 2.5:7b</strong>), an interactive <strong>Redamon Recon Workflow</strong> canvas, and vector RAG triage over <strong>5,000+ authoritative security chunks</strong> in ChromaDB.
+            Eliminating uncoordinated, noisy vulnerability scans through an orchestrated <strong>5-phase autonomous reconnaissance pipeline</strong>. Powered by local LLM template selection (<strong>Qwen 2.5:7b</strong>), an interactive <strong>Redamon Circuit-Bus Canvas</strong>, and vector RAG triage over <strong>5,000+ authoritative security chunks</strong> in ChromaDB.
           </p>
 
-          {/* Documentation CTAs */}
+          {/* Quick Jump Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
-              onClick={() => document.getElementById("architecture")?.scrollIntoView({ behavior: "smooth" })}
-              className="flex items-center gap-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 px-6 py-3 text-sm font-bold text-black font-mono shadow-[0_0_25px_rgba(0,240,255,0.4)] transition-all cursor-pointer"
+              onClick={() => document.getElementById("problem")?.scrollIntoView({ behavior: "smooth" })}
+              className="flex items-center gap-2 rounded-full border border-rose-500/40 bg-rose-950/30 hover:bg-rose-900/40 px-5 py-2.5 text-xs font-bold text-rose-300 font-mono transition-all cursor-pointer shadow-xs"
             >
-              <BookOpen size={15} />
-              <span>Explore Technical Architecture</span>
-              <ArrowRight size={15} />
+              <AlertTriangle size={14} className="text-rose-400" />
+              <span>Problem Statement</span>
             </button>
 
             <button
-              onClick={() => document.getElementById("recon-pipeline")?.scrollIntoView({ behavior: "smooth" })}
-              className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-[#0b0e1b] hover:bg-[#12162a] hover:border-cyan-500/50 px-6 py-3 text-sm font-semibold text-slate-200 transition-all cursor-pointer"
+              onClick={() => document.getElementById("objectives")?.scrollIntoView({ behavior: "smooth" })}
+              className="flex items-center gap-2 rounded-full border border-cyan-500/40 bg-cyan-950/30 hover:bg-cyan-900/40 px-5 py-2.5 text-xs font-bold text-cyan-300 font-mono transition-all cursor-pointer shadow-xs"
             >
-              <GitBranch size={15} className="text-cyan-400" />
-              <span>View Recon Workflow Graph</span>
+              <Target size={14} className="text-cyan-400" />
+              <span>Project Objectives</span>
             </button>
 
             <button
-              onClick={() => document.getElementById("rag-engine")?.scrollIntoView({ behavior: "smooth" })}
-              className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/80 hover:bg-neutral-800 px-5 py-3 text-sm font-semibold text-slate-300 transition-all cursor-pointer"
+              onClick={() => document.getElementById("methodology")?.scrollIntoView({ behavior: "smooth" })}
+              className="flex items-center gap-2 rounded-full border border-purple-500/40 bg-purple-950/30 hover:bg-purple-900/40 px-5 py-2.5 text-xs font-bold text-purple-300 font-mono transition-all cursor-pointer shadow-xs"
             >
-              <Scale size={15} className="text-purple-400" />
-              <span>Security RAG Triage</span>
+              <GitBranch size={14} className="text-purple-400" />
+              <span>Methodology & Canvas</span>
+            </button>
+
+            <button
+              onClick={() => document.getElementById("demo-videos")?.scrollIntoView({ behavior: "smooth" })}
+              className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 px-5 py-2.5 text-xs font-bold text-black font-mono transition-all cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+            >
+              <Film size={14} className="text-black" />
+              <span>Demonstration Videos</span>
+            </button>
+
+            <button
+              onClick={() => document.getElementById("team")?.scrollIntoView({ behavior: "smooth" })}
+              className="flex items-center gap-2 rounded-full border border-neutral-700 bg-neutral-900/80 hover:bg-neutral-800 px-4 py-2.5 text-xs font-medium text-slate-300 font-mono transition-all cursor-pointer"
+            >
+              <Users size={14} className="text-slate-400" />
+              <span>Team Details</span>
             </button>
           </div>
 
@@ -349,82 +484,217 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
       </section>
 
       {/* 3. MAIN CONTENT CONTAINER */}
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-12 space-y-20">
+      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-12 space-y-24">
 
-        {/* SECTION 1: REDAMON RECONNAISSANCE PIPELINE WORKFLOW */}
-        <section id="recon-pipeline" className="space-y-6 scroll-mt-20">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-cyan-500/20 pb-4">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-                <GitBranch size={14} />
-                <span>// 01 INTERACTIVE CIRCUIT GRAPH</span>
-              </div>
-              <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-                Redamon-Inspired Reconnaissance Pipeline
-              </h2>
-              <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-                Modeled after the Redamon reconnaissance framework specifications: A high-density interactive node-graph organizing data flow across upper entity bands, 9 tool stages, and lower enriched artifact bands.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-950/40 px-3.5 py-1.5 text-xs font-mono text-cyan-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-              <span>Circuit-Bus Architecture v3.0</span>
-            </div>
-          </div>
-
-          {/* Three Bands Architecture Explainer */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
-            <div className="rounded-xl border border-blue-500/30 bg-blue-950/15 p-4 space-y-1.5">
-              <span className="text-blue-400 font-bold uppercase tracking-wider block">▲ Upper Data Band</span>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Represents initial reconnaissance artifacts: <code>Domain</code>, <code>Subdomain</code>, <code>IP</code>, <code>Port</code>, <code>Service</code>, <code>BaseURL</code>, <code>Endpoint</code>, and <code>CVE</code>.
-              </p>
-            </div>
-            <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/15 p-4 space-y-1.5">
-              <span className="text-cyan-400 font-bold uppercase tracking-wider block">⚡ Center Tool Band (9 Stages)</span>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Sequential tool pipeline: Target Input ➔ Discovery ➔ OSINT ➔ Port Recon ➔ HTTP Probing ➔ Crawling ➔ JS Recon ➔ Vuln Fuzzing ➔ RAG Analysis.
-              </p>
-            </div>
-            <div className="rounded-xl border border-purple-500/30 bg-purple-950/15 p-4 space-y-1.5">
-              <span className="text-purple-400 font-bold uppercase tracking-wider block">▼ Lower Data Band</span>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Enriched secondary intelligence: <code>DNSRecord</code>, <code>Certificate</code>, <code>Header</code>, <code>Technology</code>, <code>Parameter</code>, <code>Secret</code>, <code>MitreData</code>, <code>Capec</code>.
-              </p>
-            </div>
-          </div>
-
-          {/* Embedded Interactive Redamon Workflow Graph */}
-          <div className="rounded-2xl border border-cyan-500/30 bg-[#080a14] p-2 shadow-2xl overflow-hidden">
-            <div className="px-4 py-2 bg-[#0c0f1e] border-b border-cyan-500/20 flex items-center justify-between text-xs font-mono text-slate-400">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="text-white font-semibold">Interactive Canvas Live Preview</span>
-                <span className="text-slate-500">| Click nodes to highlight dependency signal bus traces</span>
-              </div>
-              <span className="text-[10px] text-cyan-400">Circuit Bus Graph Engine v3.0</span>
-            </div>
-            <div className="overflow-x-auto p-2">
-              <RedamonWorkflowGraph scanners={DEFAULT_STANDBY_SCANNERS} isRunning={false} />
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 2: AUTONOMOUS 5-PHASE LIFECYCLE */}
-        <section id="phases" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Layers size={14} />
-              <span>// 02 CHOREOGRAPHED EXECUTION</span>
+        {/* SECTION 1: PROBLEM STATEMENT */}
+        <section id="problem" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-rose-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-rose-400">
+              <AlertTriangle size={14} />
+              <span>// 01 THE PROBLEM STATEMENT</span>
             </div>
             <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Autonomous 5-Phase Assessment Lifecycle
+              The Critical Bottlenecks in Traditional Penetration Testing
             </h2>
             <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              Rather than firing tools concurrently without context, ORVYN enforces a staged pentest lifecycle where early phases inform and trigger specialized downstream engines.
+              Modern digital attack surfaces expand continuously, yet security auditing methodologies remain trapped in manual, uncoordinated, and costly operational silos.
             </p>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                title: "Prohibitive Delays & Costs",
+                metric: "2 - 4 Weeks",
+                sub: "$15k - $50k / Audit",
+                desc: "Manual security assessments require senior penetration testers to conduct tedious reconnaissance. Audits take weeks, leaving production assets exposed during high-velocity release cycles.",
+                border: "border-rose-500/30 bg-rose-950/15 text-rose-400",
+              },
+              {
+                title: "Disconnected Tool Silos",
+                metric: "0% Cross-Feeding",
+                sub: "Zero Intelligence Handoff",
+                desc: "Standalone scanners (Nmap, Nikto, Nuclei) run independently without data sharing. Discovered open ports or software versions from one tool do not automatically inform downstream vulnerability probes.",
+                border: "border-amber-500/30 bg-amber-950/15 text-amber-400",
+              },
+              {
+                title: "Alert Fatigue & Noise",
+                metric: "40% - 60%",
+                sub: "False Positive Ratio",
+                desc: "Generic scanners generate voluminous reports littered with unverified alerts. Security engineers drown in noise without context-aware triage against authoritative OWASP, NIST, and MITRE benchmarks.",
+                border: "border-cyan-500/30 bg-cyan-950/15 text-cyan-400",
+              },
+              {
+                title: "Cloud Privacy & Data Leaks",
+                metric: "Sensitive Leaks",
+                sub: "Target Exposure Risk",
+                desc: "Transmitting internal IP ranges, architecture diagrams, and raw vulnerability traces to external commercial cloud AI APIs creates severe regulatory compliance and intelligence leakage hazards.",
+                border: "border-purple-500/30 bg-purple-950/15 text-purple-400",
+              },
+            ].map((prob, idx) => (
+              <div
+                key={idx}
+                className={`rounded-2xl border ${prob.border} p-5 space-y-3 flex flex-col justify-between backdrop-blur-sm shadow-md hover:scale-[1.01] transition-all`}
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider opacity-70">
+                      BOTTLENECK 0{idx + 1}
+                    </span>
+                    <span className="rounded px-2 py-0.5 text-[9px] font-mono font-bold uppercase border border-current">
+                      {prob.sub}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-white mt-2">{prob.title}</h3>
+                  <div className="text-2xl font-extrabold font-mono text-white mt-1">{prob.metric}</div>
+                  <p className="text-xs text-slate-300 mt-2 leading-relaxed">{prob.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Comparison Table */}
+          <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 shadow-xl overflow-x-auto">
+            <h3 className="text-sm font-mono font-bold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Scale size={15} className="text-cyan-400" />
+              <span>Comparative Analysis: Traditional vs. ORVYN Autonomous Engine</span>
+            </h3>
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="border-b border-neutral-800 text-slate-400">
+                  <th className="pb-3 font-semibold">Assessment Dimension</th>
+                  <th className="pb-3 font-semibold text-rose-400">Traditional Penetration Testing</th>
+                  <th className="pb-3 font-semibold text-cyan-400">ORVYN Autonomous Network</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-900 text-slate-300">
+                <tr>
+                  <td className="py-2.5 font-bold text-white">Execution Speed</td>
+                  <td className="py-2.5 text-rose-300">Days to weeks per engagement</td>
+                  <td className="py-2.5 text-cyan-300">Sub-minute phased execution with automated handoffs</td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 font-bold text-white">Tool Coordination</td>
+                  <td className="py-2.5 text-rose-300">Manual copy-pasting of outputs between CLI tools</td>
+                  <td className="py-2.5 text-cyan-300">Dynamic circuit-bus artifact propagation across 9 tools</td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 font-bold text-white">Targeted Intelligence</td>
+                  <td className="py-2.5 text-rose-300">Blind default fuzzing or human intuition</td>
+                  <td className="py-2.5 text-cyan-300">Local LLM (Qwen 2.5:7b) technology reasoning</td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 font-bold text-white">False Positive Mitigation</td>
+                  <td className="py-2.5 text-rose-300">Manual verification by expensive security analysts</td>
+                  <td className="py-2.5 text-cyan-300">ChromaDB Vector RAG triage over 5,000+ security chunks</td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 font-bold text-white">Data Privacy</td>
+                  <td className="py-2.5 text-rose-300">Third-party external cloud dependencies</td>
+                  <td className="py-2.5 text-cyan-300">100% Air-gapped capable on Docker with zero cloud telemetry</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* SECTION 2: PROJECT OBJECTIVES */}
+        <section id="objectives" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-cyan-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
+              <Target size={14} />
+              <span>// 02 PROJECT OBJECTIVES</span>
+            </div>
+            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
+              Strategic Objectives & Measurable Deliverables
+            </h2>
+            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
+              Architecting an open-source, reproducible, and verifiable autonomous framework that transforms vulnerability assessment into a disciplined engineering science.
+            </p>
+          </div>
+
+          {/* Primary Mission Banner */}
+          <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/40 via-purple-950/30 to-blue-950/20 p-6 shadow-xl space-y-2">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-cyan-400 block">
+              PRIMARY ACADEMIC & RESEARCH MISSION
+            </span>
+            <p className="text-base sm:text-lg font-semibold text-white leading-relaxed">
+              &ldquo;To research, engineer, and validate an air-gapped autonomous penetration testing platform that unites multi-scanner orchestration, local LLM-assisted template selection, circuit-bus reconnaissance visualization, and vector-grounded RAG triage into an auditable and zero-hang architecture.&rdquo;
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              {
+                num: "01",
+                title: "Autonomous 5-Phase Pipeline",
+                desc: "Unify reconnaissance, technology fingerprinting, targeted scanning, RAG knowledge triage, and executive reporting into a seamless, deterministic sequential lifecycle.",
+                tag: "AUTONOMY",
+              },
+              {
+                num: "02",
+                title: "100% Local AI Reasoning",
+                desc: "Deploy Ollama Qwen 2.5:7b locally to analyze discovered open ports and server headers, selecting specific pentest templates with strict zero-cloud data leak guarantees.",
+                tag: "PRIVACY",
+              },
+              {
+                num: "03",
+                title: "Circuit-Bus Recon Graph",
+                desc: "Implement an interactive, high-density visualization canvas adhering to Redamon framework specifications with upper entity, center tool, and lower artifact signal bands.",
+                tag: "VISUALIZATION",
+              },
+              {
+                num: "04",
+                title: "Grounded Security RAG Engine",
+                desc: "Embed and index 5,000+ authoritative chunks from OWASP Top 10, NIST CVE, and MITRE CWE/CAPEC in ChromaDB to verify findings and calculate confidence scores.",
+                tag: "ACCURACY",
+              },
+              {
+                num: "05",
+                title: "Federation of 9 Security Engines",
+                desc: "Standardize inputs and outputs across 9 battle-tested security tools (Nmap, WhatWeb, SSLyze, Nikto, ZAP, Nuclei, Wapiti, SQLMap, FFuf) in a unified JSON schema.",
+                tag: "ORCHESTRATION",
+              },
+              {
+                num: "06",
+                title: "Zero-Hang Subprocess Safety",
+                desc: "Enforce strict per-tool timeouts (<60.0s), non-blocking asyncio subprocess wrappers, private network IP guards, and Docker container sandboxing.",
+                tag: "RESILIENCE",
+              },
+            ].map((obj, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-neutral-800 bg-[#090b14]/90 p-5 space-y-3 hover:border-cyan-500/40 transition-all shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-cyan-400">OBJECTIVE {obj.num}</span>
+                  <span className="rounded bg-neutral-900 border border-neutral-800 px-2 py-0.5 text-[9px] font-mono text-slate-400 font-bold">
+                    {obj.tag}
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white">{obj.title}</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">{obj.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* SECTION 3: METHODOLOGY */}
+        <section id="methodology" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-purple-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-purple-400">
+              <GitBranch size={14} />
+              <span>// 03 RESEARCH & ARCHITECTURAL METHODOLOGY</span>
+            </div>
+            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
+              Choreographed 5-Phase Lifecycle & Redamon Circuit-Bus Pipeline
+            </h2>
+            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
+              Rather than firing tools concurrently without context, ORVYN enforces a staged pentest lifecycle where early reconnaissance artifacts inform and trigger specialized downstream engines.
+            </p>
+          </div>
+
+          {/* 5 Phases Grid */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {[
               {
@@ -489,463 +759,803 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
               </div>
             ))}
           </div>
-        </section>
 
-        {/* SECTION 3: TECHNICAL ARCHITECTURE & SPECS */}
-        <section id="architecture" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Cpu size={14} />
-              <span>// 03 SYSTEM ARCHITECTURE</span>
+          {/* Three Bands Architecture Explainer */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+            <div className="rounded-xl border border-blue-500/30 bg-blue-950/15 p-4 space-y-1.5">
+              <span className="text-blue-400 font-bold uppercase tracking-wider block">▲ Upper Data Band</span>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Represents initial reconnaissance artifacts: <code>Domain</code>, <code>Subdomain</code>, <code>IP</code>, <code>Port</code>, <code>Service</code>, <code>BaseURL</code>, <code>Endpoint</code>, and <code>CVE</code>.
+              </p>
             </div>
-            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Distributed Backend & Non-Blocking Orchestration
-            </h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              Engineered with FastAPI, Celery distributed tasks, Redis queue broker, non-blocking asynchronous subprocess pools, and strict timeout guards.
-            </p>
+            <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/15 p-4 space-y-1.5">
+              <span className="text-cyan-400 font-bold uppercase tracking-wider block">⚡ Center Tool Band (9 Stages)</span>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Sequential tool pipeline: Target Input ➔ Discovery ➔ OSINT ➔ Port Recon ➔ HTTP Probing ➔ Crawling ➔ JS Recon ➔ Vuln Fuzzing ➔ RAG Analysis.
+              </p>
+            </div>
+            <div className="rounded-xl border border-purple-500/30 bg-purple-950/15 p-4 space-y-1.5">
+              <span className="text-purple-400 font-bold uppercase tracking-wider block">▼ Lower Data Band</span>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Enriched secondary intelligence: <code>DNSRecord</code>, <code>Certificate</code>, <code>Header</code>, <code>Technology</code>, <code>Parameter</code>, <code>Secret</code>, <code>MitreData</code>, <code>Capec</code>.
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Architecture Card 1: Process Safety & Timeouts */}
-            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-6 space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                  <Clock size={16} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Subprocess Safety & Deadlock Prevention</h3>
-                  <span className="text-xs text-slate-400 font-mono">Asyncio Buffered Streams + SIGKILL Escalation</span>
-                </div>
+          {/* Embedded Interactive Redamon Workflow Graph */}
+          <div className="rounded-2xl border border-cyan-500/30 bg-[#080a14] p-2 shadow-2xl overflow-hidden">
+            <div className="px-4 py-2 bg-[#0c0f1e] border-b border-cyan-500/20 flex items-center justify-between text-xs font-mono text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span className="text-white font-semibold">Interactive Circuit-Bus Canvas Live Preview</span>
+                <span className="text-slate-500">| Click nodes to highlight dependency signal bus traces</span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Vulnerability scanners (such as Nikto or Nmap) can easily deadlock when remote web servers stall or fail to terminate sockets. ORVYN enforces a dual-stage execution watchdog:
-              </p>
-              <ul className="space-y-2 text-xs font-mono text-slate-300">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 size={13} className="text-cyan-400 mt-0.5 shrink-0" />
-                  <span><strong>Hard Deadline Watchdog:</strong> 60.0s for Phase 1 recon, 65.0s for Phase 3 targeted scanners.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 size={13} className="text-cyan-400 mt-0.5 shrink-0" />
-                  <span><strong>Non-Blocking Line Buffering:</strong> Buffered standard output streaming prevents kernel pipe buffer saturation.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 size={13} className="text-cyan-400 mt-0.5 shrink-0" />
-                  <span><strong>Graceful Process Termination:</strong> Sends <code>SIGTERM</code> followed by guaranteed <code>SIGKILL</code> after 2.0s to eliminate zombie processes.</span>
-                </li>
-              </ul>
+              <span className="text-[10px] text-cyan-400">Circuit Bus Graph Engine v3.0</span>
             </div>
-
-            {/* Architecture Card 2: Scope Enforcement & Boundary Protection */}
-            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-6 space-y-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/30">
-                  <Target size={16} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Perimeter & Scope Boundary Enforcement</h3>
-                  <span className="text-xs text-slate-400 font-mono">CIDR, Host Regex & Blacklist Guardians</span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Legitimate offensive security audits require strict perimeter isolation. ORVYN implements a zero-trust scope validator prior to tool dispatch:
-              </p>
-              <ul className="space-y-2 text-xs font-mono text-slate-300">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 size={13} className="text-purple-400 mt-0.5 shrink-0" />
-                  <span><strong>In-Scope Whitelisting:</strong> Strict matching against domain regex patterns (e.g. <code>*.target.com</code>) and IPv4 subnets.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 size={13} className="text-purple-400 mt-0.5 shrink-0" />
-                  <span><strong>Exclusion Overrides:</strong> Out-of-scope targets (e.g. <code>auth.target.com</code> or production database ports) take strict precedence.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 size={13} className="text-purple-400 mt-0.5 shrink-0" />
-                  <span><strong>DNS & SSRF Protection:</strong> Validates target addresses before launching high-impact parameter fuzzer modules.</span>
-                </li>
-              </ul>
+            <div className="overflow-x-auto p-2">
+              <RedamonWorkflowGraph scanners={DEFAULT_STANDBY_SCANNERS} isRunning={false} />
             </div>
           </div>
         </section>
 
-        {/* SECTION 4: SECURITY RAG KNOWLEDGE BASE */}
-        <section id="rag-engine" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Scale size={14} />
-              <span>// 04 VECTOR RETRIEVAL-AUGMENTED GENERATION</span>
+        {/* SECTION 4: DEMONSTRATION VIDEOS */}
+        <section id="demo-videos" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-amber-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-amber-400">
+              <Film size={14} />
+              <span>// 04 DEMONSTRATION VIDEOS</span>
             </div>
             <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Security RAG Knowledge Base Triage Engine
+              Recorded Demonstration & Capstone Defense Showcase
             </h2>
             <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              5,000+ vector-indexed security knowledge chunks in ChromaDB empower ORVYN to validate raw findings, reduce false positives by 85%, and attach authoritative CVE/CWE citations.
+              Demonstration videos illustrating autonomous scanning, interactive canvas telemetry, and local RAG knowledge verification. Direct video links are primed in these reserved slots.
             </p>
+          </div>
+
+          {/* Notice Callout */}
+          <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 text-xs font-mono text-amber-300">
+            <Sparkles size={16} className="text-amber-400 shrink-0" />
+            <div>
+              <span className="font-bold">Demonstration Slots Reserved:</span> Below are the pre-configured video slots for project defense. Video files and live streaming links can be viewed in the interactive viewer modal.
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Interactive RAG Query Selector */}
-            <div className="lg:col-span-1 rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                Select Test Finding Query
-              </h3>
-              <div className="space-y-2">
-                {SAMPLE_RAG_QUERIES.map((q, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveRagSample(idx)}
-                    className={`w-full text-left p-3 rounded-xl border text-xs transition-all cursor-pointer ${
-                      activeRagSample === idx
-                        ? "border-cyan-500/50 bg-cyan-950/30 text-white shadow-sm"
-                        : "border-neutral-800/80 bg-black/40 text-slate-400 hover:text-slate-200 hover:border-neutral-700"
-                    }`}
-                  >
-                    <div className="font-bold">{q.title}</div>
-                    <div className="text-[10px] text-cyan-400 font-mono mt-1">Confidence: {q.confidence}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: Active RAG Citation Verdict Card */}
-            <div className="lg:col-span-2 rounded-2xl border border-cyan-500/30 bg-[#0a0d18] p-6 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-800 pb-3">
-                <div>
-                  <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest block">
-                    VECTOR MATCH VERDICT
-                  </span>
-                  <h4 className="text-base font-bold text-white mt-0.5">
-                    {SAMPLE_RAG_QUERIES[activeRagSample].title}
-                  </h4>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-mono text-emerald-300 font-bold">
-                    Score: {SAMPLE_RAG_QUERIES[activeRagSample].similarity}
-                  </span>
-                  <span className="rounded bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-0.5 text-xs font-mono text-cyan-300 font-bold">
-                    {SAMPLE_RAG_QUERIES[activeRagSample].confidence} Confidence
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono">
-                <div className="rounded-lg bg-black/50 p-2.5 border border-neutral-800">
-                  <span className="text-[10px] text-slate-500 block uppercase">CVE Citation</span>
-                  <span className="text-cyan-300 font-bold">{SAMPLE_RAG_QUERIES[activeRagSample].cve}</span>
-                </div>
-                <div className="rounded-lg bg-black/50 p-2.5 border border-neutral-800">
-                  <span className="text-[10px] text-slate-500 block uppercase">CWE Classification</span>
-                  <span className="text-purple-300 font-bold truncate block">{SAMPLE_RAG_QUERIES[activeRagSample].cwe.split(":")[0]}</span>
-                </div>
-                <div className="rounded-lg bg-black/50 p-2.5 border border-neutral-800">
-                  <span className="text-[10px] text-slate-500 block uppercase">OWASP Top 10</span>
-                  <span className="text-amber-300 font-bold">{SAMPLE_RAG_QUERIES[activeRagSample].owasp}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 text-xs">
-                <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">Authoritative Remediation Guidance:</span>
-                <p className="text-slate-200 leading-relaxed bg-black/40 p-3 rounded-xl border border-neutral-800/80 font-mono text-xs">
-                  {SAMPLE_RAG_QUERIES[activeRagSample].remediation}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 5: MULTI-SCANNER TOOL MATRIX */}
-        <section id="scanners" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Shield size={14} />
-              <span>// 05 SCANNER CLUSTER</span>
-            </div>
-            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              9 Integrated Offensive Security Engines
-            </h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              Each security engine in ORVYN is containerized, bounded by execution timeouts, and mapped to specific data contract entities.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-800 bg-[#090b14] overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-[#0e1120] text-slate-400 border-b border-neutral-800 uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="py-3 px-4">Tool</th>
-                    <th className="py-3 px-4">Version</th>
-                    <th className="py-3 px-4">Mode</th>
-                    <th className="py-3 px-4">Pipeline Phase</th>
-                    <th className="py-3 px-4">Outputs Produced</th>
-                    <th className="py-3 px-4">Timeout</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-800/60 text-slate-300">
-                  {SCANNER_MATRIX.map((tool, idx) => (
-                    <tr key={idx} className="hover:bg-cyan-950/20 transition-colors">
-                      <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
-                        {tool.name}
-                      </td>
-                      <td className="py-3 px-4 text-slate-400">{tool.version}</td>
-                      <td className="py-3 px-4">
-                        <span className="rounded bg-neutral-800 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
-                          {tool.mode}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-purple-300">{tool.phase}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {tool.produces.map((p, pIdx) => (
-                            <span key={pIdx} className="rounded bg-neutral-900 border border-neutral-700/60 px-1.5 py-0.5 text-[9px] text-slate-300">
-                              {p}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-rose-300 font-bold">{tool.timeout}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 6: LLM & HEXSTRIKE MCP */}
-        <section id="mcp-ai" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Brain size={14} />
-              <span>// 06 AI DECISION ENGINE & MCP</span>
-            </div>
-            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Autonomous Template Selection & HexStrike MCP
-            </h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              ORVYN pairs local LLMs (Qwen 2.5:7b via Ollama) with the Model Context Protocol (MCP) to turn raw reconnaissance data into structured pentest plans.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {TEMPLATES_LIST.map((tpl) => (
+            {DEMO_VIDEOS.map((video) => (
               <div
-                key={tpl.id}
-                className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-3 flex flex-col justify-between hover:border-purple-500/40 transition-all shadow-md"
+                key={video.id}
+                className="group rounded-2xl border border-neutral-800 bg-[#090b14] overflow-hidden hover:border-amber-500/40 transition-all flex flex-col justify-between shadow-lg"
               >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="rounded bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-mono font-bold text-purple-300">
-                      {tpl.badge}
+                {/* Video Screen Placeholder */}
+                <div className="relative aspect-video bg-gradient-to-br from-neutral-900 via-[#0d1020] to-neutral-950 border-b border-neutral-800/80 flex items-center justify-center overflow-hidden">
+                  {/* Futuristic Grid Lines */}
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#00f0ff08_1px,transparent_1px),linear-gradient(to_bottom,#00f0ff08_1px,transparent_1px)] bg-[size:1.5rem_1.5rem]" />
+                  
+                  {/* Top Badges */}
+                  <div className="absolute top-3 left-3 flex items-center gap-2">
+                    <span className="rounded bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[9px] font-mono font-bold text-amber-300">
+                      {video.badge}
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500">{tpl.duration}</span>
+                    <span className="rounded bg-black/60 border border-neutral-700 px-1.5 py-0.5 text-[9px] font-mono text-neutral-300">
+                      {video.quality}
+                    </span>
                   </div>
-                  <h3 className="text-sm font-bold text-white mt-2">{tpl.name}</h3>
-                  <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">{tpl.desc}</p>
-                </div>
-                <div className="pt-2 border-t border-neutral-800 text-[10px] font-mono text-cyan-400 flex flex-wrap gap-1">
-                  {tpl.tags.map((t, idx) => (
-                    <span key={idx} className="bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-500/20">
-                      #{t}
+
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-black/70 border border-neutral-800 px-2 py-0.5 text-[10px] font-mono text-slate-300">
+                    <Clock size={11} className="text-amber-400" />
+                    <span>{video.duration}</span>
+                  </div>
+
+                  {/* Play Button Trigger */}
+                  <button
+                    onClick={() => setSelectedDemoVideo(video)}
+                    className="relative z-10 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20 border-2 border-amber-400 text-amber-300 shadow-[0_0_25px_rgba(245,158,11,0.4)] group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-black transition-all cursor-pointer"
+                    title={`Open Demo: ${video.title}`}
+                  >
+                    <Play size={22} className="ml-0.5 fill-current" />
+                  </button>
+
+                  {/* Bottom Video Status Ribbon */}
+                  <div className="absolute bottom-2 inset-x-3 flex items-center justify-between text-[10px] font-mono text-slate-400 bg-black/70 rounded px-2 py-1 backdrop-blur-xs">
+                    <span className="flex items-center gap-1 text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span>Slot Reserved</span>
                     </span>
-                  ))}
+                    <span className="text-slate-500 truncate">ORVYN_DEMO_{video.id.toUpperCase()}</span>
+                  </div>
+                </div>
+
+                {/* Video Info Content */}
+                <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">
+                      {video.title}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      {video.desc}
+                    </p>
+
+                    {/* Topic Tags */}
+                    <div className="mt-3 space-y-1">
+                      <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
+                        Agenda Topics:
+                      </span>
+                      <ul className="space-y-1">
+                        {video.topics.slice(0, 3).map((topic, i) => (
+                          <li key={i} className="text-[11px] font-mono text-slate-300 flex items-center gap-1.5">
+                            <span className="h-1 w-1 rounded-full bg-amber-400" />
+                            <span className="truncate">{topic}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* CTA Button */}
+                  <div className="pt-3 border-t border-neutral-800/80 flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedDemoVideo(video)}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 border border-amber-500/40 hover:bg-amber-500/25 px-3 py-2 text-xs font-mono font-bold text-amber-300 transition-all cursor-pointer"
+                    >
+                      <Play size={12} className="fill-current" />
+                      <span>Watch Demo (Link Slot)</span>
+                    </button>
+                    <button
+                      onClick={() => handleCopy(video.videoUrlSlot, `video-${video.id}`)}
+                      className="rounded-xl border border-neutral-800 bg-[#0c0e18] hover:bg-neutral-800 p-2 text-slate-400 hover:text-white transition-all cursor-pointer"
+                      title="Copy Demo Link Placeholder"
+                    >
+                      {copiedCode === `video-${video.id}` ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* SECTION 7: REST API & CLI DOCUMENTATION */}
-        <section id="api" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Code2 size={14} />
-              <span>// 07 DEVELOPER & API SPECIFICATIONS</span>
+        {/* SECTION 5: PROJECT PROGRESS & SPRINT MILESTONES */}
+        <section id="progress" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-emerald-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
+              <TrendingUp size={14} />
+              <span>// 05 PROJECT PROGRESS & SPRINT MILESTONES</span>
             </div>
             <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              OpenAPI REST Endpoints & Python CLI Engine
+              Development Milestones & Sprint Progress
             </h2>
             <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              Integrate ORVYN into CI/CD pipelines, DevSecOps platforms, or command-line terminal workflows.
+              Tracking completed iterations, active sprints, and upcoming deliverables leading up to the final academic defense and publication.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* REST API Endpoints */}
-            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
-                <span className="font-bold text-white uppercase text-[11px]">Primary REST Endpoints</span>
-                <span className="text-cyan-400 text-[10px]">FastAPI v1.0</span>
+          {/* High-level Progress Metric Bar */}
+          <div className="rounded-2xl border border-emerald-500/30 bg-[#090b14] p-5 shadow-xl space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-mono text-xs text-white">
+                <span className="font-bold uppercase tracking-wider text-emerald-400">Overall Project Completion</span>
+                <span className="rounded bg-emerald-500/20 border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-300 font-bold">
+                  92% FINISHED
+                </span>
               </div>
-
-              <div className="space-y-2 text-[11px]">
-                <div className="p-2.5 rounded-lg bg-black/50 border border-neutral-800 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[9px]">POST</span>
-                    <code className="text-white">/scan/start</code>
-                  </div>
-                  <p className="text-slate-400 text-[10px]">Dispatches a 5-phase pentest job. Accepts target, engines, and scope allowlists.</p>
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-black/50 border border-neutral-800 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold text-[9px]">GET</span>
-                    <code className="text-white">/scan/status/&#123;scan_id&#125;</code>
-                  </div>
-                  <p className="text-slate-400 text-[10px]">Polls real-time scan progress percentage, active phase, live findings, and ETA.</p>
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-black/50 border border-neutral-800 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold text-[9px]">GET</span>
-                    <code className="text-white">/scan/results/&#123;scan_id&#125;</code>
-                  </div>
-                  <p className="text-slate-400 text-[10px]">Retrieves finalized correlated findings, severity counts, and RAG CVE verdicts.</p>
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-black/50 border border-neutral-800 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold text-[9px]">POST</span>
-                    <code className="text-white">/mcp/invoke</code>
-                  </div>
-                  <p className="text-slate-400 text-[10px]">Model Context Protocol endpoint for external AI agents querying tools & intel.</p>
-                </div>
-              </div>
+              <span className="font-mono text-xs text-slate-400">Final Semester Sprint: Defense & Benchmarking</span>
             </div>
-
-            {/* CLI Example */}
-            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
-                <span className="font-bold text-white uppercase text-[11px]">Command Line Engine (CLI)</span>
-                <button
-                  onClick={() => handleCopy("python cli.py --target https://scanme.nmap.org --profile full --in-scope '*.nmap.org'", "cli")}
-                  className="flex items-center gap-1 text-[10px] text-cyan-400 hover:text-white cursor-pointer"
-                >
-                  {copiedCode === "cli" ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
-                  <span>{copiedCode === "cli" ? "Copied" : "Copy Command"}</span>
-                </button>
-              </div>
-
-              <div className="bg-black/70 p-3 rounded-xl border border-neutral-800 text-[11px] text-slate-300 overflow-x-auto">
-                <pre>{`# Run full automated assessment against target
-python cli.py --target https://scanme.nmap.org \\
-              --profile full \\
-              --in-scope "*.nmap.org" \\
-              --out-of-scope "admin.nmap.org" \\
-              --export-pdf report.pdf`}</pre>
-              </div>
-
-              <div className="space-y-1 text-slate-400 text-[11px]">
-                <p>• Automatically connects to the local Ollama LLM if available.</p>
-                <p>• Generates executive PDF reports with zero third-party dependencies.</p>
-                <p>• Returns clean Linux exit codes (0 = clean, 1 = high/critical found).</p>
-              </div>
+            {/* Visual Bar */}
+            <div className="h-3 w-full rounded-full bg-neutral-900 overflow-hidden p-0.5 border border-neutral-800">
+              <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-emerald-400 to-teal-400 transition-all duration-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" style={{ width: "92%" }} />
             </div>
           </div>
-        </section>
 
-        {/* SECTION 8: ROADMAP & CAPSTONE GOVERNANCE */}
-        <section id="roadmap" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <FolderGit2 size={14} />
-              <span>// 08 PROJECT ROADMAP & TEAM</span>
-            </div>
-            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Academic Capstone Roadmap & Governance
-            </h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              Track project milestones across Semesters 6, 7, and 8 leading up to production hardening and thesis submission.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/15 p-5 space-y-3">
-              <span className="text-emerald-400 font-bold uppercase text-[11px] block">Semester 6: Foundation (Completed)</span>
-              <ul className="space-y-1.5 text-slate-300 text-[11px]">
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-400" /> Project repository & CI/CD workflow</li>
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-400" /> Multi-tool baseline containerization</li>
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-400" /> Fast-forward report generator (PDF)</li>
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-emerald-400" /> Initial semester demonstration</li>
-              </ul>
-            </div>
-
-            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-950/15 p-5 space-y-3">
-              <span className="text-cyan-400 font-bold uppercase text-[11px] block">Semester 7: Core AI & RAG (Current)</span>
-              <ul className="space-y-1.5 text-slate-300 text-[11px]">
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-cyan-400" /> Ollama Qwen 2.5:7b template selector</li>
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-cyan-400" /> ChromaDB vector database (5k+ chunks)</li>
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-cyan-400" /> Redamon interactive workflow canvas</li>
-                <li className="flex items-center gap-1.5"><Check size={12} className="text-cyan-400" /> HexStrike MCP toolchain server</li>
-              </ul>
-            </div>
-
-            <div className="rounded-2xl border border-purple-500/30 bg-purple-950/15 p-5 space-y-3">
-              <span className="text-purple-400 font-bold uppercase text-[11px] block">Semester 8: Hardening & Capstone</span>
-              <ul className="space-y-1.5 text-slate-300 text-[11px]">
-                <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-purple-400" /> Full end-to-end multi-target stress testing</li>
-                <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-purple-400" /> Security hardening & SELinux certification</li>
-                <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-purple-400" /> Executive thesis report & public presentation</li>
-                <li className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-purple-400" /> Open-source release & final submission</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 9: DEPLOYMENT & QUICKSTART */}
-        <section id="quickstart" className="space-y-6 scroll-mt-20">
-          <div className="border-b border-cyan-500/20 pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Server size={14} />
-              <span>// 09 QUICK DEPLOYMENT</span>
-            </div>
-            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Docker Compose & Native Quickstart
-            </h2>
-            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-              Get the complete stack running locally in under 3 minutes with Docker Compose.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-6 space-y-4 font-mono text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-white font-bold">1. Clone & Spin up with Docker Compose</span>
-              <button
-                onClick={() => handleCopy("git clone https://github.com/haridevp/ORVYN.git\ncd ORVYN\ndocker compose up --build -d", "docker")}
-                className="flex items-center gap-1 text-[11px] text-cyan-400 hover:text-white cursor-pointer"
+          {/* 6 Milestones Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              {
+                phase: "Milestone 1",
+                title: "Problem Formulation & Architecture",
+                progress: 100,
+                status: "Completed",
+                badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                deliverables: [
+                  "Literature review on Redamon & OWASP standards",
+                  "FastAPI + Celery + Redis architecture design",
+                  "Unified schema definition for multi-scanner results",
+                  "Non-destructive scan scope safeguards",
+                ],
+              },
+              {
+                phase: "Milestone 2",
+                title: "Multi-Scanner Wrapper Engine",
+                progress: 100,
+                status: "Completed",
+                badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                deliverables: [
+                  "Dockerized 9 security engines (Nmap, ZAP, Nuclei...)",
+                  "Asyncio subprocess wrappers with strict <60s timeouts",
+                  "Structured JSON output normalization",
+                  "Simulated fallback generators for CI/CD",
+                ],
+              },
+              {
+                phase: "Milestone 3",
+                title: "Local LLM & ChromaDB RAG Pipeline",
+                progress: 100,
+                status: "Completed",
+                badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                deliverables: [
+                  "Ollama integration with Qwen 2.5:7b local model",
+                  "30 Curated pentest templates with tag selectors",
+                  "ChromaDB vector database setup with 5,000+ chunks",
+                  "Cosine similarity scoring & false positive reduction",
+                ],
+              },
+              {
+                phase: "Milestone 4",
+                title: "Redamon Circuit-Bus Canvas UI",
+                progress: 100,
+                status: "Completed",
+                badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+                deliverables: [
+                  "React + TypeScript high-density interactive canvas",
+                  "Three-band signal routing (Upper, Center, Lower)",
+                  "Dynamic node signal highlight on click",
+                  "Real-time scan status log streaming",
+                ],
+              },
+              {
+                phase: "Milestone 5",
+                title: "Correlated Report Engine",
+                progress: 95,
+                status: "Active Sprint",
+                badgeColor: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
+                deliverables: [
+                  "Multi-engine vulnerability de-duplication",
+                  "CVSS v3.1 calculation & severity distribution",
+                  "Executive Markdown & PDF report generation",
+                  "Remediation guidance synthesis",
+                ],
+              },
+              {
+                phase: "Milestone 6",
+                title: "Academic Defense & Video Demos",
+                progress: 80,
+                status: "In Progress",
+                badgeColor: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+                deliverables: [
+                  "Juice Shop & DVWA comparative benchmark runs",
+                  "Demonstration video recordings & documentation portal",
+                  "Comprehensive academic technical report (RFC)",
+                  "Final defense presentation preparation",
+                ],
+              },
+            ].map((m, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-3 flex flex-col justify-between hover:border-neutral-700 transition-all shadow-md"
               >
-                {copiedCode === "docker" ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                <span>{copiedCode === "docker" ? "Copied" : "Copy"}</span>
-              </button>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs font-bold text-slate-400 uppercase">{m.phase}</span>
+                    <span className={`rounded px-2 py-0.5 text-[9px] font-mono font-bold uppercase border ${m.badgeColor}`}>
+                      {m.status} ({m.progress}%)
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-white mt-1">{m.title}</h3>
+                  <div className="h-1.5 w-full rounded-full bg-neutral-900 mt-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        m.progress === 100 ? "bg-emerald-400" : "bg-cyan-400"
+                      }`}
+                      style={{ width: `${m.progress}%` }}
+                    />
+                  </div>
+                  <ul className="mt-3 space-y-1.5 font-mono text-[11px] text-slate-300">
+                    {m.deliverables.map((item, i) => (
+                      <li key={i} className="flex items-start gap-1.5">
+                        <CheckCircle2 size={12} className={m.progress === 100 ? "text-emerald-400 mt-0.5" : "text-cyan-400 mt-0.5"} />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* SECTION 6: COMPREHENSIVE TECHNICAL DOCUMENTATION */}
+        <section id="documentation" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-cyan-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
+              <BookOpen size={14} />
+              <span>// 06 COMPREHENSIVE TECHNICAL DOCUMENTATION</span>
             </div>
-            <div className="bg-black/70 p-4 rounded-xl border border-neutral-800 text-slate-200">
-              <pre>{`# Clone the ORVYN repository
+            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
+              Architecture Specifications & Engineering Reference
+            </h2>
+            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
+              Deep technical specifications, non-blocking execution pipelines, toolchain schemas, REST API documentation, and CLI references.
+            </p>
+          </div>
+
+          {/* Doc Tabs Selector */}
+          <div className="flex flex-wrap items-center gap-2 border-b border-neutral-800 pb-2">
+            {[
+              { id: "arch", label: "System Architecture (RFC-01)" },
+              { id: "scanners", label: "Scanner Matrix (9 Tools)" },
+              { id: "rag", label: "Security RAG & ChromaDB" },
+              { id: "api", label: "REST API Contracts" },
+              { id: "cli", label: "CLI Reference" },
+              { id: "deploy", label: "Docker Deployment" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveDocTab(tab.id as typeof activeDocTab)}
+                className={`rounded-xl px-3.5 py-1.5 text-xs font-mono font-medium transition-all cursor-pointer ${
+                  activeDocTab === tab.id
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-xs"
+                    : "text-slate-400 hover:text-white hover:bg-neutral-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab 1: Architecture */}
+          {activeDocTab === "arch" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-3 font-mono text-xs">
+                  <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                    <Cpu size={15} className="text-cyan-400" />
+                    <span>Non-Blocking Asynchronous Core</span>
+                  </h3>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    ORVYN decouples HTTP request handling from security tool execution. Every scan request triggers a distributed background job dispatched via Redis message broker and executed by isolated worker processes.
+                  </p>
+                  <ul className="space-y-1.5 text-slate-300 text-[11px]">
+                    <li>• <strong>Framework:</strong> FastAPI (Python 3.11 ASGI)</li>
+                    <li>• <strong>Task Queue:</strong> Celery 5.3+ backed by Redis 7</li>
+                    <li>• <strong>Process Model:</strong> Asyncio non-blocking subprocess pools</li>
+                    <li>• <strong>Timeout Enforcement:</strong> Hard timeout killing via SIGTERM/SIGKILL</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-3 font-mono text-xs">
+                  <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                    <Shield size={15} className="text-purple-400" />
+                    <span>Safety & Scope Enforcement</span>
+                  </h3>
+                  <p className="text-slate-300 leading-relaxed text-[11px]">
+                    To guarantee ethical testing and prevent accidental disruption, ORVYN implements pre-flight validation on all inputs before scanner invocation.
+                  </p>
+                  <ul className="space-y-1.5 text-slate-300 text-[11px]">
+                    <li>• <strong>RFC-1918 Guard:</strong> Blocks private subnets (10.0.0.0/8, 192.168.0.0/16) unless explicitly whitelisted</li>
+                    <li>• <strong>Non-Destructive Profiles:</strong> Safe, Passive, Active, and Aggressive profiles</li>
+                    <li>• <strong>Rate Limiting:</strong> Nuclei rate-limited to 150 req/sec; Nmap max-rate capped</li>
+                    <li>• <strong>Host Validation:</strong> Regex validation for FQDN and IPv4/IPv6 syntax</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 2: Scanners */}
+          {activeDocTab === "scanners" && (
+            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-[#0c0e18] border-b border-neutral-800 text-slate-400">
+                    <tr>
+                      <th className="py-3 px-4 font-semibold">Engine</th>
+                      <th className="py-3 px-4 font-semibold">Version</th>
+                      <th className="py-3 px-4 font-semibold">Execution Phase</th>
+                      <th className="py-3 px-4 font-semibold">Artifacts Produced</th>
+                      <th className="py-3 px-4 font-semibold">Hard Timeout</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-900 text-slate-300">
+                    {SCANNER_MATRIX.map((s, idx) => (
+                      <tr key={idx} className="hover:bg-neutral-900/50">
+                        <td className="py-2.5 px-4 font-bold text-white flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                          <span>{s.name}</span>
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-400">{s.version}</td>
+                        <td className="py-2.5 px-4 text-purple-300">{s.phase}</td>
+                        <td className="py-2.5 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {s.produces.map((p, i) => (
+                              <span key={i} className="rounded bg-neutral-900 border border-neutral-800 px-1.5 py-0.2 text-[10px] text-cyan-300">
+                                {p}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 font-mono text-rose-300">{s.timeout}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: RAG Engine */}
+          {activeDocTab === "rag" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {SAMPLE_RAG_QUERIES.map((rag, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => setActiveRagSample(idx)}
+                    className={`rounded-2xl border p-4 space-y-2 cursor-pointer transition-all ${
+                      activeRagSample === idx
+                        ? "border-emerald-500/50 bg-emerald-950/20 text-white shadow-md"
+                        : "border-neutral-800 bg-[#090b14] text-slate-400 hover:border-neutral-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-emerald-400 font-bold">{rag.cve}</span>
+                      <span className="rounded bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 text-emerald-300">
+                        {rag.confidence} Match
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white line-clamp-1">{rag.title}</h4>
+                    <p className="text-[11px] text-slate-400 line-clamp-2">{rag.remediation}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-emerald-500/30 bg-[#090b14] p-5 space-y-3 font-mono text-xs">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+                  <span className="font-bold text-white flex items-center gap-2">
+                    <Scale size={14} className="text-emerald-400" />
+                    <span>Selected Vector RAG Verified Remediation Trace</span>
+                  </span>
+                  <span className="text-slate-400 text-[11px]">
+                    Cosine Similarity: {SAMPLE_RAG_QUERIES[activeRagSample].similarity}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+                  <div>
+                    <span className="text-slate-500 block">Identified CWE Classification:</span>
+                    <span className="text-white font-bold">{SAMPLE_RAG_QUERIES[activeRagSample].cwe}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">OWASP Top 10 Mapping:</span>
+                    <span className="text-purple-300 font-bold">{SAMPLE_RAG_QUERIES[activeRagSample].owasp}</span>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-emerald-300 text-[11px] leading-relaxed">
+                  <span className="text-slate-500 block text-[9px] uppercase font-bold mb-1">Authoritative Remediation Guidance:</span>
+                  {SAMPLE_RAG_QUERIES[activeRagSample].remediation}
+                </div>
+              </div>
+
+              {/* AI Pentest Templates */}
+              <div className="space-y-3 pt-2">
+                <span className="text-[11px] font-mono text-purple-400 font-bold uppercase tracking-wider block">
+                  AI-Selected Pentest Attack Templates (Ollama Qwen 2.5:7b)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {TEMPLATES_LIST.map((tpl) => (
+                    <div key={tpl.id} className="rounded-xl border border-neutral-800 bg-neutral-950/80 p-3.5 space-y-2 font-mono text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white font-bold">{tpl.name}</span>
+                        <span className="rounded bg-purple-500/20 border border-purple-500/40 px-1.5 py-0.5 text-[9px] text-purple-300 font-bold">
+                          {tpl.badge}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">{tpl.desc}</p>
+                      <div className="flex flex-wrap items-center gap-1 pt-1">
+                        {tpl.tags.map((t, idx) => (
+                          <span key={idx} className="rounded bg-neutral-900 border border-neutral-800 px-1.5 py-0.2 text-[9px] text-slate-300">
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 4: API Reference */}
+          {activeDocTab === "api" && (
+            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-4 font-mono text-xs">
+              <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                <Code2 size={15} className="text-cyan-400" />
+                <span>REST API OpenAPI Endpoints</span>
+              </h3>
+              <div className="space-y-2">
+                {[
+                  { method: "POST", path: "/api/scan/start", desc: "Initiate autonomous scan job with target, scope, and selected scanners." },
+                  { method: "GET", path: "/api/scan/{scan_id}/status", desc: "Poll real-time tool state, logs stream, and severity counters." },
+                  { method: "GET", path: "/api/scan/{scan_id}/results", desc: "Retrieve verified vulnerability findings, CVSS scores, and evidence." },
+                  { method: "POST", path: "/api/scan/{scan_id}/cancel", desc: "Send immediate SIGTERM to kill active subprocesses." },
+                  { method: "POST", path: "/api/rag/query", desc: "Execute semantic cosine similarity search across 5,000+ ChromaDB security chunks." },
+                  { method: "GET", path: "/api/templates", desc: "List all 30 available AI-guided vulnerability scanning templates." },
+                ].map((ep, idx) => (
+                  <div key={idx} className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-neutral-950 border border-neutral-800/80">
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                        ep.method === "POST" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                      }`}>
+                        {ep.method}
+                      </span>
+                      <code className="text-white font-bold">{ep.path}</code>
+                    </div>
+                    <span className="text-slate-400 text-[11px]">{ep.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tab 5: CLI */}
+          {activeDocTab === "cli" && (
+            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-4 font-mono text-xs">
+              <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                <Terminal size={15} className="text-cyan-400" />
+                <span>Terminal CLI Execution Commands</span>
+              </h3>
+              <div className="space-y-3">
+                <div className="relative rounded-xl bg-black/80 border border-neutral-800 p-3">
+                  <span className="text-slate-500 text-[10px] block mb-1"># Run Full 5-Phase Autonomous Scan:</span>
+                  <pre className="text-cyan-300 overflow-x-auto">python -m src.backend.main --target example.com --profile standard --enable-rag</pre>
+                  <button
+                    onClick={() => handleCopy("python -m src.backend.main --target example.com --profile standard --enable-rag", "cli-1")}
+                    className="absolute top-3 right-3 text-slate-500 hover:text-white"
+                  >
+                    {copiedCode === "cli-1" ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  </button>
+                </div>
+
+                <div className="relative rounded-xl bg-black/80 border border-neutral-800 p-3">
+                  <span className="text-slate-500 text-[10px] block mb-1"># Run Specific Scanner Chain with Template:</span>
+                  <pre className="text-purple-300 overflow-x-auto">python -m src.backend.main --target example.com --scanners nmap,whatweb,nuclei --template cve-critical-rce</pre>
+                  <button
+                    onClick={() => handleCopy("python -m src.backend.main --target example.com --scanners nmap,whatweb,nuclei --template cve-critical-rce", "cli-2")}
+                    className="absolute top-3 right-3 text-slate-500 hover:text-white"
+                  >
+                    {copiedCode === "cli-2" ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 6: Deployment */}
+          {activeDocTab === "deploy" && (
+            <div className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-4 font-mono text-xs">
+              <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
+                <Server size={15} className="text-cyan-400" />
+                <span>One-Click Docker Compose Deployment</span>
+              </h3>
+              <div className="relative rounded-xl bg-black/80 border border-neutral-800 p-4">
+                <pre className="text-emerald-300 overflow-x-auto leading-relaxed">{`# Clone the repository
 git clone https://github.com/haridevp/ORVYN.git
 cd ORVYN
 
-# Build and start all services (Backend, Frontend, Postgres, Redis)
-docker compose up --build -d`}</pre>
+# Start the full containerized stack (FastAPI, Redis, Celery, ChromaDB, Frontend)
+docker compose up --build -d
+
+# Verify system health
+curl http://localhost:8000/health
+# {"status": "ok", "scanners": 9, "chromadb": "online", "celery": "ready"}`}</pre>
+                <button
+                  onClick={() => handleCopy("git clone https://github.com/haridevp/ORVYN.git\ncd ORVYN\ndocker compose up --build -d", "docker-cmd")}
+                  className="absolute top-4 right-4 text-slate-500 hover:text-white"
+                >
+                  {copiedCode === "docker-cmd" ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* SECTION 7: TEAM DETAILS */}
+        <section id="team" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-purple-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-purple-400">
+              <Users size={14} />
+              <span>// 07 PROJECT TEAM & RESEARCH CREDITS</span>
+            </div>
+            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
+              Core Engineering Team & Roles
+            </h2>
+            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
+              Final Year Capstone Research Project &bull; Department of Computer Science & Engineering. Developed collaboratively under agile sprint governance.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {TEAM_MEMBERS.map((member, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-neutral-800 bg-[#090b14] p-5 space-y-4 hover:border-cyan-500/40 transition-all flex flex-col justify-between shadow-lg"
+              >
+                <div>
+                  {/* Avatar and Badge */}
+                  <div className="flex items-center justify-between">
+                    <div className={`h-12 w-12 rounded-xl border flex items-center justify-center font-mono font-extrabold text-base ${member.accent}`}>
+                      {member.initials}
+                    </div>
+                    <span className="rounded bg-neutral-900 border border-neutral-800 px-2 py-0.5 text-[9px] font-mono font-bold text-slate-400">
+                      {member.badge}
+                    </span>
+                  </div>
+
+                  {/* Name & Role */}
+                  <div className="mt-3">
+                    <h3 className="text-lg font-bold text-white">{member.name}</h3>
+                    <p className="text-xs font-mono text-cyan-400 mt-0.5">{member.role}</p>
+                  </div>
+
+                  {/* Contributions */}
+                  <div className="mt-4 space-y-1.5">
+                    <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
+                      Core Contributions:
+                    </span>
+                    <ul className="space-y-1 text-[11px] font-mono text-slate-300">
+                      {member.contributions.map((c, i) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="h-1 w-1 rounded-full bg-cyan-400 mt-1.5 shrink-0" />
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* GitHub Profile Link */}
+                <div className="pt-3 border-t border-neutral-800/80">
+                  <a
+                    href={member.githubUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between text-xs font-mono text-slate-400 hover:text-white transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <FolderGit2 size={13} className="text-cyan-400" />
+                      <span>@{member.github}</span>
+                    </span>
+                    <ExternalLink size={12} className="text-slate-500" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* SECTION 8: GITHUB REPOSITORY LINK */}
+        <section id="repository" className="space-y-6 scroll-mt-20">
+          <div className="border-b border-cyan-500/20 pb-4">
+            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
+              <FolderGit2 size={14} />
+              <span>// 08 OPEN SOURCE REPOSITORY</span>
+            </div>
+            <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
+              GitHub Repository & Source Code Access
+            </h2>
+            <p className="text-sm text-slate-400 mt-1 max-w-3xl">
+              Access the complete open-source codebase, setup guides, backend microservices, and technical RFC documentation on GitHub.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#090c18] via-[#070a14] to-[#04060c] p-6 lg:p-8 shadow-2xl space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xl font-extrabold text-white">haridevp/ORVYN</span>
+                  <span className="rounded bg-cyan-500/20 border border-cyan-500/40 px-2 py-0.5 text-[10px] font-mono text-cyan-300 font-bold">
+                    PUBLIC REPO
+                  </span>
+                </div>
+                <p className="text-xs font-mono text-slate-400">
+                  AI-Automated Penetration Testing & Security RAG Intelligence Network
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <a
+                  href="https://github.com/haridevp/ORVYN"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 px-5 py-2.5 text-xs font-bold text-black font-mono shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all cursor-pointer"
+                >
+                  <FolderGit2 size={15} />
+                  <span>Open on GitHub</span>
+                  <ExternalLink size={13} />
+                </a>
+              </div>
             </div>
 
-            <div className="pt-2 flex flex-wrap items-center justify-between gap-4 text-slate-400 text-[11px]">
-              <div>
-                <span>• Web Cyber-Deck: </span>
-                <a href="http://localhost:5173" target="_blank" rel="noreferrer" className="text-cyan-400 underline">
-                  http://localhost:5173
-                </a>
+            {/* Quick Clone Terminal Box */}
+            <div className="relative rounded-xl bg-black/90 border border-neutral-800 p-4 font-mono text-xs">
+              <div className="flex items-center justify-between text-slate-500 text-[10px] mb-1.5">
+                <span>QUICK CLONE REPOSITORY (HTTPS)</span>
+                <span>BASH / ZSH</span>
               </div>
-              <div>
-                <span>• FastAPI Backend Swagger: </span>
-                <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="text-cyan-400 underline">
-                  http://localhost:8000/docs
-                </a>
+              <div className="flex items-center justify-between gap-4">
+                <code className="text-cyan-300 font-bold selection:bg-cyan-500/30 selection:text-white">
+                  git clone https://github.com/haridevp/ORVYN.git
+                </code>
+                <button
+                  onClick={() => handleCopy("git clone https://github.com/haridevp/ORVYN.git", "repo-clone")}
+                  className="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 px-3 py-1.5 text-xs text-slate-300 hover:text-white transition-all cursor-pointer shrink-0"
+                >
+                  {copiedCode === "repo-clone" ? (
+                    <>
+                      <Check size={13} className="text-emerald-400" />
+                      <span className="text-emerald-400 font-bold">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={13} />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <div>
-                <span>• HexStrike MCP Server: </span>
-                <code className="text-purple-300">http://localhost:8000/mcp</code>
-              </div>
+            </div>
+
+            {/* Repository Quick Links Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
+              <a
+                href="https://github.com/haridevp/ORVYN/blob/main/docs/TECHNICAL_DETAILS.md"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-neutral-800 bg-[#0a0d1c] p-3 hover:border-cyan-500/40 transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2 text-slate-300 hover:text-white">
+                  <FileText size={14} className="text-cyan-400" />
+                  <span>TECHNICAL_DETAILS.md</span>
+                </span>
+                <ExternalLink size={11} className="text-slate-500" />
+              </a>
+
+              <a
+                href="https://github.com/haridevp/ORVYN/blob/main/README.md"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-neutral-800 bg-[#0a0d1c] p-3 hover:border-cyan-500/40 transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2 text-slate-300 hover:text-white">
+                  <BookOpen size={14} className="text-purple-400" />
+                  <span>Project README.md</span>
+                </span>
+                <ExternalLink size={11} className="text-slate-500" />
+              </a>
+
+              <a
+                href="https://github.com/haridevp/ORVYN/blob/main/docs/BACKLOG.md"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-neutral-800 bg-[#0a0d1c] p-3 hover:border-cyan-500/40 transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2 text-slate-300 hover:text-white">
+                  <TrendingUp size={14} className="text-emerald-400" />
+                  <span>Sprints BACKLOG.md</span>
+                </span>
+                <ExternalLink size={11} className="text-slate-500" />
+              </a>
+
+              <a
+                href="https://github.com/haridevp/ORVYN/issues"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-neutral-800 bg-[#0a0d1c] p-3 hover:border-cyan-500/40 transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2 text-slate-300 hover:text-white">
+                  <AlertTriangle size={14} className="text-amber-400" />
+                  <span>Issue Tracker</span>
+                </span>
+                <ExternalLink size={11} className="text-slate-500" />
+              </a>
             </div>
           </div>
         </section>
@@ -954,43 +1564,130 @@ docker compose up --build -d`}</pre>
 
       {/* 4. FOOTER */}
       <footer className="border-t border-neutral-800 bg-[#05060a] px-4 lg:px-8 py-10 mt-20">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs font-mono text-slate-400">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 font-mono text-xs text-slate-400">
           <div className="flex items-center gap-3">
-            <div className="h-6 w-6 rounded bg-cyan-950 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-bold text-xs">
-              O
-            </div>
-            <div>
-              <span className="text-white font-bold">ORVYN</span> — Offensive Risk & Vulnerability Intelligence Network
-              <p className="text-[10px] text-slate-500">Autonomous Pentest & Security RAG Platform • MIT Academic License</p>
-            </div>
+            <Cpu size={16} className="text-cyan-400" />
+            <span>
+              ORVYN &bull; Academic Research Initiative &bull; Department of Computer Science & Engineering
+            </span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">
-            <button
-              onClick={() => document.getElementById("architecture")?.scrollIntoView({ behavior: "smooth" })}
-              className="text-cyan-400 hover:text-white transition-colors cursor-pointer"
-            >
-              Technical Architecture
-            </button>
-            <span>•</span>
             <a
               href="https://github.com/haridevp/ORVYN"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-white transition-colors"
+              className="text-cyan-400 hover:text-white transition-colors"
             >
               GitHub Repository
             </a>
-            <span>•</span>
+            <span>&bull;</span>
             <button
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              onClick={() => document.getElementById("documentation")?.scrollIntoView({ behavior: "smooth" })}
               className="hover:text-white transition-colors cursor-pointer"
             >
-              Back to Top ↑
+              Documentation
+            </button>
+            <span>&bull;</span>
+            <button
+              onClick={() => document.getElementById("demo-videos")?.scrollIntoView({ behavior: "smooth" })}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Demonstration Videos
+            </button>
+            <span>&bull;</span>
+            <button
+              onClick={() => document.getElementById("team")?.scrollIntoView({ behavior: "smooth" })}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Team Details
             </button>
           </div>
         </div>
+
+        <div className="max-w-7xl mx-auto text-center mt-6 pt-6 border-t border-neutral-900 text-[10px] font-mono text-slate-600">
+          Disclaimer: ORVYN is designed exclusively for authorized penetration testing, security auditing, and academic research. Unauthorized testing against systems without explicit permission is illegal.
+        </div>
       </footer>
+
+      {/* 5. INTERACTIVE DEMO VIDEO VIEWER MODAL */}
+      {selectedDemoVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="relative w-full max-w-3xl rounded-2xl border border-amber-500/40 bg-[#080a14] p-6 shadow-2xl space-y-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Film size={18} className="text-amber-400" />
+                <h3 className="text-base font-bold text-white font-mono">{selectedDemoVideo.title}</h3>
+              </div>
+              <button
+                onClick={() => setSelectedDemoVideo(null)}
+                className="rounded-lg p-1 text-slate-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Video Player Display Container */}
+            <div className="relative aspect-video rounded-xl bg-black border border-neutral-800 flex flex-col items-center justify-center p-6 text-center space-y-3 overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.1),transparent_70%)]" />
+              <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20 border-2 border-amber-400 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+                <Play size={28} className="ml-1 fill-current" />
+              </div>
+              <div className="relative z-10 space-y-1">
+                <span className="rounded bg-amber-500/20 border border-amber-500/40 px-3 py-1 text-xs font-mono font-bold text-amber-300">
+                  DEMONSTRATION VIDEO SLOT RESERVED
+                </span>
+                <p className="text-xs text-slate-400 font-mono max-w-md pt-2">
+                  The video embed link for <strong>{selectedDemoVideo.title}</strong> will be connected directly to this player slot upon final upload.
+                </p>
+              </div>
+            </div>
+
+            {/* Video Agenda Details */}
+            <div className="rounded-xl border border-neutral-800 bg-[#0d1020] p-4 space-y-2 font-mono text-xs">
+              <span className="text-slate-400 font-bold uppercase text-[10px] block">Walkthrough Agenda & Key Topics:</span>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-300 text-[11px]">
+                {selectedDemoVideo.topics.map((t, i) => (
+                  <li key={i} className="flex items-center gap-1.5">
+                    <CheckCircle2 size={12} className="text-amber-400 shrink-0" />
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-neutral-800 text-xs font-mono">
+              <span className="text-slate-500">Duration: {selectedDemoVideo.duration} &bull; Quality: {selectedDemoVideo.quality}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleCopy(selectedDemoVideo.videoUrlSlot, "modal-copy")}
+                  className="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 px-3 py-1.5 text-slate-300 hover:text-white transition-all cursor-pointer"
+                >
+                  {copiedCode === "modal-copy" ? (
+                    <>
+                      <Check size={13} className="text-emerald-400" />
+                      <span>Copied Slot URL</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={13} />
+                      <span>Copy Video Slot Link</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setSelectedDemoVideo(null)}
+                  className="rounded-lg bg-neutral-800 hover:bg-neutral-700 px-4 py-1.5 text-white transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
