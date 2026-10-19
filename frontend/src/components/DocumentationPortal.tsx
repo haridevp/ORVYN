@@ -28,7 +28,8 @@ import type { ScannerProgress } from "../types";
 import { RedamonWorkflowGraph } from "./RedamonWorkflowGraph";
 
 interface DocumentationPortalProps {
-  // Pure Documentation Portal showcasing the private research project
+  isLocalhost?: boolean;
+  onSwitchToConsole?: () => void;
 }
 
 const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
@@ -305,7 +306,10 @@ const TEAM_MEMBERS = [
   },
 ];
 
-export function DocumentationPortal({}: DocumentationPortalProps = {}) {
+export function DocumentationPortal({
+  isLocalhost = false,
+  onSwitchToConsole,
+}: DocumentationPortalProps = {}) {
   const [activeTab, setActiveTab] = useState<string>("problem");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [activeRagSample, setActiveRagSample] = useState<number>(0);
@@ -377,6 +381,18 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
 
           {/* Right Header Badges & Actions */}
           <div className="flex items-center gap-3">
+            {isLocalhost && onSwitchToConsole && (
+              <button
+                type="button"
+                onClick={onSwitchToConsole}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 px-3 py-1.5 text-xs font-bold text-black font-mono shadow-[0_0_15px_rgba(16,185,129,0.35)] transition-all cursor-pointer"
+                title="Switch to Cyber-Deck Pentest Console on Localhost"
+              >
+                <Terminal size={13} />
+                <span>Console (Local)</span>
+              </button>
+            )}
+
             <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-[#0b0d18] px-3 py-1.5 text-xs font-mono text-slate-400">
               <Shield size={12} className="text-cyan-400" />
               <span>Academic Research</span>
@@ -419,6 +435,16 @@ export function DocumentationPortal({}: DocumentationPortalProps = {}) {
 
           {/* Quick Jump Buttons */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            {isLocalhost && onSwitchToConsole && (
+              <button
+                onClick={onSwitchToConsole}
+                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 px-5 py-2.5 text-xs font-bold text-black font-mono transition-all cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+              >
+                <Terminal size={14} />
+                <span>Launch Cyber-Deck Console</span>
+              </button>
+            )}
+
             <button
               onClick={() => document.getElementById("problem")?.scrollIntoView({ behavior: "smooth" })}
               className="flex items-center gap-2 rounded-full border border-rose-500/40 bg-rose-950/30 hover:bg-rose-900/40 px-5 py-2.5 text-xs font-bold text-rose-300 font-mono transition-all cursor-pointer shadow-xs"

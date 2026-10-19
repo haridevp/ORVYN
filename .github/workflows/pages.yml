@@ -2,7 +2,7 @@ name: Deploy Documentation & Showcase Portal to GitHub Pages
 
 on:
   push:
-    branches: [main, testing]
+    branches: [main]
     paths:
       - "frontend/**"
       - "docs/**"

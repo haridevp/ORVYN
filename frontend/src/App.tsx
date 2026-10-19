@@ -59,25 +59,35 @@ const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
 ];
 
 export default function App() {
-  // Security & Privacy Guard:
-  // ORVYN is a private research project. The publication (GitHub Pages / public URLs)
-  // is strictly a Documentation & Project Showcase Portal with zero access to the private pentest console.
-  const isInternalConsole =
+  // Environment check:
+  // Is this running in local development (localhost / 127.0.0.1 / local test IPs)?
+  const isLocalhost =
     typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
-    window.location.search.includes("mode=internal_console");
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.location.hostname.endsWith(".local"));
 
-  // Authentication State for internal local development
+  // On localhost: Mode can seamlessly toggle between "app" (Cyber-Deck Console) and "docs" (Documentation Portal).
+  // Defaults to "app" on localhost for instant, unrestricted testing of all scanners and features!
+  const [localViewMode, setLocalViewMode] = useState<"app" | "docs">(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#docs") {
+      return "docs";
+    }
+    return "app";
+  });
+
+  // Authentication State: On localhost, provide default developer session so local testing is never blocked
   const [user, setUser] = useState<{ username: string; role: string } | null>(() => {
     const saved = localStorage.getItem("pentest_user");
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch {
-        return null;
+        // Fallback
       }
     }
-    return null;
+    return { username: "haridevp", role: "Lead Security Architect (Local Dev)" };
   });
 
   const [apiState, setApiState] = useState<ApiState>("checking");
@@ -374,14 +384,27 @@ export default function App() {
     }
   }
 
-  // Security & Privacy Guard:
-  // Unless explicitly in internal console mode on localhost, ALWAYS render the Documentation Showcase Portal.
+  // Security & Privacy Guard on Public Deployments (e.g. GitHub Pages):
+  // Strictly isolate the private console and render the Documentation Showcase Portal exclusively.
   // The private pentesting console is completely unreachable on GitHub Pages or any public URL.
-  if (!isInternalConsole) {
-    return <DocumentationPortal />;
+  if (!isLocalhost) {
+    return <DocumentationPortal isLocalhost={false} />;
   }
 
-  // If user is not authenticated, render Login Portal
+  // On Localhost: If toggled to Docs Portal, render it with one-click return to console enabled!
+  if (localViewMode === "docs") {
+    return (
+      <DocumentationPortal
+        isLocalhost={true}
+        onSwitchToConsole={() => {
+          setLocalViewMode("app");
+          window.location.hash = "#app";
+        }}
+      />
+    );
+  }
+
+  // If user explicitly logged out on localhost, render Login Portal
   if (!user) {
     return <LoginView onLogin={handleLogin} />;
   }
@@ -427,7 +450,8 @@ export default function App() {
         onLogout={handleLogout}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         onOpenDocs={() => {
-          window.location.href = window.location.origin + window.location.pathname;
+          setLocalViewMode("docs");
+          window.location.hash = "#docs";
         }}
       />
 
@@ -438,10 +462,11 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
-                window.location.href = window.location.origin + window.location.pathname;
+                setLocalViewMode("docs");
+                window.location.hash = "#docs";
               }}
               className="flex items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 px-3 py-1 text-xs font-mono font-semibold text-purple-300 transition-all cursor-pointer shadow-xs"
-              title="Return to Documentation & Project Showcase Portal"
+              title="Switch to Documentation & Project Showcase Portal"
             >
               <BookOpen size={13} className="text-purple-400" />
               <span>Docs Portal</span>
