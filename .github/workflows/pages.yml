@@ -2,7 +2,7 @@ name: Deploy Dashboard to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, testing]
     paths:
       - "frontend/**"
       - ".github/workflows/pages.yml"

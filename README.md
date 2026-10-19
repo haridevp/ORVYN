@@ -1,144 +1,154 @@
 # ORVYN: Offensive Risk and Vulnerability Intelligence Network
 
-> Autonomous Offensive Security & DAST Intelligence Platform | Final Year Project | Semester 6-8
+> **Autonomous Multi-Stage Penetration Testing & DAST Intelligence Platform**  
+> *Final Year Engineering Capstone | Academic & Production Security Research*
 
-An AI-driven autonomous offensive risk and vulnerability intelligence network that coordinates multi-tool scan execution, dynamic LLM template selection, asynchronous worker execution, and validation-ready reporting.
+[![CI/CD Pipeline](https://github.com/haridevp/ORVYN/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/haridevp/ORVYN/actions)
+[![Deploy Dashboard to GitHub Pages](https://github.com/haridevp/ORVYN/actions/workflows/pages.yml/badge.svg)](https://github.com/haridevp/ORVYN/actions/workflows/pages.yml)
+[![License: MIT](https://img.shields.io/badge/License-Academic_Research-blue.svg)](#license)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com)
+[![React 18](https://img.shields.io/badge/Frontend-React_18_%2B_Vite-61dafb.svg)](https://react.dev)
 
-[Full Backlog](docs/BACKLOG.md) | [Sprint Plan](docs/SPRINTS.md) | [Roadmap](docs/ROADMAP.md) | [Team](docs/TEAM.md)
+---
 
-## Current Status
+## Overview
 
-Implemented in this repository today:
-- **Multi-scanner orchestration API** (`/scan/start`, `/scan/status/{id}`, `/scan/results/{id}`, `/scan/{id}`): fans a scan out to Nuclei, ZAP, and Nikto concurrently, tracks per-scanner status, and never lets one scanner's failure sink the job
-- **Result normalizer + correlation engine**: de-duplicates findings reported by multiple tools, raises confidence when tools corroborate each other, and flags conflicting severity ratings
-- Each scanner wrapper (`src/backend/scanners/`) calls the real binary via subprocess if it's installed, and falls back to realistic simulated findings otherwise - so the API/UI/correlation engine are exercised end-to-end even without Nuclei/ZAP/Nikto installed locally
-- Findings are enriched with CWE/OWASP Top 10:2025 references (`src/backend/references.py`)
-- **React + Tailwind dashboard** (`frontend/`): scan form, live per-scanner progress, severity distribution, consolidated/correlated findings with corroboration and conflicting-severity indicators, and per-scanner raw results - with a demo-data fallback when no backend is reachable
-- `security_rag_engine` service: Module 3/4 RAG pipeline, historical scan memory, and MCP bridge scaffolding
-- Celery worker skeleton for asynchronous scan execution, Dockerfiles for backend/worker, `docker-compose.yml` with backend/worker/Redis/Postgres and an opt-in OWASP Juice Shop demo target
-- GitHub Actions: CI on `develop`/PRs, deployment validation on merge-to-`main`, and a GitHub Pages deploy workflow for the dashboard
-- Agile planning artifacts: backlog, sprint board guidance, roadmap, team roles, and issue templates
+**ORVYN** is an autonomous offensive security platform engineered to transcend static, uncoordinated vulnerability scanners. By orchestrating a coordinated **5-phase autonomous reconnaissance and assessment pipeline**, ORVYN pairs live perimeter fingerprinting with local Large Language Models (`Qwen 2.5:7b`) to dynamically select targeted vulnerability assessment templates and verifies all findings against an authoritative 5,000+ vector-embedded security knowledge base (**ChromaDB**).
 
-Planned next layers:
-- Real Nuclei/ZAP/Nikto binaries wired into CI/Docker (wrappers already support it - see `src/backend/scanners/`)
-- Additional scanner coverage (OpenVAS) and MCP tool integration
-- RAG-grounded AI triage wired into the dashboard's consolidated findings view
-- Authentication, role-based access, and report export
+📖 **[Read the Full Technical Architecture & System Specifications](docs/TECHNICAL_DETAILS.md)**
 
-## Modules
+---
 
-| Module | Status | Notes |
-|--------|--------|-------|
-| Reconnaissance | Planned | Nmap integration tracked in backlog |
-| Multi-Scanner Vulnerability Assessment | Implemented | Nuclei/ZAP/Nikto orchestration, correlation engine, unified finding schema |
-| AI Validation / RAG | In Progress | `security_rag_engine` triage + history pipeline implemented; not yet wired into the dashboard |
-| Reporting | In Progress | Report preview endpoint and result schema stub added |
-| Backend API | Implemented | FastAPI multi-scanner job orchestration + legacy architecture-proof endpoints |
-| Queue / Worker | Implemented Foundation | Celery task skeleton present; scan orchestration currently runs via async FastAPI background tasks |
-| Dashboard / UI | Implemented | React/Tailwind multi-scanner dashboard, deployable to GitHub Pages |
-| DevOps | Implemented Foundation | Docker Compose, GitHub Actions CI/CD, GitHub Pages deploy |
+## Key Capabilities & Innovations
 
-## Tech Stack
+### 1. Redamon-Inspired Interactive Recon Pipeline Workflow
+* **Circuit-Bus Node Graph**: High-tech visual representation of the entire offensive pipeline modeled after the Redamon reconnaissance architecture.
+* **Three Functional Bands**:
+  * **Upper Data Band**: Live data entity pills (`Domain`, `Subdomain`, `IP`, `Port`, `Service`, `BaseURL`, `Endpoint`, `CVE`).
+  * **Center Tool Band**: 9 sequential stages featuring interactive tool cards (`Target Input` ➔ `Discovery` ➔ `OSINT` ➔ `Port Scanning` ➔ `HTTP Probing` ➔ `Resource Enum` ➔ `JS Recon` ➔ `Vulnerability Scanning` ➔ `Analysis & AI`).
+  * **Lower Data Band**: Enriched entities (`DNSRecord`, `Certificate`, `Header`, `Technology`, `Parameter`, `Secret`, `ExternalDomain`, `Vulnerability`, `MitreData`, `Capec`).
+* **Interactive Tool Controls**: Instant enable/disable switches on each tool node, click-to-highlight data bus trace lines, and standalone "Run Partial Recon" triggers.
+* **Starved Node Detection & Amber Warnings**: If required inputs lack an active producer (e.g. `BaseURL` with probing tools disabled), nodes pulse red and downstream consumers display warning alerts (`⚠️`).
 
-Current repo:
-- FastAPI for API routing and multi-scanner job orchestration
-- React, TypeScript, Vite, and Tailwind CSS for the dashboard
-- Celery with Redis for asynchronous execution
-- PostgreSQL container for persistence layer setup
-- Docker Compose for local orchestration
-- GitHub Actions for CI/CD and GitHub Pages deployment
+### 2. Autonomous 5-Phase Assessment Lifecycle
+1. **Phase 1: Perimeter Reconnaissance & Fingerprinting**: Live port discovery, service version detection, server banners, SSL/TLS cryptographic testing (`Nmap`, `WhatWeb`, `SSLyze`, `Nikto`, `OWASP ZAP`).
+2. **Phase 2: LLM Validation & Dynamic Template Selection**: Local AI (`Qwen 2.5` via Ollama) evaluates discovered web frameworks and open ports to automatically select from 30 specialized assessment templates (e.g., `api-security-audit`, `cve-critical-rce`, `cloud-perimeter`).
+3. **Phase 3: Targeted Tool Execution**: Runs targeted engines (`Nuclei` with dynamic tags, `Wapiti` for parameter auditing, `SQLMap` for database injections, `Ffuf` for directory fuzzing).
+4. **Phase 4: Security RAG Knowledge Base Triage**: Vector similarity lookup over 5,000+ chunks (OWASP Top 10:2025, NIST NVD, MITRE ATT&CK & CAPEC) to validate severity tiers and filter false positives.
+5. **Phase 5: Automated Correlation & Deduplication**: Groups corroborated vulnerabilities across multiple tools and synthesizes unified reports.
 
-Planned integration stack:
-- LangChain, Ollama, and ChromaDB for validation and retrieval (scaffolded in `security_rag_engine`)
-- OpenVAS for network/infrastructure coverage
-- MCP-based tool integration (HexStrike/Vorota/RedaMon - under evaluation)
+### 3. Futuristic Cyber-Deck User Interface
+* **Sleek Aesthetic**: Deep obsidian carbon palette (`#06070c`) with luminous cyan/emerald neon telemetry rails and responsive glassmorphism.
+* **Live System Metrics**: Real-time streaming logs, executive risk scorecards, severity distribution donuts, and live-finding feeds.
+* **Integrated Command Matrix**: `Ctrl + K` global command palette for rapid navigation, host scoping, and template filtering.
 
-## Workflow
+---
 
-- Feature and docs branches are merged into `develop`
-- CI runs on `develop` pushes and pull requests
-- Validated changes are merged from `develop` into `main`
-- Deployment validation runs after the merge to `main`
-
-## API Proof
-
-Current backend endpoints:
-- `GET /`
-- `GET /health`
-- `GET /architecture/proof`
-- `POST /scans` / `GET /scans/{scan_id}` / `GET /reports/{scan_id}` (legacy single-scanner stub)
-- `POST /scan/start` - start a multi-scanner job (`target`, `scanners`, `profile`)
-- `GET /scan/status/{scan_id}` - per-scanner progress + overall status
-- `GET /scan/results/{scan_id}` - raw findings, correlated findings, severity distribution
-- `GET /scan/{scan_id}` - scan summary
-
-## Running Locally
-
-Backend:
-```bash
-python -m venv venv && source venv/bin/activate
-pip install -r src/backend/requirements.txt
-cd src/backend && uvicorn main:app --reload
-```
-
-Dashboard:
-```bash
-cd frontend
-npm install
-npm run dev   # http://localhost:5173, talks to http://localhost:8000 by default
-```
-
-Point the dashboard at a different backend with `VITE_API_BASE_URL` (build time) or `?api=http://host:8000` (runtime, handy for a deployed GitHub Pages build).
-
-Optional local scan target (no third-party site required):
-```bash
-docker compose --profile demo-target up demo-target   # OWASP Juice Shop on :3000
-```
-
-CLI (same scanner/correlation engine as the API and dashboard - run directly via `./start.sh`):
-```bash
-./start.sh scan scanme.nmap.org                       # runs scanners locally, no server needed
-./start.sh scan scanme.nmap.org --template auto        # autonomous LLM recon & template selection
-./start.sh templates                                   # list all 30 vulnerability assessment templates
-./start.sh check                                       # environment & toolchain diagnostics
-./start.sh scan scanme.nmap.org --scanners nuclei,zap  # pick a subset
-./start.sh scan scanme.nmap.org --json                 # machine-readable output
-./start.sh scan scanme.nmap.org --api http://localhost:8000   # hit a running backend instead
-./start.sh status <scan_id> --api http://localhost:8000
-./start.sh results <scan_id> --api http://localhost:8000 --json
-```
-
-## Project Structure
+## System Architecture
 
 ```text
-AI-Automated-Penetration-Testing/
-|-- .github/
-|   |-- ISSUE_TEMPLATE/
-|   `-- workflows/       # CI/CD + GitHub Pages deploy
-|-- docs/
-|   |-- BACKLOG.md
-|   |-- GITHUB_PROJECT_SETUP.md
-|   |-- ROADMAP.md
-|   |-- SPRINTS.md
-|   `-- TEAM.md
-|-- frontend/            # React + Tailwind multi-scanner dashboard
-|-- src/
-|   |-- backend/
-|   |   |-- scanners/    # Nuclei/ZAP/Nikto wrappers (real binary + simulated fallback)
-|   |   |-- cli.py       # `python cli.py scan <target>` - local or --api mode
-|   |   |-- correlation.py
-|   |   |-- job_manager.py
-|   |   |-- references.py
-|   |   `-- schemas.py
-|   |-- security_rag_engine/
-|   `-- worker/
-`-- tests/
+┌────────────────────────────────────────────────────────────────────────────┐
+│                    REACT 18 + VITE + TAILWIND FRONTEND                     │
+│  [Redamon Workflow Graph]  [Futuristic Cyber-Deck]  [Live Terminal Console]│
+└─────────────────────────────────────┬──────────────────────────────────────┘
+                                      │ REST API / Live Polling
+┌─────────────────────────────────────▼──────────────────────────────────────┐
+│                        FASTAPI ORCHESTRATION BACKEND                       │
+│  - Scan Job Manager & Non-Blocking Subprocess Pool                         │
+│  - Scope Enforcement Engine (In-Scope Allowlist / Out-of-Scope Exclusions) │
+│  - Correlated Finding & Severity Aggregation Engine                        │
+└──────────────┬──────────────────────┬──────────────────────┬───────────────┘
+               │                      │                      │
+┌──────────────▼──────────────┐┌──────▼──────────────┐┌──────▼───────────────┐
+│     MODULE 1: TOOLCHAIN     ││   MODULE 2: LLM     ││    MODULE 3: RAG     │
+│ - Nmap (Ports & Scripts)    ││ - Qwen 2.5:7b       ││ - ChromaDB Vector DB │
+│ - WhatWeb & SSLyze          ││ - 30 Dynamic Pentest││ - 5,000+ Curated     │
+│ - Nikto & OWASP ZAP         ││   Templates         ││   OWASP/CVE/CWE Docs │
+│ - Nuclei, Wapiti, SQLMap    ││ - Heuristic Rule    ││ - Authoritative      │
+│ - Ffuf (Fuzzing)            ││   Fallback Engine   ││   Citation Matcher   │
+└─────────────────────────────┘└─────────────────────┘└──────────────────────┘
 ```
+
+---
+
+## Supported Security Scanners
+
+| Engine | Version | Mode | Core Capabilities |
+|---|---|---|---|
+| **Nmap** | 7.93+ | Active | Port scanning, service version detection, OS fingerprinting |
+| **WhatWeb** | 0.5.5 | Active/Passive | CMS, web server, and technology stack fingerprinting |
+| **SSLyze** | 5.2.0 | Active | TLS/SSL cipher suite auditing, certificate expiration, Heartbleed |
+| **Nikto** | 2.5.0 | Active | Web server misconfigurations, dangerous CGIs, outdated software |
+| **Nuclei** | 3.3.0 | Active | 9,000+ YAML template checks for CVEs, zero-days, and exposures |
+| **OWASP ZAP** | 2.15 | Active | Baseline web application scanning, OWASP Top 10 vulnerabilities |
+| **Wapiti** | 3.1.8 | Active | Parameter auditing for XSS, SQLi, SSRF, and file inclusions |
+| **SQLMap** | 1.8 | Active | Automated SQL injection verification and database testing |
+| **FFuf** | 2.1 | Active | High-speed directory, hidden file, and `.env` fuzzing |
+
+---
+
+## Quick Start Guide
+
+### 1. Docker Compose (Full Stack)
+
+Launch the complete containerized stack (FastAPI backend, React dashboard, PostgreSQL, Redis):
+
+```bash
+# Clone the repository
+git clone https://github.com/haridevp/ORVYN.git
+cd ORVYN
+
+# Start all core services in background
+docker compose up -d
+
+# Check running services
+docker compose ps
+```
+
+* **Frontend Dashboard**: `http://localhost:5173`
+* **FastAPI Interactive Docs**: `http://localhost:8000/docs`
+* **Health Endpoint**: `http://localhost:8000/api/health`
+
+### 2. Standalone CLI Usage
+
+The repository includes a standalone Python CLI (`./start.sh` or `cli.py`):
+
+```bash
+# Autonomous assessment with AI template selection
+./start.sh scan example.com --template auto
+
+# Targeted assessment with custom scanner subset
+./start.sh scan example.com --scanners nmap,whatweb,nuclei
+
+# List all 30 vulnerability assessment templates
+./start.sh templates
+
+# System and toolchain diagnostics check
+./start.sh check
+
+# Query status of an existing scan from running backend
+./start.sh status <scan_id> --api http://localhost:8000
+```
+
+---
+
+## Project Documentation
+
+* **[Technical Details & System Architecture](docs/TECHNICAL_DETAILS.md)**: Deep dive into subprocess management, RAG embeddings, and the Redamon graph specification.
+* **[Agile Backlog](docs/BACKLOG.md)**: User stories, epics, and planned milestones.
+* **[Sprint Tracking](docs/SPRINTS.md)**: Sprint retrospectives and delivery velocity.
+* **[Product Roadmap](docs/ROADMAP.md)**: Multi-semester research phases and capabilities timeline.
+* **[Team Roles & Responsibilities](docs/TEAM.md)**: Engineering team organization.
+
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for branching, PR rules, and sprint board usage.
+Please review [CONTRIBUTING.md](CONTRIBUTING.md) for branch management, commit conventions, and testing guidelines.
+
+---
 
 ## License
 
-Academic project. All rights reserved.
+Academic and Research Open-Source Project. All rights reserved.
