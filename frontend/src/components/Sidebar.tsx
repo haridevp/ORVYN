@@ -44,6 +44,7 @@ interface SidebarProps {
   user?: { username: string; role: string } | null;
   onLogout?: () => void;
   onOpenCommandPalette: () => void;
+  onOpenDocs?: () => void;
 }
 
 export function Sidebar({
@@ -55,6 +56,7 @@ export function Sidebar({
   user,
   onLogout,
   onOpenCommandPalette,
+  onOpenDocs,
 }: SidebarProps) {
   const [isAdminDropdownOpen, setIsAdminDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -260,6 +262,27 @@ export function Sidebar({
       </div>
 
       <div className="space-y-1">
+        {/* Documentation Portal Showcase */}
+        {onOpenDocs && (
+          <button
+            type="button"
+            onClick={onOpenDocs}
+            className="group relative flex items-center justify-between w-full rounded-xl px-3 py-2 bg-gradient-to-r from-purple-950/50 via-cyan-950/40 to-transparent border border-purple-500/40 text-purple-200 hover:text-white hover:border-purple-400/70 transition-all duration-150 cursor-pointer shadow-sm mb-1.5"
+            title="Open Project Documentation & Architecture Showcase Portal"
+          >
+            <span className="flex items-center gap-2.5">
+              <BookOpen
+                size={15}
+                className="text-purple-400 group-hover:text-purple-300 transition-colors"
+              />
+              <span className="tracking-wide font-medium">Docs & Showcase</span>
+            </span>
+            <span className="rounded-full bg-purple-500/20 border border-purple-500/40 px-1.5 py-0.5 text-[9px] font-mono font-bold text-purple-300">
+              PORTAL
+            </span>
+          </button>
+        )}
+
         {/* Dashboard */}
         <button
           onClick={() => setActiveTab("dashboard")}

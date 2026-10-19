@@ -27,6 +27,7 @@ import { IssuesView } from "./components/IssuesView";
 import { DomainsView } from "./components/DomainsView";
 import { KnowledgeView } from "./components/KnowledgeView";
 import { CommandPalette } from "./components/CommandPalette";
+import { DocumentationPortal } from "./components/DocumentationPortal";
 import type { ScannerName, ScannerProgress, ScanResultsResponse, ScanStatusResponse } from "./types";
 import {
   Target,
@@ -41,6 +42,7 @@ import {
   Settings,
   LogOut,
   History,
+  BookOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -57,7 +59,36 @@ const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
 ];
 
 export default function App() {
-  // Authentication State
+  // Documentation Portal vs. Cyber-Deck Console mode
+  // Defaults to "showcase" for the publication portal showcasing the project
+  const [portalMode, setPortalModeState] = useState<"showcase" | "app">(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#app") {
+      return "app";
+    }
+    try {
+      const saved = localStorage.getItem("orvyn_portal_mode");
+      if (saved === "app") return "app";
+    } catch {
+      // Fallback
+    }
+    return "showcase";
+  });
+
+  const setPortalMode = (mode: "showcase" | "app") => {
+    setPortalModeState(mode);
+    try {
+      localStorage.setItem("orvyn_portal_mode", mode);
+      if (mode === "app") {
+        window.location.hash = "#app";
+      } else {
+        window.location.hash = "#docs";
+      }
+    } catch {
+      // Ignore
+    }
+  };
+
+  // Authentication State (Default guest reviewer so visitors can explore the Cyber-Deck immediately)
   const [user, setUser] = useState<{ username: string; role: string } | null>(() => {
     const saved = localStorage.getItem("pentest_user");
     if (saved) {
@@ -67,7 +98,7 @@ export default function App() {
         return null;
       }
     }
-    return null;
+    return { username: "secops-evaluator", role: "SecOps Lead (Academic Review)" };
   });
 
   const [apiState, setApiState] = useState<ApiState>("checking");
@@ -364,6 +395,11 @@ export default function App() {
     }
   }
 
+  // If in documentation portal showcase mode, render DocumentationPortal
+  if (portalMode === "showcase") {
+    return <DocumentationPortal onLaunchApp={() => setPortalMode("app")} />;
+  }
+
   // If user is not authenticated, render Login Portal
   if (!user) {
     return <LoginView onLogin={handleLogin} />;
@@ -409,12 +445,22 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenDocs={() => setPortalMode("showcase")}
       />
 
       <div className="min-w-0 flex-1 relative flex flex-col">
         {/* Enterprise Top Bar */}
         <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800/80 bg-[#07080c]/90 backdrop-blur-xl px-8 py-3">
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPortalMode("showcase")}
+              className="flex items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 px-3 py-1 text-xs font-mono font-semibold text-purple-300 transition-all cursor-pointer shadow-xs"
+              title="Return to Documentation & Project Showcase Portal"
+            >
+              <BookOpen size={13} className="text-purple-400" />
+              <span>Docs Portal</span>
+            </button>
             <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
               <span className="text-neutral-500">Target</span>
               <ChevronRight size={13} className="text-neutral-600" />

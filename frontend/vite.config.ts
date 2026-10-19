@@ -1,11 +1,10 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// base: '/' assumes the custom domain attached to GitHub Pages (serves from
-// the domain root). If you deploy to the default <org>.github.io/<repo>/
-// URL instead, change this to '/AI-Automated-Penetration-Testing/'.
+// base: './' ensures relative asset paths work anywhere (GitHub Pages repo subpaths,
+// custom domains, and local preview servers) without 404s.
 export default defineConfig({
-  base: '/',
+  base: './',
   plugins: [react()],
   server: {
     proxy: {
