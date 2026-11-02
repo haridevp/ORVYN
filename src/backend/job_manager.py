@@ -70,7 +70,7 @@ class ScanJob:
     def __init__(self, scan_id: str, request: ScanStartRequest):
         self.scan_id = scan_id
         self.target = request.target
-        norm_profile = "recon" if request.profile == "fast" else ("full" if request.profile == "deep" else request.profile)
+        norm_profile = "recon" if request.profile in ("fast", "recon", "server") else ("full" if request.profile in ("deep", "full", "unlimited") else request.profile)
         self.profile = norm_profile
         self.template_id = request.template
         self.template_name: Optional[str] = None

@@ -71,7 +71,7 @@ class ScanStartRequest(BaseModel):
         ],
         description="Which scanners to run for this job",
     )
-    profile: Literal["recon", "web", "full", "unlimited", "fast", "deep", "api"] = "web"
+    profile: Literal["recon", "web", "full", "unlimited", "fast", "deep", "api", "server"] = "web"
     template: Optional[str] = Field(
         default=None,
         description="Optional vulnerability audit template ID (e.g. web_owasp_deep_audit, full_infrastructure_audit)",

@@ -10,9 +10,14 @@ import type {
 // fit static hosting), so a GitHub-Pages-hosted dashboard has no backend to
 // reach unless you point it at one you're running. Override at build time
 // with VITE_API_BASE_URL, or at runtime via ?api=<url> for a quick demo.
-const runtimeOverride = new URLSearchParams(window.location.search).get("api");
+const runtimeOverride = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("api") : null;
+const detectedHost = typeof window !== "undefined" && window.location.hostname ? window.location.hostname : "localhost";
 export const API_BASE_URL =
-  runtimeOverride || import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  runtimeOverride ||
+  import.meta.env.VITE_API_BASE_URL ||
+  (typeof window !== "undefined" && window.location.port === "5173"
+    ? "" // Leverage Vite dev proxy directly
+    : `http://${detectedHost}:8000`);
 
 export class ApiUnreachableError extends Error {}
 

@@ -9,7 +9,13 @@ export default defineConfig({
   server: {
     proxy: {
       '/scan': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/scans': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
       '/health': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/environment': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/target': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/mcp': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/templates': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
+      '/reports': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
       '/architecture': process.env.BACKEND_URL || 'http://127.0.0.1:8000',
     }
   }

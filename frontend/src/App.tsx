@@ -33,7 +33,6 @@ import {
   Target,
   Download,
   RotateCw,
-  ChevronRight,
   StopCircle,
   FileText,
   Printer,
@@ -43,6 +42,9 @@ import {
   LogOut,
   History,
   BookOpen,
+  Activity,
+  Globe,
+  Play,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -68,14 +70,18 @@ export default function App() {
       window.location.hostname === "0.0.0.0" ||
       window.location.hostname.endsWith(".local"));
 
-  // On localhost: Mode can seamlessly toggle between "docs" (Documentation Portal) and "app" (Cyber-Deck Console).
-  // Defaults to "docs" so the Documentation Portal showcase is immediately visible upon opening!
+  // Default to interactive pentesting console ("app"); docs accessible via "#docs" or Docs button
   const [localViewMode, setLocalViewMode] = useState<"app" | "docs">(() => {
-    if (typeof window !== "undefined" && window.location.hash === "#app") {
-      return "app";
+    if (typeof window !== "undefined" && window.location.hash === "#docs") {
+      return "docs";
     }
-    return "docs";
+    return "app";
   });
+
+  // Quick Assessment Bar state (mounted on Dashboard)
+  const [quickTarget, setQuickTarget] = useState("scanme.nmap.org");
+  const [quickProfile, setQuickProfile] = useState("web");
+  const [quickSecondary, setQuickSecondary] = useState(true);
 
   // Authentication State: On localhost, provide default developer session so local testing is never blocked
   const [user, setUser] = useState<{ username: string; role: string } | null>(() => {
@@ -176,16 +182,91 @@ export default function App() {
     setUser(null);
   }
 
+  function startPollingForScan(scanId: string) {
+    const existingPoller = pollersRef.current.get(scanId);
+    if (existingPoller) {
+      window.clearInterval(existingPoller);
+      pollersRef.current.delete(scanId);
+    }
+
+    let pollCount = 0;
+    let consecutiveErrors = 0;
+    const intervalId = window.setInterval(async () => {
+      pollCount += 1;
+      if (pollCount > 600) {
+        window.clearInterval(intervalId);
+        pollersRef.current.delete(scanId);
+        return;
+      }
+      try {
+        const next = await getScanStatus(scanId);
+        consecutiveErrors = 0;
+        setAllScans((prev) =>
+          prev.map((s) => (s.scan_id === scanId ? next : s))
+        );
+
+        if (!selectedScanIdRef.current || selectedScanIdRef.current === scanId) {
+          setStatus(next);
+        }
+
+        const anyProgress = next.scanners.some(
+          (s) => s.status === "completed" || (s.findings_count ?? 0) > 0
+        );
+        if (anyProgress) {
+          try {
+            const currentResults = await getScanResults(scanId);
+            if (!selectedScanIdRef.current || selectedScanIdRef.current === scanId) {
+              setResults(currentResults);
+            }
+          } catch {
+            // Transient polling catch
+          }
+        }
+
+        if (
+          next.overall_status === "completed" ||
+          next.overall_status === "error" ||
+          next.overall_status === "cancelled"
+        ) {
+          window.clearInterval(intervalId);
+          pollersRef.current.delete(scanId);
+          try {
+            const finalResults = await getScanResults(scanId);
+            if (!selectedScanIdRef.current || selectedScanIdRef.current === scanId) {
+              setResults(finalResults);
+            }
+          } catch {
+            // Ignore
+          }
+        }
+      } catch {
+        consecutiveErrors += 1;
+        if (consecutiveErrors > 10) {
+          window.clearInterval(intervalId);
+          pollersRef.current.delete(scanId);
+        }
+      }
+    }, 1000);
+
+    pollersRef.current.set(scanId, intervalId);
+  }
+
   async function handleSelectScan(scanId: string, directScan?: ScanStatusResponse) {
     setSelectedScanId(scanId);
     setResults(null);
     const existing = directScan || allScans.find((s) => s.scan_id === scanId);
     if (existing) {
       setStatus(existing);
+      if (
+        (existing.overall_status === "running" || existing.overall_status === "queued") &&
+        !pollersRef.current.has(scanId)
+      ) {
+        startPollingForScan(scanId);
+      }
     }
     try {
       const res = await getScanResults(scanId);
-      if (selectedScanIdRef.current === scanId) {
+      if (!selectedScanIdRef.current || selectedScanIdRef.current === scanId) {
         setResults(res);
       }
     } catch {
@@ -257,67 +338,7 @@ export default function App() {
       setSelectedScanId(initial.scan_id);
       setStatus(initial);
       setActiveTab("dashboard");
-      const existingPoller = pollersRef.current.get(initial.scan_id);
-      if (existingPoller) {
-        window.clearInterval(existingPoller);
-        pollersRef.current.delete(initial.scan_id);
-      }
-
-      let pollCount = 0;
-      const intervalId = window.setInterval(async () => {
-        pollCount += 1;
-        if (pollCount > 300) {
-          window.clearInterval(intervalId);
-          pollersRef.current.delete(initial.scan_id);
-          return;
-        }
-        try {
-          const next = await getScanStatus(initial.scan_id);
-          setAllScans((prev) =>
-            prev.map((s) => (s.scan_id === initial.scan_id ? next : s))
-          );
-
-          if (selectedScanIdRef.current === initial.scan_id) {
-            setStatus(next);
-          }
-
-          const anyProgress = next.scanners.some(
-            (s) => s.status === "completed" || (s.findings_count ?? 0) > 0
-          );
-          if (anyProgress) {
-            try {
-              const currentResults = await getScanResults(initial.scan_id);
-              if (selectedScanIdRef.current === initial.scan_id) {
-                setResults(currentResults);
-              }
-            } catch {
-              // Transient polling catch
-            }
-          }
-
-          if (
-            next.overall_status === "completed" ||
-            next.overall_status === "error" ||
-            next.overall_status === "cancelled"
-          ) {
-            window.clearInterval(intervalId);
-            pollersRef.current.delete(initial.scan_id);
-            try {
-              const finalResults = await getScanResults(initial.scan_id);
-              if (selectedScanIdRef.current === initial.scan_id) {
-                setResults(finalResults);
-              }
-            } catch {
-              // Ignore
-            }
-          }
-        } catch {
-          window.clearInterval(intervalId);
-          pollersRef.current.delete(initial.scan_id);
-        }
-      }, 1000);
-
-      pollersRef.current.set(initial.scan_id, intervalId);
+      startPollingForScan(initial.scan_id);
     } catch (err) {
       setError(err instanceof ApiUnreachableError ? err.message : (err as Error).message);
     }
@@ -384,18 +405,11 @@ export default function App() {
     }
   }
 
-  // Security & Privacy Guard on Public Deployments (e.g. GitHub Pages):
-  // Strictly isolate the private console and render the Documentation Showcase Portal exclusively.
-  // The private pentesting console is completely unreachable on GitHub Pages or any public URL.
-  if (!isLocalhost) {
-    return <DocumentationPortal isLocalhost={false} />;
-  }
-
-  // On Localhost: If toggled to Docs Portal, render it with one-click return to console enabled!
+  // If toggled to Docs Portal, render it with one-click return to console enabled
   if (localViewMode === "docs") {
     return (
       <DocumentationPortal
-        isLocalhost={true}
+        isLocalhost={isLocalhost}
         onSwitchToConsole={() => {
           setLocalViewMode("app");
           window.location.hash = "#app";
@@ -456,8 +470,8 @@ export default function App() {
       />
 
       <div className="min-w-0 flex-1 relative flex flex-col">
-        {/* Enterprise Top Bar */}
-        <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800/80 bg-[#07080c]/90 backdrop-blur-xl px-8 py-3">
+        {/* Minimal Enterprise Top Bar */}
+        <header className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-4 border-b border-neutral-800/80 bg-[#07080c]/90 backdrop-blur-xl px-6 py-3">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -465,36 +479,39 @@ export default function App() {
                 setLocalViewMode("docs");
                 window.location.hash = "#docs";
               }}
-              className="flex items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 px-3 py-1 text-xs font-mono font-semibold text-purple-300 transition-all cursor-pointer shadow-xs"
-              title="Switch to Documentation & Project Showcase Portal"
+              className="flex items-center gap-1.5 rounded-lg border border-neutral-800 bg-neutral-900/60 hover:bg-neutral-800 px-3 py-1.5 text-xs text-neutral-300 transition-colors cursor-pointer"
+              title="Documentation Portal"
             >
-              <BookOpen size={13} className="text-purple-400" />
-              <span>Docs Portal</span>
+              <BookOpen size={13} className="text-neutral-400" />
+              <span>Docs</span>
             </button>
-            <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
-              <span className="text-neutral-500">Target</span>
-              <ChevronRight size={13} className="text-neutral-600" />
-              <span className="font-semibold text-white font-mono flex items-center gap-1.5">
-                <Target size={14} className="text-purple-400" />
-                {currentTarget}
-              </span>
-              {status?.in_scope && status.in_scope.length > 0 && (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-md bg-neutral-900 border border-neutral-800 px-2 py-0.5 text-[11px] font-mono text-neutral-300">
-                  Scope: {status.in_scope[0]}
-                </span>
+
+            <div className="flex items-center gap-2 rounded-lg bg-neutral-900 border border-neutral-800 px-3 py-1.5 text-xs font-mono text-neutral-300">
+              <Target size={13} className="text-neutral-400" />
+              <span className="font-semibold text-white">{currentTarget}</span>
+              {status?.profile && (
+                <span className="text-[10px] text-neutral-500 uppercase tracking-wide">({status.profile})</span>
               )}
             </div>
 
-            <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2.5 py-0.5 text-[10px] font-mono text-purple-300 font-bold">
-              AI Pentest Engine Connected
-            </span>
+            {isRunning ? (
+              <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-xs text-amber-300 font-mono">
+                <Activity size={12} className="animate-spin text-amber-400" />
+                <span>Assessing ({status?.current_phase || "Active"})</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs text-emerald-400 font-mono">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                <span>Engine Ready</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2.5">
-            {/* New Pentest Button (Primary CTA) */}
+            {/* New Pentest Button */}
             <button
               onClick={() => setActiveTab("pentests")}
-              className="flex items-center gap-1.5 rounded-full bg-white hover:bg-neutral-200 px-4 py-1.5 text-xs font-bold text-black transition-all cursor-pointer shadow-md"
+              className="flex items-center gap-1.5 rounded-lg bg-white hover:bg-neutral-200 px-3.5 py-1.5 text-xs font-semibold text-black transition-colors cursor-pointer shadow-sm"
             >
               <Plus size={13} />
               <span>New Pentest</span>
@@ -503,10 +520,10 @@ export default function App() {
             {isRunning && (
               <button
                 onClick={() => handleCancelScan()}
-                className="flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 px-3.5 py-1.5 text-xs font-semibold text-rose-300 transition-all cursor-pointer shadow-xs"
-                title="Abort and end current scan execution"
+                className="flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 px-3 py-1.5 text-xs font-medium text-rose-300 transition-colors cursor-pointer"
+                title="Abort active assessment"
               >
-                <StopCircle size={13} className="text-rose-400 animate-pulse" />
+                <StopCircle size={13} className="text-rose-400" />
                 <span>Abort</span>
               </button>
             )}
@@ -520,9 +537,9 @@ export default function App() {
                 )
               }
               disabled={!!isRunning}
-              className="flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/80 hover:bg-neutral-800 px-3.5 py-1.5 text-xs font-medium text-neutral-200 transition-all disabled:opacity-40 cursor-pointer"
+              className="flex items-center gap-1.5 rounded-lg border border-neutral-800 bg-neutral-900/80 hover:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-200 transition-colors disabled:opacity-40 cursor-pointer"
             >
-              <RotateCw size={12} className={isRunning ? "animate-spin text-purple-400" : ""} />
+              <RotateCw size={12} className={isRunning ? "animate-spin text-neutral-400" : ""} />
               <span>Rescan</span>
             </button>
 
@@ -732,6 +749,102 @@ export default function App() {
           {/* VIEW 6: DASHBOARD & EXECUTIVE OVERVIEW */}
           {activeTab === "dashboard" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              {/* Quick Assessment Launch Bar */}
+              <div className="rounded-xl border border-neutral-800 bg-[#0c0d12] p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded bg-neutral-800 text-neutral-300">
+                      <Target size={12} />
+                    </div>
+                    <span className="text-xs font-semibold text-white">Target Assessment & Perimeter Recon</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-neutral-400 font-mono">
+                    <span className="flex items-center gap-1 text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      72 MCP Tools Active
+                    </span>
+                    <span>•</span>
+                    <span>Docker Container Mode</span>
+                  </div>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!quickTarget.trim() || isRunning) return;
+                    handleStart(
+                      quickTarget.trim(),
+                      ["nuclei", "zap", "nikto", "whatweb", "nmap", "sslyze", "wapiti"],
+                      quickProfile,
+                      [quickTarget.trim()],
+                      [],
+                      null,
+                      quickSecondary
+                    );
+                  }}
+                  className="flex flex-col sm:flex-row items-stretch gap-2.5"
+                >
+                  <div className="relative flex-1">
+                    <Globe size={14} className="absolute left-3 top-3 text-neutral-500" />
+                    <input
+                      type="text"
+                      value={quickTarget}
+                      onChange={(e) => setQuickTarget(e.target.value)}
+                      placeholder="e.g. scanme.nmap.org, 192.168.1.1, or target.com"
+                      className="w-full rounded-lg border border-neutral-700/80 bg-black/60 pl-9 pr-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-neutral-400 focus:outline-none font-mono"
+                    />
+                  </div>
+
+                  <select
+                    value={quickProfile}
+                    onChange={(e) => setQuickProfile(e.target.value)}
+                    className="rounded-lg border border-neutral-700/80 bg-neutral-900 px-3 py-2 text-xs text-neutral-200 focus:border-neutral-400 focus:outline-none font-mono cursor-pointer"
+                  >
+                    <option value="recon">Recon Profile (~20s quick)</option>
+                    <option value="web">Web App Profile (~45-60s)</option>
+                    <option value="full">Comprehensive Full (~2m)</option>
+                    <option value="deep">Deep Multi-Tool Audit (~5m)</option>
+                  </select>
+
+                  <button
+                    type="submit"
+                    disabled={!!isRunning || !quickTarget.trim()}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-white hover:bg-neutral-200 disabled:opacity-50 px-5 py-2 text-xs font-semibold text-black transition-all cursor-pointer whitespace-nowrap shadow-sm"
+                  >
+                    {isRunning ? (
+                      <>
+                        <RotateCw size={13} className="animate-spin text-black" />
+                        <span>Assessing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play size={13} fill="currentColor" />
+                        <span>Launch Assessment</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-neutral-400">
+                  <label className="flex items-center gap-1.5 cursor-pointer hover:text-neutral-300">
+                    <input
+                      type="checkbox"
+                      checked={quickSecondary}
+                      onChange={(e) => setQuickSecondary(e.target.checked)}
+                      className="rounded border-neutral-700 bg-neutral-900 text-white focus:ring-0 cursor-pointer h-3.5 w-3.5"
+                    />
+                    <span>Auto-trigger secondary tools (SQLMap, Ffuf, Wapiti) on perimeter findings</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("pentests")}
+                    className="text-neutral-400 hover:text-white transition-colors cursor-pointer underline underline-offset-2"
+                  >
+                    Advanced Scope & Template Options →
+                  </button>
+                </div>
+              </div>
+
               <ExecutiveMetrics
                 distribution={distribution}
                 totalFindings={totalFindings}
