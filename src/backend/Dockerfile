@@ -48,6 +48,8 @@ RUN mkdir -p /usr/share/wordlists/dirb && \
 
 # Ensure zap-baseline.py is accessible in PATH
 ENV PATH="/zap:$PATH"
+ENV IS_DOCKER="true"
+ENV CONTAINER="docker"
 
 WORKDIR /app
 

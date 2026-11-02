@@ -57,17 +57,21 @@ class ScannerWrapper(ABC):
             return [self.binary] + args
 
         # Strict isolation: run via Docker or Podman
-        container_cli = get_container_cli() or "docker"
-        docker_image = os.environ.get("HEXSTRIKE_DOCKER_IMAGE", "pentest-backend:latest")
-        return [
-            container_cli,
-            "run",
-            "--rm",
-            "--network",
-            "host",
-            docker_image,
-            self.binary,
-        ] + args
+        container_cli = get_container_cli()
+        if container_cli:
+            docker_image = os.environ.get("HEXSTRIKE_DOCKER_IMAGE", "pentest-backend:latest")
+            return [
+                container_cli,
+                "run",
+                "--rm",
+                "--network",
+                "host",
+                docker_image,
+                self.binary,
+            ] + args
+
+        # Fallback to native binary if container engine is unconfigured
+        return [self.binary] + args
 
     @abstractmethod
     async def run(

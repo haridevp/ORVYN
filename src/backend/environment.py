@@ -92,14 +92,27 @@ def _parse_os_release() -> dict[str, str]:
 
 
 def _is_inside_docker() -> bool:
-    """Check if process is currently executing inside a Docker container."""
-    if Path("/.dockerenv").exists():
+    """Check if process is currently executing inside a Docker or Podman container."""
+    if Path("/.dockerenv").exists() or Path("/run/.containerenv").exists():
+        return True
+    if os.environ.get("IS_DOCKER", "").lower() in ("true", "1") or os.environ.get("CONTAINER", "").lower() in ("docker", "podman", "containerd"):
+        return True
+    # Container signature: pentest-backend image uniquely has /zap and /opt/nikto installed
+    if Path("/zap").is_dir() and (Path("/opt/nikto").is_dir() or Path("/usr/local/bin/nikto").exists()):
         return True
     try:
         cgroup_path = Path("/proc/1/cgroup")
         if cgroup_path.exists():
             content = cgroup_path.read_text(encoding="utf-8", errors="ignore")
-            if "docker" in content or "kubepods" in content or "containerd" in content:
+            if "docker" in content or "kubepods" in content or "containerd" in content or "libpod" in content:
+                return True
+    except Exception:
+        pass
+    try:
+        self_cgroup = Path("/proc/self/cgroup")
+        if self_cgroup.exists():
+            content = self_cgroup.read_text(encoding="utf-8", errors="ignore")
+            if "docker" in content or "kubepods" in content or "containerd" in content or "libpod" in content:
                 return True
     except Exception:
         pass

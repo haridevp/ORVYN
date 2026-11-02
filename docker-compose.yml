@@ -11,6 +11,7 @@ services:
       - ./chroma_security_db:/app/chroma_security_db
     environment:
       - OLLAMA_API_BASE=http://localhost:11434/v1
+      - IS_DOCKER=true
     depends_on:
       - redis
       - db

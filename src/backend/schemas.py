@@ -198,5 +198,17 @@ class TriageResult(BaseModel):
     owasp_citations: list[str] = Field(default_factory=list)
 
 
+class TemplateSelectionDecision(BaseModel):
+    selected_template_id: str
+    template_name: str
+    confidence: int
+    reasoning: str
+    recommended_nuclei_tags: list[str] = Field(default_factory=list)
+    is_llm_decided: bool = True
+
+
+TemplateSelectionResult = TemplateSelectionDecision
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()

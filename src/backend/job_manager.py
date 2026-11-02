@@ -359,7 +359,7 @@ class JobManager:
         except Exception:
             pass
 
-        async def _run_autonomous_pipeline():
+        async def _run_autonomous_pipeline_inner():
             # =========================================================================
             # PHASE 1: INITIAL SCANNING & RECONNAISSANCE
             # =========================================================================
@@ -373,10 +373,11 @@ class JobManager:
 
             phase1_tasks = [asyncio.create_task(self._run_scanner(job, tool)) for tool in phase1_tools]
             job._tasks.extend(phase1_tasks)
+            phase1_timeout = 90.0 if request.profile == "recon" else (360.0 if request.profile in ("full", "unlimited") else 180.0)
             try:
-                await asyncio.wait_for(asyncio.gather(*phase1_tasks, return_exceptions=True), timeout=60.0)
+                await asyncio.wait_for(asyncio.gather(*phase1_tasks, return_exceptions=True), timeout=phase1_timeout)
             except asyncio.TimeoutError:
-                job.add_log("pipeline", "⏱️ [PHASE 1 TIMEOUT] Perimeter scan reached 60s timeout guard; proceeding to analysis.")
+                job.add_log("pipeline", f"⏱️ [PHASE 1 TIMEOUT] Perimeter scan reached {int(phase1_timeout)}s timeout guard; proceeding to analysis.")
             job.add_log("pipeline", f"✅ [PHASE 1 COMPLETE] Perimeter reconnaissance completed with {len(job.findings)} initial finding(s).")
 
             if job.is_cancelled:
@@ -419,16 +420,18 @@ class JobManager:
             try:
                 decision = await asyncio.wait_for(
                     select_template_with_llm(job.target, tech_list, open_ports, server_banner),
-                    timeout=15.0,
+                    timeout=12.0,
                 )
             except Exception as e:
+                job.add_log("ai-orchestrator", f"ℹ️ Local LLM offline or unresponsive ({e}). Engaging autonomous heuristic decision engine...")
                 from schemas import TemplateSelectionDecision
+                fallback = template_registry.recommend_template_for_tech(tech_list, open_ports)
                 decision = TemplateSelectionDecision(
-                    selected_template_id="web-basic",
-                    template_name="General Web Application Assessment",
-                    confidence=85,
-                    reasoning=f"Autonomous rule-engine selection based on reconnaissance profile: {e}",
-                    recommended_nuclei_tags=["cve", "misconfig", "tech"],
+                    selected_template_id=fallback.id,
+                    template_name=fallback.name,
+                    confidence=82,
+                    reasoning=f"Autonomous rule-engine selection based on reconnaissance profile ({', '.join(tech_list[:4]) if tech_list else 'general perimeter'})",
+                    recommended_nuclei_tags=fallback.nuclei_tags,
                     is_llm_decided=False,
                 )
             job.template_id = decision.selected_template_id
@@ -484,11 +487,12 @@ class JobManager:
                 job._tasks.append(t)
                 phase3_tasks.append(t)
 
+            phase3_timeout = 90.0 if job.profile == "recon" else (360.0 if job.profile in ("full", "unlimited") else 180.0)
             if phase3_tasks:
                 try:
-                    await asyncio.wait_for(asyncio.gather(*phase3_tasks, return_exceptions=True), timeout=65.0)
+                    await asyncio.wait_for(asyncio.gather(*phase3_tasks, return_exceptions=True), timeout=phase3_timeout)
                 except asyncio.TimeoutError:
-                    job.add_log("pipeline", "⏱️ [PHASE 3 TIMEOUT] Targeted execution reached 65s timeout guard; finalizing results.")
+                    job.add_log("pipeline", f"⏱️ [PHASE 3 TIMEOUT] Targeted execution reached {int(phase3_timeout)}s timeout guard; finalizing results.")
             job.add_log("pipeline", f"✅ [PHASE 3 COMPLETE] Targeted execution finished. Total findings identified: {len(job.findings)}.")
 
             if job.is_cancelled:
@@ -554,6 +558,20 @@ class JobManager:
                 scan_storage.save_job(job)
             except Exception:
                 pass
+
+        async def _run_autonomous_pipeline():
+            try:
+                await _run_autonomous_pipeline_inner()
+            except Exception as pipeline_err:
+                job.current_phase = "failed"
+                job.overall_status = "error"
+                job.add_log("pipeline", f"❌ Pipeline exception: {type(pipeline_err).__name__}: {pipeline_err}")
+                job.updated_at = now_iso()
+            finally:
+                try:
+                    scan_storage.save_job(job)
+                except Exception:
+                    pass
 
         asyncio.create_task(_run_autonomous_pipeline())
         return job
@@ -626,6 +644,7 @@ class JobManager:
                     in_scope=job.in_scope,
                     out_of_scope=job.out_of_scope,
                     log_cb=log_callback,
+                    finding_cb=live_finding_callback,
                 )
             # Profile-aware scanner timeout to permit full CVE and protocol inspection
             if job.profile == "recon":
@@ -658,9 +677,10 @@ class JobManager:
             progress.status = ScannerRunState.completed
             job.add_log(tool, f"Execution completed with {len(tool_findings)} in-scope findings.")
         except Exception as exc:  # a single scanner failing must not sink the job
+            err_msg = str(exc).strip() or type(exc).__name__
             progress.status = ScannerRunState.error
-            progress.error = str(exc)
-            job.add_log(tool, f"Error executing scanner: {exc}")
+            progress.error = err_msg
+            job.add_log(tool, f"Scanner execution note: {err_msg}")
         finally:
             progress.finished_at = now_iso()
             job.updated_at = now_iso()

@@ -24,19 +24,12 @@ except Exception:
     ScanTemplate = _tmpl_defs.ScanTemplate
     template_registry = _tmpl_reg.template_registry
 
+from schemas import TemplateSelectionDecision, TemplateSelectionResult
+
 logger = logging.getLogger("ai_orchestrator")
 
 OLLAMA_API_BASE = os.environ.get("OLLAMA_API_BASE", "http://localhost:11434/v1")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
-
-
-class TemplateSelectionResult(BaseModel):
-    selected_template_id: str
-    template_name: str
-    confidence: int
-    reasoning: str
-    recommended_nuclei_tags: list[str] = Field(default_factory=list)
-    is_llm_decided: bool = True
 
 
 SYSTEM_PROMPT = """You are an elite Autonomous Penetration Testing Orchestrator.
@@ -92,9 +85,10 @@ Select the optimal template to uncover maximum vulnerabilities on this target.""
         "http://172.17.0.1:11434/v1",
     ])
 
+    per_url_timeout = min(timeout_sec, 3.0)
     for base_url in candidate_bases:
         try:
-            async with httpx.AsyncClient(timeout=timeout_sec) as client:
+            async with httpx.AsyncClient(timeout=per_url_timeout) as client:
                 resp = await client.post(
                     f"{base_url}/chat/completions",
                     json={
