@@ -21,6 +21,7 @@ from schemas import (
     ScanResultsResponse,
     ScanStartRequest,
     ScanStatusResponse,
+    Severity,
     now_iso,
 )
 
@@ -32,6 +33,9 @@ except ImportError:
 
 def is_item_in_scope(item_target: str, in_scope: list[str], out_of_scope: list[str]) -> bool:
     """Verify whether a finding target/evidence complies with configured scope boundaries."""
+    if not item_target:
+        return True
+
     lowered = item_target.lower()
 
     # 1. Deny-list check: out_of_scope exclusions take absolute priority
@@ -41,25 +45,25 @@ def is_item_in_scope(item_target: str, in_scope: list[str], out_of_scope: list[s
             return False
 
     # 2. Allow-list check: if in_scope rules are defined, target must match at least one
-    if in_scope:
-        matched = False
-        for rule in in_scope:
-            rule_clean = rule.strip().lower()
-            if not rule_clean or rule_clean == "*":
-                matched = True
-                break
-            if rule_clean.startswith("*."):
-                domain_part = rule_clean[2:]
-                if domain_part in lowered:
-                    matched = True
-                    break
-            elif rule_clean in lowered:
-                matched = True
-                break
-        if not matched:
-            return False
+    if not in_scope or any(r.strip() in ("*", "*.*") for r in in_scope):
+        return True
 
-    return True
+    for rule in in_scope:
+        rule_clean = rule.strip().lower()
+        if not rule_clean or rule_clean == "*":
+            return True
+        if rule_clean.startswith("*."):
+            domain_part = rule_clean[2:]
+            if domain_part in lowered:
+                return True
+        elif rule_clean in lowered:
+            return True
+
+    # If the item doesn't contain a foreign domain string (e.g. just path or local evidence), allow it
+    if not any("." in token or ":" in token for token in lowered.split() if len(token) > 3):
+        return True
+
+    return False
 
 
 class ScanJob:
@@ -74,7 +78,9 @@ class ScanJob:
         self.enable_secondary_tools: Optional[bool] = getattr(request, "enable_secondary_tools", None)
         # Default in_scope to wildcard domain if not specified: e.g. *.target.com
         target_domain = request.target.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
-        self.in_scope = request.in_scope if request.in_scope else [f"*.{target_domain}", request.target]
+        self.in_scope = request.in_scope if request.in_scope else [f"*.{target_domain}", request.target, target_domain]
+        if target_domain in ("localhost", "127.0.0.1", "0.0.0.0"):
+            self.in_scope.extend(["localhost", "127.0.0.1", "0.0.0.0"])
         self.out_of_scope = request.out_of_scope if request.out_of_scope else []
         self.created_at = now_iso()
         self.updated_at = self.created_at
@@ -206,8 +212,8 @@ class ScanJob:
             progress_pct=self.progress_percentage,
             eta_seconds=self.estimated_time_remaining,
             elapsed_seconds=self.elapsed_seconds,
-            scanners=list(self.scanner_progress.values()),
-            live_findings=list(self.findings),
+            scanners=[s.model_dump() if hasattr(s, "model_dump") else s for s in self.scanner_progress.values()],
+            live_findings=[f.model_dump() if hasattr(f, "model_dump") else f for f in self.findings],
             findings_count=len(self.findings),
             correlated_count=len(correlated),
             duplicate_groups=duplicate_group_count(correlated),
@@ -231,8 +237,8 @@ class ScanJob:
             current_phase=self.current_phase,
             llm_decision=self.llm_decision,
             rag_comparison_summary=self.rag_comparison_summary,
-            raw_findings=self.findings,
-            correlated_findings=correlated,
+            raw_findings=[f.model_dump() if hasattr(f, "model_dump") else f for f in self.findings],
+            correlated_findings=[c.model_dump() if hasattr(c, "model_dump") else c for c in correlated],
             severity_distribution=severity_distribution(self.findings),
             duplicate_groups=duplicate_group_count(correlated),
             in_scope=list(self.in_scope),
@@ -459,12 +465,13 @@ class JobManager:
             if ScannerName.nuclei in request.scanners and ScannerName.nuclei not in phase3_tools:
                 phase3_tools.append(ScannerName.nuclei)
 
-            # Add any secondary tools recommended by findings or template
-            secondary_candidates = identify_secondary_tools_from_findings(job.findings, job.target)
-            for sec_tool, sec_reason in secondary_candidates:
-                if sec_tool not in job.scanner_progress and sec_tool not in phase3_tools:
-                    phase3_tools.append(sec_tool)
-                    job.add_log("ai-orchestrator", f"🔍 Dynamic Tool Selection: {sec_reason}")
+            # Add any secondary tools recommended by findings or template only if explicitly enabled
+            if getattr(job, "enable_secondary_tools", False) is True:
+                secondary_candidates = identify_secondary_tools_from_findings(job.findings, job.target)
+                for sec_tool, sec_reason in secondary_candidates:
+                    if sec_tool not in job.scanner_progress and sec_tool not in phase3_tools:
+                        phase3_tools.append(sec_tool)
+                        job.add_log("ai-orchestrator", f"🔍 Dynamic Tool Selection: {sec_reason}")
 
             phase3_tasks = []
             for tool in phase3_tools:
@@ -579,9 +586,7 @@ class JobManager:
         job.updated_at = now_iso()
 
         wrapper = REGISTRY[tool]
-        progress.simulated = not wrapper.is_available()
-        mode_label = "SIMULATED" if progress.simulated else "REAL ENGINE"
-        job.add_log(tool, f"Scanner worker started in [{mode_label}] mode for target: {job.target} (profile: {job.profile})")
+        job.add_log(tool, f"Scanner worker started in [REAL ENGINE] mode for target: {job.target} (profile: {job.profile})")
 
         def log_callback(msg: str) -> None:
             job.add_log(tool, msg)
@@ -591,7 +596,7 @@ class JobManager:
             if is_item_in_scope(eval_str, job.in_scope, job.out_of_scope):
                 # Avoid duplicates
                 if not any(
-                    existing.vulnerability == finding.vulnerability and existing.evidence == finding.evidence
+                    existing.tool == finding.tool and existing.vulnerability == finding.vulnerability and existing.evidence == finding.evidence
                     for existing in job.findings
                 ):
                     job.findings.append(finding)
@@ -631,7 +636,7 @@ class JobManager:
                 eval_str = f"{f.target} {f.evidence or ''}"
                 if is_item_in_scope(eval_str, job.in_scope, job.out_of_scope):
                     if not any(
-                        existing.vulnerability == f.vulnerability and existing.evidence == f.evidence
+                        existing.tool == f.tool and existing.vulnerability == f.vulnerability and existing.evidence == f.evidence
                         for existing in job.findings
                     ):
                         job.findings.append(f)
@@ -746,7 +751,6 @@ def _reconstitute_job(job_data: dict) -> ScanJob:
                 findings_count=p_info.get("findings_count", 0),
                 error=p_info.get("error"),
             )
-            sp.simulated = p_info.get("simulated", False)
             restored_progress[tool_enum] = sp
         except Exception:
             pass

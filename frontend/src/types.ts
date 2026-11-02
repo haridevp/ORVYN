@@ -21,7 +21,6 @@ export interface ScannerProgress {
   finished_at?: string | null;
   findings_count: number;
   error?: string | null;
-  simulated: boolean;
 }
 
 export interface ToolChainStep {
@@ -55,7 +54,7 @@ export interface EnvironmentInfo {
   is_parrot: boolean;
   is_docker: boolean;
   docker_available: boolean;
-  execution_mode: "native_kali" | "native_parrot" | "native_linux" | "dockerized_mcp" | "simulated";
+  execution_mode: "native_kali" | "native_parrot" | "native_linux" | "dockerized_mcp";
   available_tools: string[];
   missing_tools: string[];
   description: string;

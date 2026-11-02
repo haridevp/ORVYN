@@ -8,7 +8,6 @@ from typing import Callable, Optional
 from references import enrich_reference
 from schemas import ScannerFinding, ScannerName, Severity
 from scanners.base import ScannerWrapper
-from scanners.simulated_data import build_simulated_findings
 
 BINARY = "nikto"
 
@@ -89,7 +88,7 @@ async def _run_real_scan(
             )
         except Exception as exc:
             if log_cb:
-                log_cb(f"Failed to spawn Nikto process: {exc}.")
+                log_cb(f"Failed to spawn Nikto process: {exc}")
             return []
 
         captured_stdout: list[str] = []
@@ -211,11 +210,6 @@ async def _run_real_scan(
             if log_cb and findings:
                 log_cb(f"Parsed {len(findings)} real findings from Nikto stdout stream.")
 
-        if not findings:
-            if log_cb:
-                log_cb(f"Real Nikto engine finished (code {proc.returncode}) without generating findings.")
-            return []
-
         return findings
 
 
@@ -232,18 +226,18 @@ class NiktoWrapper(ScannerWrapper):
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
-        if self.is_available():
+        if not self.is_available():
             if log_cb:
-                log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(
-                target,
-                profile=profile,
-                in_scope=in_scope,
-                out_of_scope=out_of_scope,
-                log_cb=log_cb,
-                finding_cb=finding_cb,
-            )
+                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+            return []
 
         if log_cb:
-            log_cb(f"Binary '{self.binary}' not found on PATH. Real scan skipped.")
-        return []
+            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+        return await _run_real_scan(
+            target,
+            profile=profile,
+            in_scope=in_scope,
+            out_of_scope=out_of_scope,
+            log_cb=log_cb,
+            finding_cb=finding_cb,
+        )

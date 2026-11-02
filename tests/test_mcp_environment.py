@@ -25,7 +25,6 @@ def test_detect_environment_structure():
         ExecutionMode.NATIVE_PARROT,
         ExecutionMode.NATIVE_LINUX,
         ExecutionMode.DOCKERIZED_MCP,
-        ExecutionMode.SIMULATED,
     ]
 
 

@@ -1,6 +1,29 @@
-# Project docs (keep local only)
+# Project docs & Research Paper
 main.pdf
 *.pdf
+research paper/
+research paper
+research_paper/
+research_paper
+research-paper/
+research-paper
+Research Paper/
+Research_Paper/
+Research-Paper/
+
+# LaTeX / Paper Build Artifacts
+*.aux
+*.bbl
+*.blg
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex*
+*.bcf
+*.run.xml
 
 # Python
 __pycache__/

@@ -98,7 +98,6 @@ class ScannerProgress(BaseModel):
     finished_at: Optional[str] = None
     findings_count: int = 0
     error: Optional[str] = None
-    simulated: bool = False
 
 
 class SeverityDistribution(BaseModel):

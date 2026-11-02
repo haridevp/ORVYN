@@ -9,7 +9,6 @@ from typing import Callable, Optional
 from references import enrich_reference
 from schemas import ScannerFinding, ScannerName, Severity
 from scanners.base import ScannerWrapper
-from scanners.simulated_data import build_simulated_findings
 
 BINARY = "sqlmap"
 
@@ -64,12 +63,8 @@ async def _run_real_scan(
         output_text = stdout.decode("utf-8", errors="replace")
     except Exception as exc:
         if log_cb:
-            log_cb(f"SQLMap process note: {exc}. Providing verified heuristics.")
-        sim = build_simulated_findings(ScannerName.sqlmap, target)
-        if finding_cb:
-            for f in sim:
-                finding_cb(f)
-        return sim
+            log_cb(f"SQLMap execution error: {exc}")
+        return []
 
     findings: list[ScannerFinding] = []
 
@@ -125,13 +120,11 @@ class SqlmapWrapper(ScannerWrapper):
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
-        if self.is_available():
-            try:
-                return await _run_real_scan(target, profile, in_scope, out_of_scope, log_cb, finding_cb)
-            except Exception as e:
-                if log_cb:
-                    log_cb(f"SQLMap real execution error: {e}")
-                return []
+        if not self.is_available():
+            if log_cb:
+                log_cb(f"Binary '{BINARY}' not found on PATH. Scanner unavailable.")
+            return []
+
         if log_cb:
-            log_cb(f"Binary '{BINARY}' not found on PATH. Real scan skipped.")
-        return []
+            log_cb(f"Executing live binary: {shutil.which(BINARY)}")
+        return await _run_real_scan(target, profile, in_scope, out_of_scope, log_cb, finding_cb)

@@ -7,7 +7,6 @@ from typing import Callable, Optional
 from references import enrich_reference
 from schemas import ScannerFinding, ScannerName, Severity
 from scanners.base import ScannerWrapper
-from scanners.simulated_data import build_simulated_findings
 
 BINARY = "sslyze"
 
@@ -48,7 +47,7 @@ async def _run_real_scan(
         output_text = stdout.decode("utf-8", errors="replace")
     except Exception as exc:
         if log_cb:
-            log_cb(f"SSLyze error: {exc}.")
+            log_cb(f"SSLyze error: {exc}")
         return []
 
     findings: list[ScannerFinding] = []
@@ -68,65 +67,61 @@ async def _run_real_scan(
                         findings.append(ScannerFinding(
                             tool=ScannerName.sslyze,
                             target=f"http://{clean_host}",
-                            vulnerability="Missing HTTPS / Cleartext Transmission (Port 443 Inaccessible)",
+                            vulnerability="Missing HTTPS / Cleartext HTTP Transport Exposed",
                             severity=Severity.medium,
-                            description=f"Host '{clean_host}' serves HTTP traffic over cleartext and rejected SSL/TLS connections on port 443. Traffic is susceptible to eavesdropping and interception.",
-                            evidence=f"TLS handshake to {clean_host}:443 failed: Server rejected connection. Plaintext HTTP active on port 80.",
-                            reference=enrich_reference("Cleartext Transmission", "https://cwe.mitre.org/data/definitions/319.html"),
+                            description=f"SSLyze port 443 probe encountered refusal or timeout: {err_msg[:120]}. Host communicates without enforced TLS transport encryption.",
+                            evidence=f"Refused TLS on port 443 ({err_msg[:80]})",
+                            reference=enrich_reference("Insecure Transport", "https://cwe.mitre.org/data/definitions/319.html"),
                         ))
 
-                scan_result = entry.get("scan_result", {}) or {}
-                if scan_result:
-                    # Check SSL 2.0 / 3.0 / TLS 1.0 / TLS 1.1
-                    for ver_key, ver_name, sev in [
-                        ("ssl_2_0_cipher_suites", "SSL 2.0", Severity.critical),
-                        ("ssl_3_0_cipher_suites", "SSL 3.0", Severity.high),
-                        ("tls_1_0_cipher_suites", "TLS 1.0", Severity.medium),
-                        ("tls_1_1_cipher_suites", "TLS 1.1", Severity.medium),
-                    ]:
-                        res = scan_result.get(ver_key, {}).get("result", {})
-                        if res and res.get("is_tls_version_supported"):
-                            findings.append(ScannerFinding(
-                                tool=ScannerName.sslyze,
-                                target=f"https://{clean_host}",
-                                vulnerability=f"Deprecated {ver_name} Protocol Supported",
-                                severity=sev,
-                                description=f"The server negotiates and supports deprecated {ver_name} protocol, exposing connections to cryptographic degradation attacks.",
-                                evidence=f"{ver_name} accepted by {clean_host}:443",
-                                reference=enrich_reference(f"{ver_name} Supported", "https://datatracker.ietf.org/doc/html/rfc8996"),
-                            ))
-
-                    # Check Certificate Validation
-                    cert_info = scan_result.get("certificate_info", {}).get("result", {})
-                    if cert_info:
-                        deployments = cert_info.get("certificate_deployments", [])
-                        for dep in deployments:
-                            val_results = dep.get("path_validation_results", [])
-                            for val in val_results:
-                                if val.get("was_validation_successful") is False:
-                                    err = val.get("error") or "Untrusted Certificate Authority"
-                                    findings.append(ScannerFinding(
-                                        tool=ScannerName.sslyze,
-                                        target=f"https://{clean_host}",
-                                        vulnerability="SSL/TLS Certificate Validation Failure",
-                                        severity=Severity.high,
-                                        description=f"Server certificate failed chain validation: {err}. Clients will encounter browser security warnings.",
-                                        evidence=f"Certificate validation error on {clean_host}:443: {err}",
-                                        reference=enrich_reference("Improper Certificate Validation", "https://cwe.mitre.org/data/definitions/295.html"),
-                                    ))
-
-                    # Check Heartbleed
-                    heartbleed = scan_result.get("heartbleed", {}).get("result", {})
-                    if heartbleed and heartbleed.get("is_vulnerable_to_heartbleed"):
+                # Check SSL/TLS protocol deployments
+                scan_commands = entry.get("scan_commands_results", {})
+                
+                # Check for deprecated SSLv2 / SSLv3 / TLSv1.0 / TLSv1.1
+                for proto in ("ssl_2_0_cipher_suites", "ssl_3_0_cipher_suites", "tls_1_0_cipher_suites", "tls_1_1_cipher_suites"):
+                    proto_res = scan_commands.get(proto, {})
+                    if proto_res.get("accepted_cipher_suites"):
+                        proto_name = proto.replace("_cipher_suites", "").replace("_", ".").upper()
                         findings.append(ScannerFinding(
                             tool=ScannerName.sslyze,
-                            target=f"https://{clean_host}",
-                            vulnerability="OpenSSL Heartbleed Memory Leak (CVE-2014-0160)",
-                            severity=Severity.critical,
-                            description="Server is vulnerable to OpenSSL Heartbleed, allowing unauthenticated attackers to read server process memory.",
-                            evidence=f"Heartbleed payload verified on {clean_host}:443",
-                            reference=enrich_reference("Heartbleed", "https://nvd.nist.gov/vuln/detail/CVE-2014-0160"),
+                            target=f"https://{clean_host}:443",
+                            vulnerability=f"Deprecated {proto_name} Cryptographic Protocol Supported",
+                            severity=Severity.high if "SSL" in proto_name else Severity.medium,
+                            description=f"Server accepts connections using deprecated cryptographic protocol {proto_name}, subject to POODLE, BEAST, and downgrade attacks.",
+                            evidence=f"Accepted ciphers under {proto_name}",
+                            reference=enrich_reference("Broken or Risky Cryptographic Algorithm", "https://cwe.mitre.org/data/definitions/327.html"),
                         ))
+
+                # Check Certificate Deployment and Validity
+                cert_res = scan_commands.get("certificate_info", {})
+                cert_deployments = cert_res.get("certificate_deployments", [])
+                if cert_deployments:
+                    cert = cert_deployments[0]
+                    val_results = cert.get("path_validation_results", [])
+                    has_error = any(v.get("was_validation_successful") is False for v in val_results)
+                    if has_error:
+                        findings.append(ScannerFinding(
+                            tool=ScannerName.sslyze,
+                            target=f"https://{clean_host}:443",
+                            vulnerability="Untrusted or Expired TLS Certificate Deployment",
+                            severity=Severity.medium,
+                            description="SSLyze certificate chain validation failed against standard Mozilla trust stores. Potential self-signed or expired certificate in production.",
+                            evidence=f"Failed trust validation for {clean_host}",
+                            reference=enrich_reference("Improper Certificate Validation", "https://cwe.mitre.org/data/definitions/295.html"),
+                        ))
+
+                # Heartbleed vulnerability check
+                hb_res = scan_commands.get("heartbleed", {})
+                if hb_res.get("is_vulnerable_to_heartbleed"):
+                    findings.append(ScannerFinding(
+                        tool=ScannerName.sslyze,
+                        target=f"https://{clean_host}:443",
+                        vulnerability="OpenSSL Heartbleed TLS Information Disclosure (CVE-2014-0160)",
+                        severity=Severity.critical,
+                        description="Server is vulnerable to OpenSSL Heartbleed, allowing unauthenticated attackers to read server process memory.",
+                        evidence=f"Heartbleed payload verified on {clean_host}:443",
+                        reference=enrich_reference("Heartbleed", "https://nvd.nist.gov/vuln/detail/CVE-2014-0160"),
+                    ))
         except Exception:
             pass
 
@@ -150,18 +145,18 @@ class SSLyzeWrapper(ScannerWrapper):
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
-        if self.is_available():
+        if not self.is_available():
             if log_cb:
-                log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(
-                target,
-                profile=profile,
-                in_scope=in_scope,
-                out_of_scope=out_of_scope,
-                log_cb=log_cb,
-                finding_cb=finding_cb,
-            )
+                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+            return []
 
         if log_cb:
-            log_cb(f"Binary '{self.binary}' not found on PATH. Real scan skipped.")
-        return []
+            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+        return await _run_real_scan(
+            target,
+            profile=profile,
+            in_scope=in_scope,
+            out_of_scope=out_of_scope,
+            log_cb=log_cb,
+            finding_cb=finding_cb,
+        )

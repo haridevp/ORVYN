@@ -119,7 +119,6 @@ class ScanStorage:
                     "finished_at": p.finished_at,
                     "findings_count": p.findings_count,
                     "error": p.error,
-                    "simulated": getattr(p, "simulated", False),
                 }
 
             status_val = getattr(job, "overall_status", "completed")

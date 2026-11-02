@@ -57,7 +57,7 @@ def correlate_findings(findings: list[ScannerFinding]) -> list[CorrelatedFinding
 
     for group in groups:
         tools = [f.tool for f in group]
-        unique_tools = sorted(set(tools), key=lambda t: t.value)
+        unique_tools = sorted(set(tools), key=lambda t: t.value if hasattr(t, "value") else str(t))
         severities = {f.severity for f in group}
         conflicting = len(severities) > 1
         confidence = min(

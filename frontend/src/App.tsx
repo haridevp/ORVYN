@@ -49,13 +49,13 @@ import { motion, AnimatePresence } from "framer-motion";
 type ApiState = "checking" | "online" | "offline";
 
 const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
-  { tool: "nmap", status: "queued", findings_count: 0, simulated: false },
-  { tool: "whatweb", status: "queued", findings_count: 0, simulated: false },
-  { tool: "sslyze", status: "queued", findings_count: 0, simulated: false },
-  { tool: "nikto", status: "queued", findings_count: 0, simulated: false },
-  { tool: "zap", status: "queued", findings_count: 0, simulated: false },
-  { tool: "nuclei", status: "queued", findings_count: 0, simulated: false },
-  { tool: "wapiti", status: "queued", findings_count: 0, simulated: false },
+  { tool: "nmap", status: "queued", findings_count: 0 },
+  { tool: "whatweb", status: "queued", findings_count: 0 },
+  { tool: "sslyze", status: "queued", findings_count: 0 },
+  { tool: "nikto", status: "queued", findings_count: 0 },
+  { tool: "zap", status: "queued", findings_count: 0 },
+  { tool: "nuclei", status: "queued", findings_count: 0 },
+  { tool: "wapiti", status: "queued", findings_count: 0 },
 ];
 
 export default function App() {
@@ -741,7 +741,7 @@ export default function App() {
                 engineNames={status?.scanners?.length ? status.scanners.map((s) => s.tool.toUpperCase()).join(" • ") : "Nuclei • ZAP • Nikto • WhatWeb • Nmap • SSLyze • Wapiti"}
               />
 
-              {/* Live Telemetry Progress Card & Redamon Recon Pipeline (Always Mounted) */}
+              {/* Live Telemetry Progress Card & Interactive Recon Pipeline (Always Mounted) */}
               <ScannerProgressList
                 scanners={status?.scanners || DEFAULT_STANDBY_SCANNERS}
                 onOpenTerminal={() => setActiveTab("terminal")}

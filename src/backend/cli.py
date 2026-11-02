@@ -760,7 +760,7 @@ def cmd_env(args: argparse.Namespace) -> None:
         elif env.docker_available:
             tools_table.add_row(tool, "[cyan]CONTAINER[/]", "[dim]pentest-backend:latest[/]")
         else:
-            tools_table.add_row(tool, "[yellow]SIMULATED[/]", "[dim]Internal realistic mock engine[/]")
+            tools_table.add_row(tool, "[bold red]NOT INSTALLED[/]", "[dim]Tool binary missing from PATH[/]")
 
     console.print(Panel(card, border_style="cyan", title="System Environment"))
     console.print(tools_table)

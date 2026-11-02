@@ -214,9 +214,9 @@ export function ScanForm({ onStart, disabled }: Props) {
               Curated HexStrike MCP Container Mode
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-mono text-amber-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-              Simulated Security Telemetry Mode
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-mono text-cyan-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+              Native Linux Host Mode
             </span>
           )}
         </div>

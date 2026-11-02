@@ -15,10 +15,69 @@ from fastapi.testclient import TestClient
 
 from src.backend.main import app
 
+import pytest
+from job_manager import ScannerFinding, ScannerName, Severity, REGISTRY
+
 # Using the client as a context manager keeps a single event loop alive for
 # the whole test session, so the fire-and-forget asyncio background tasks
 # started by /scan/start actually get to run to completion between polls.
 client = TestClient(app).__enter__()
+
+
+@pytest.fixture(autouse=True)
+def mock_scanners_for_demo_targets(monkeypatch):
+    """Test fixture isolating unit test demo targets from external binary dependencies."""
+    from job_manager import REGISTRY as JM_REGISTRY
+
+    async def mock_run(self, target, profile="web", in_scope=None, out_of_scope=None, log_cb=None, finding_cb=None, **kwargs):
+        findings = []
+        if self.name in (ScannerName.nuclei, ScannerName.zap, ScannerName.nikto):
+            f1 = ScannerFinding(
+                tool=self.name,
+                target=target,
+                vulnerability="Missing Security Headers",
+                severity=Severity.low,
+                description="Strict-Transport-Security header missing on host.",
+                evidence=target,
+                reference="CWE-693 / OWASP A05:2021",
+            )
+            findings.append(f1)
+            if finding_cb:
+                finding_cb(f1)
+
+        if self.name == ScannerName.nuclei:
+            f2 = ScannerFinding(
+                tool=self.name,
+                target=target,
+                vulnerability="SQL Injection",
+                severity=Severity.high,
+                description="SQL injection in id param.",
+                evidence=f"{target}/?id=1'",
+                reference="https://cwe.mitre.org/data/definitions/89.html (CWE-89)",
+            )
+            findings.append(f2)
+            if finding_cb:
+                finding_cb(f2)
+        elif self.name == ScannerName.zap:
+            f2 = ScannerFinding(
+                tool=self.name,
+                target=target,
+                vulnerability="SQL Injection",
+                severity=Severity.medium,
+                description="SQL injection heuristic alert.",
+                evidence=f"{target}/?id=1'",
+                reference="https://cwe.mitre.org/data/definitions/89.html (CWE-89)",
+            )
+            findings.append(f2)
+            if finding_cb:
+                finding_cb(f2)
+
+        return findings
+
+    for wrapper in JM_REGISTRY.values():
+        monkeypatch.setattr(wrapper.__class__, "run", mock_run)
+        monkeypatch.setattr(wrapper.__class__, "is_available", lambda self: True)
+
 
 
 def _start_and_wait(target: str, scanners: list[str], timeout: float = 5.0) -> dict:
@@ -86,7 +145,7 @@ def test_results_include_raw_and_correlated_findings():
 
 
 def test_correlation_engine_merges_cross_tool_duplicates_and_flags_conflicts():
-    # Simulated data intentionally reports "Missing Security Headers" from all
+    # Test fixtures intentionally report "Missing Security Headers" from all
     # three tools, and "SQL Injection" from nuclei+zap with different severities.
     target = "conflict-demo.local"
     status = _start_and_wait(target, ["nuclei", "zap", "nikto"])

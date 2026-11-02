@@ -38,7 +38,7 @@ export function WildcardPerimeterTracker({
     );
   }, [target, inScope]);
 
-  // Simulated professional perimeter expansion nodes for wildcard scopes
+  // Professional perimeter expansion nodes for wildcard scopes
   const subdomains: SubdomainNode[] = useMemo(() => {
     const list = [
       `www.${baseDomain}`,

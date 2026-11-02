@@ -7,7 +7,6 @@ from typing import Callable, Optional
 from references import enrich_reference
 from schemas import ScannerFinding, ScannerName, Severity
 from scanners.base import ScannerWrapper
-from scanners.simulated_data import build_simulated_findings
 
 BINARY = "whatweb"
 
@@ -51,32 +50,24 @@ async def _run_real_scan(
         output_text = stdout.decode("utf-8", errors="replace")
     except Exception as exc:
         if log_cb:
-            log_cb(f"WhatWeb process error: {exc}.")
+            log_cb(f"WhatWeb error: {exc}")
         return []
 
     findings: list[ScannerFinding] = []
-    clean_host = _clean_host(target)
 
     for line in output_text.splitlines():
         line = line.strip()
         if not line or "WhatWeb report" in line:
             continue
 
-        # WhatWeb output format: "http://target [200 OK] Apache[2.4.7], HTTPServer[...], Title[...]"
-        # Extract components inside plugins or separated by commas
         plugins: list[str] = []
-        # Remove URL and status prefix if present: "http://... [200 OK] "
         cleaned_line = re.sub(r"^https?://[^\s]+\s+\[\d+\s+[^\]]+\]\s*", "", line)
-        
-        # Split by comma followed by a space
         parts = [p.strip() for p in cleaned_line.split(", ") if p.strip()]
         for part in parts:
-            # Skip IP and Country raw location tags as vulnerabilities
             if any(part.lower().startswith(skip) for skip in ("country[", "ip[", "http-date[")):
                 continue
             plugins.append(part)
 
-        # 1. Server Header & Outdated Web Server Detection
         for p in plugins:
             p_lower = p.lower()
             if p_lower.startswith("apache") or p_lower.startswith("nginx") or p_lower.startswith("httpserver"):
@@ -114,7 +105,6 @@ async def _run_real_scan(
                     reference=enrich_reference("Fingerprinting", "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Server"),
                 ))
 
-        # Comprehensive tech stack finding
         if plugins:
             tech_summary = ", ".join(plugins[:8])
             findings.append(ScannerFinding(
@@ -147,18 +137,18 @@ class WhatWebWrapper(ScannerWrapper):
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
-        if self.is_available():
+        if not self.is_available():
             if log_cb:
-                log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(
-                target,
-                profile=profile,
-                in_scope=in_scope,
-                out_of_scope=out_of_scope,
-                log_cb=log_cb,
-                finding_cb=finding_cb,
-            )
+                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+            return []
 
         if log_cb:
-            log_cb(f"Binary '{self.binary}' not found on PATH. Real scan skipped.")
-        return []
+            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+        return await _run_real_scan(
+            target,
+            profile=profile,
+            in_scope=in_scope,
+            out_of_scope=out_of_scope,
+            log_cb=log_cb,
+            finding_cb=finding_cb,
+        )

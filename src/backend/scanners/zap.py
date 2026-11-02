@@ -9,7 +9,6 @@ from uuid import uuid4
 from references import enrich_reference
 from schemas import ScannerFinding, ScannerName, Severity
 from scanners.base import ScannerWrapper
-from scanners.simulated_data import build_simulated_findings
 
 BINARY = "zap-baseline.py"
 RISK_MAP = {
@@ -97,12 +96,8 @@ async def _run_real_scan(
             )
         except Exception as exc:
             if log_cb:
-                log_cb(f"Failed to spawn ZAP process: {exc}. Providing fallback findings.")
-            sim = build_simulated_findings(ScannerName.zap, target)
-            if finding_cb:
-                for f in sim:
-                    finding_cb(f)
-            return sim
+                log_cb(f"Failed to spawn ZAP process: {exc}")
+            return []
 
         async def read_stream():
             while True:
@@ -172,11 +167,6 @@ async def _run_real_scan(
             if log_cb:
                 log_cb(f"Parsed {len(findings)} real findings from ZAP report at {resolved_path}.")
 
-        if not findings:
-            if log_cb:
-                log_cb(f"Real ZAP engine exited (code {proc.returncode}) without generating alerts.")
-            return []
-
         return findings
 
 
@@ -193,18 +183,18 @@ class ZapWrapper(ScannerWrapper):
         log_cb: Optional[Callable[[str], None]] = None,
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
     ) -> list[ScannerFinding]:
-        if self.is_available():
+        if not self.is_available():
             if log_cb:
-                log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(
-                target,
-                profile=profile,
-                in_scope=in_scope,
-                out_of_scope=out_of_scope,
-                log_cb=log_cb,
-                finding_cb=finding_cb,
-            )
+                log_cb(f"Script '{self.binary}' not found on PATH. Scanner unavailable.")
+            return []
 
         if log_cb:
-            log_cb(f"Script '{self.binary}' not found on PATH. Real scan skipped.")
-        return []
+            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+        return await _run_real_scan(
+            target,
+            profile=profile,
+            in_scope=in_scope,
+            out_of_scope=out_of_scope,
+            log_cb=log_cb,
+            finding_cb=finding_cb,
+        )

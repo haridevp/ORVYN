@@ -8,7 +8,6 @@ from typing import Callable, Optional
 from references import enrich_reference
 from schemas import ScannerFinding, ScannerName, Severity
 from scanners.base import ScannerWrapper
-from scanners.simulated_data import build_simulated_findings
 
 BINARY = "nuclei"
 SEVERITY_MAP = {
@@ -101,7 +100,7 @@ async def _run_real_scan(
             )
         except Exception as exc:
             if log_cb:
-                log_cb(f"Failed to spawn Nuclei process: {exc}.")
+                log_cb(f"Failed to spawn Nuclei process: {exc}")
             return []
 
         async def read_stream():
@@ -178,10 +177,6 @@ async def _run_real_scan(
                 if log_cb:
                     log_cb(f"Note reading output file: {e}")
 
-        if not findings and proc.returncode != 0:
-            if log_cb:
-                log_cb(f"Nuclei finished (code {proc.returncode}). No vulnerabilities identified.")
-
         return findings
 
 
@@ -199,21 +194,21 @@ class NucleiWrapper(ScannerWrapper):
         finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
         **kwargs,
     ) -> list[ScannerFinding]:
-        if self.is_available():
+        if not self.is_available():
             if log_cb:
-                log_cb(f"Using live binary: {shutil.which(self.binary)}")
-            return await _run_real_scan(
-                target,
-                profile=profile,
-                in_scope=in_scope,
-                out_of_scope=out_of_scope,
-                log_cb=log_cb,
-                finding_cb=finding_cb,
-                template_tags=kwargs.get("template_tags"),
-                template_ids=kwargs.get("template_ids"),
-            )
+                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+            return []
 
         if log_cb:
-            log_cb(f"Binary '{self.binary}' not found on PATH. Real scan skipped.")
-        return []
+            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+        return await _run_real_scan(
+            target,
+            profile=profile,
+            in_scope=in_scope,
+            out_of_scope=out_of_scope,
+            log_cb=log_cb,
+            finding_cb=finding_cb,
+            template_tags=kwargs.get("template_tags"),
+            template_ids=kwargs.get("template_ids"),
+        )
 

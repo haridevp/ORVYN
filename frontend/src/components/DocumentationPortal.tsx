@@ -25,7 +25,7 @@ import {
   FileText,
 } from "lucide-react";
 import type { ScannerProgress } from "../types";
-import { RedamonWorkflowGraph } from "./RedamonWorkflowGraph";
+import { WorkflowGraph } from "./WorkflowGraph";
 
 interface DocumentationPortalProps {
   isLocalhost?: boolean;
@@ -33,13 +33,13 @@ interface DocumentationPortalProps {
 }
 
 const DEFAULT_STANDBY_SCANNERS: ScannerProgress[] = [
-  { tool: "nmap", status: "queued", findings_count: 0, simulated: false },
-  { tool: "whatweb", status: "queued", findings_count: 0, simulated: false },
-  { tool: "sslyze", status: "queued", findings_count: 0, simulated: false },
-  { tool: "nikto", status: "queued", findings_count: 0, simulated: false },
-  { tool: "zap", status: "queued", findings_count: 0, simulated: false },
-  { tool: "nuclei", status: "queued", findings_count: 0, simulated: false },
-  { tool: "wapiti", status: "queued", findings_count: 0, simulated: false },
+  { tool: "nmap", status: "queued", findings_count: 0 },
+  { tool: "whatweb", status: "queued", findings_count: 0 },
+  { tool: "sslyze", status: "queued", findings_count: 0 },
+  { tool: "nikto", status: "queued", findings_count: 0 },
+  { tool: "zap", status: "queued", findings_count: 0 },
+  { tool: "nuclei", status: "queued", findings_count: 0 },
+  { tool: "wapiti", status: "queued", findings_count: 0 },
 ];
 
 const SCANNER_MATRIX = [
@@ -211,11 +211,11 @@ const DEMO_VIDEOS = [
   },
   {
     id: "circuit-workflow",
-    title: "Interactive Redamon Circuit-Bus Pipeline Walkthrough",
+    title: "Interactive Circuit-Bus Reconnaissance Pipeline Walkthrough",
     badge: "WORKFLOW CANVAS",
     duration: "03:15",
     quality: "1080p 60fps",
-    desc: "Demonstration of the interactive Circuit-Bus canvas inspired by the Redamon recon framework. Clicking nodes highlights signal propagation across the upper entity band, center tool band, and lower artifact band.",
+    desc: "Demonstration of the interactive Circuit-Bus canvas. Clicking nodes highlights signal propagation across the upper entity band, center tool band, and lower artifact band.",
     topics: [
       "Three-Band Circuit-Bus Topology Overview",
       "Real-time Tool Node Status Indicators",
@@ -252,7 +252,7 @@ const TEAM_MEMBERS = [
     accent: "border-cyan-500/40 bg-cyan-950/20 text-cyan-400",
     contributions: [
       "Overall system architecture, non-blocking Celery/FastAPI orchestration",
-      "Redamon-inspired Circuit-Bus interactive canvas UI",
+      "Interactive Circuit-Bus reconnaissance canvas UI",
       "Multi-scanner Docker containerization & timeout guards",
       "Autonomous 5-phase reconnaissance and triage pipeline design",
     ],
@@ -422,7 +422,7 @@ export function DocumentationPortal({
           </h1>
 
           <p className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Eliminating uncoordinated, noisy vulnerability scans through an orchestrated <strong>5-phase autonomous reconnaissance pipeline</strong>. Powered by local LLM template selection (<strong>Qwen 2.5:7b</strong>), an interactive <strong>Redamon Circuit-Bus Canvas</strong>, and vector RAG triage over <strong>5,000+ authoritative security chunks</strong> in ChromaDB.
+            Eliminating uncoordinated, noisy vulnerability scans through an orchestrated <strong>5-phase autonomous reconnaissance pipeline</strong>. Powered by local LLM template selection (<strong>Qwen 2.5:7b</strong>), an interactive <strong>Circuit-Bus Workflow Canvas</strong>, and vector RAG triage over <strong>5,000+ authoritative security chunks</strong> in ChromaDB.
           </p>
 
           {/* Quick Jump Buttons */}
@@ -658,7 +658,7 @@ export function DocumentationPortal({
               {
                 num: "03",
                 title: "Circuit-Bus Recon Graph",
-                desc: "Implement an interactive, high-density visualization canvas adhering to Redamon framework specifications with upper entity, center tool, and lower artifact signal bands.",
+                desc: "Implement an interactive, high-density visualization canvas adhering to offensive security workflow specifications with upper entity, center tool, and lower artifact signal bands.",
                 tag: "VISUALIZATION",
               },
               {
@@ -705,7 +705,7 @@ export function DocumentationPortal({
               <span>// 03 RESEARCH & ARCHITECTURAL METHODOLOGY</span>
             </div>
             <h2 className="text-2xl lg:text-3xl font-extrabold text-white mt-1">
-              Choreographed 5-Phase Lifecycle & Redamon Circuit-Bus Pipeline
+              Choreographed 5-Phase Lifecycle & Circuit-Bus Pipeline
             </h2>
             <p className="text-sm text-slate-400 mt-1 max-w-3xl">
               Rather than firing tools concurrently without context, ORVYN enforces a staged pentest lifecycle where early reconnaissance artifacts inform and trigger specialized downstream engines.
@@ -800,7 +800,7 @@ export function DocumentationPortal({
             </div>
           </div>
 
-          {/* Embedded Interactive Redamon Workflow Graph */}
+          {/* Embedded Interactive Workflow Graph */}
           <div className="rounded-2xl border border-cyan-500/30 bg-[#080a14] p-2 shadow-2xl overflow-hidden">
             <div className="px-4 py-2 bg-[#0c0f1e] border-b border-cyan-500/20 flex items-center justify-between text-xs font-mono text-slate-400">
               <div className="flex items-center gap-2">
@@ -811,7 +811,7 @@ export function DocumentationPortal({
               <span className="text-[10px] text-cyan-400">Circuit Bus Graph Engine v3.0</span>
             </div>
             <div className="overflow-x-auto p-2">
-              <RedamonWorkflowGraph scanners={DEFAULT_STANDBY_SCANNERS} isRunning={false} />
+              <WorkflowGraph scanners={DEFAULT_STANDBY_SCANNERS} isRunning={false} />
             </div>
           </div>
         </section>
@@ -975,7 +975,7 @@ export function DocumentationPortal({
                 status: "Completed",
                 badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
                 deliverables: [
-                  "Literature review on Redamon & OWASP standards",
+                  "Literature review on offensive security & OWASP standards",
                   "FastAPI + Celery + Redis architecture design",
                   "Unified schema definition for multi-scanner results",
                   "Non-destructive scan scope safeguards",
@@ -991,7 +991,7 @@ export function DocumentationPortal({
                   "Dockerized 9 security engines (Nmap, ZAP, Nuclei...)",
                   "Asyncio subprocess wrappers with strict <60s timeouts",
                   "Structured JSON output normalization",
-                  "Simulated fallback generators for CI/CD",
+                  "Independent live execution & normalization engines",
                 ],
               },
               {
@@ -1009,7 +1009,7 @@ export function DocumentationPortal({
               },
               {
                 phase: "Milestone 4",
-                title: "Redamon Circuit-Bus Canvas UI",
+                title: "Circuit-Bus Canvas UI",
                 progress: 100,
                 status: "Completed",
                 badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",

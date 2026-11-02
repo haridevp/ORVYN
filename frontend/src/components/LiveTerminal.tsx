@@ -62,8 +62,6 @@ export function LiveTerminal({ logs, isRunning, isOpen, onToggle }: LiveTerminal
       contentColor = "text-rose-400 font-medium";
     } else if (content.toLowerCase().includes("real engine") || content.toLowerCase().includes("completed")) {
       contentColor = "text-emerald-400 font-medium";
-    } else if (content.toLowerCase().includes("simulated")) {
-      contentColor = "text-amber-300 font-medium";
     } else if (content.toLowerCase().includes("executing") || content.toLowerCase().includes("started")) {
       contentColor = "text-sky-300";
     }

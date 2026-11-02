@@ -4,7 +4,7 @@ Automatically detects whether the platform is running on:
 - Kali Linux (native host tool execution)
 - Parrot Security OS (native host tool execution)
 - Generic Linux / Docker container
-- Local development with fallback to simulated engine
+- Host Linux standalone tool discovery and execution
 """
 
 from enum import Enum
@@ -35,7 +35,6 @@ class ExecutionMode(str, Enum):
     NATIVE_PARROT = "native_parrot"
     NATIVE_LINUX = "native_linux"
     DOCKERIZED_MCP = "dockerized_mcp"
-    SIMULATED = "simulated"
 
 
 SECURITY_TOOLS = [
@@ -59,7 +58,7 @@ class EnvironmentInfo(BaseModel):
     is_parrot: bool = False
     is_docker: bool = False
     docker_available: bool = False
-    execution_mode: ExecutionMode = ExecutionMode.SIMULATED
+    execution_mode: ExecutionMode = ExecutionMode.NATIVE_LINUX
     available_tools: list[str] = Field(default_factory=list)
     missing_tools: list[str] = Field(default_factory=list)
     description: str = ""
@@ -146,15 +145,15 @@ def detect_environment() -> EnvironmentInfo:
     elif is_parrot and len(available_tools) >= 2:
         mode = ExecutionMode.NATIVE_PARROT
         desc = f"Parrot Security OS detected ({len(available_tools)}/{len(SECURITY_TOOLS)} security tools available natively on host)"
-    elif len(available_tools) >= 3:
+    elif len(available_tools) >= 1:
         mode = ExecutionMode.NATIVE_LINUX
         desc = f"Host Linux detected with native tools: {', '.join(available_tools)}"
     elif docker_available or is_docker:
         mode = ExecutionMode.DOCKERIZED_MCP
         desc = "Curated HexStrike MCP container mode (tools executed via isolated Docker containers)"
     else:
-        mode = ExecutionMode.SIMULATED
-        desc = "Development simulation mode with realistic security telemetry"
+        mode = ExecutionMode.NATIVE_LINUX
+        desc = "Host Linux environment with standalone tool discovery"
 
     return EnvironmentInfo(
         os_id=os_id or "generic",

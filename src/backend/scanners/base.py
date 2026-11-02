@@ -6,11 +6,18 @@ import sys
 from typing import Callable, Optional
 
 # Ensure local venv and user go/local binary directories are on PATH
+_repo_root = Path(__file__).resolve().parents[3]
 _extra_bins = [
+    str(_repo_root / ".venv" / "bin"),
+    str(_repo_root / ".venv-backend" / "bin"),
+    str(_repo_root / "src" / "backend" / ".venv" / "bin"),
     str(Path(sys.prefix) / "bin"),
     str(Path.home() / "go" / "bin"),
     str(Path.home() / ".local" / "bin"),
     "/usr/local/bin",
+    "/zap",
+    "/opt/nikto/program",
+    "/opt/venv/bin",
 ]
 _current_path = os.environ.get("PATH", "")
 for _bin_path in _extra_bins:

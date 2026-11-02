@@ -4,14 +4,17 @@
 
 ---
 
-## Members
+### Project Guide & Corresponding Author
+* **Dr. Neethu M R\*** (`mr_neethu@cb.amrita.edu`), Assistant Professor (Sr. Gd.), Department of Computer Science and Engineering, School of Computing, Amrita Vishwa Vidyapeetham, Coimbatore.
 
-| # | Name | GitHub | Role | Responsible Modules |
-|---|------|--------|------|---------------------|
-| 1 | vistanoop | @vistanoop | Full Stack | Backend API, Multi-Scanner Orchestration, Dashboard |
-| 2 | _(Add Name)_ | @username | Recon & Scanning | Reconnaissance, Vuln Scanner |
-| 3 | _(Add Name)_ | @username | Exploitation | Exploitation Engine |
-| 4 | _(Add Name)_ | @username | Frontend & Reports | Dashboard, Report Generator |
+## Student Members (Team 37)
+
+| # | Register Number | Student Name | Institutional Email | Role | Responsible Modules |
+|---|-----------------|--------------|---------------------|------|---------------------|
+| 1 | `CB.SC.U4CSE23417` | Haridev P | `cb.sc.u4cse23417@cb.students.amrita.edu` | Lead Architect & Full Stack | Overall System Architecture, Non-Blocking Orchestration, Recon Pipeline UI, Docker & Timeout Guards |
+| 2 | `CB.SC.U4CSE23440` | Reenu L K | `cb.sc.u4cse23440@cb.students.amrita.edu` | Reconnaissance & Security Scanning | Nmap, SSLyze, Nikto Parsers, CVE Normalization & CVSS Scoring, Deduplication Logic |
+| 3 | `CB.SC.U4CSE23459` | Anoop K | `cb.sc.u4cse23459@cb.students.amrita.edu` | Backend & Secondary Toolchain | Nuclei Template Mapping, SQLMap & FFuf Triggering, Report Generator & FastAPI Endpoints |
+| 4 | `CB.SC.U4CSE23653` | Shruthilaya A V | `cb.sc.u4cse23653@cb.students.amrita.edu` | AI & Security Knowledge Engineer | ChromaDB Vector Database Indexing (5k+ chunks), RAG Triage Pipeline, Ollama LLM Prompting |
 
 ---
 

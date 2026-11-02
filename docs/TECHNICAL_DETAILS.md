@@ -13,7 +13,7 @@ ORVYN is an autonomous penetration testing and offensive intelligence platform d
 flowchart TD
     subgraph Frontend["Frontend Layer (React 18 + Vite + Tailwind)"]
         UI[Futuristic Cyber-Deck UI]
-        WorkflowView[Redamon Interactive Workflow Graph]
+        WorkflowView[Interactive Recon Workflow Graph]
         LiveTerminal[Streaming Execution Console]
         RAGModal[RAG Validation & Citations Modal]
     end
@@ -100,9 +100,9 @@ Rather than running tools as uncoordinated individual tasks, ORVYN executes scan
 
 ---
 
-## 3. Redamon Interactive Recon Pipeline Workflow
+## 3. Interactive Recon & Pentest Pipeline Workflow
 
-ORVYN includes an interactive circuit node-graph based on the **Redamon Reconnaissance Pipeline** specification:
+ORVYN includes an interactive circuit node-graph based on the **Autonomous Reconnaissance Pipeline** specification:
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐

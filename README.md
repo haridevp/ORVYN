@@ -22,8 +22,8 @@
 
 ## Key Capabilities & Innovations
 
-### 1. Redamon-Inspired Interactive Recon Pipeline Workflow
-* **Circuit-Bus Node Graph**: High-tech visual representation of the entire offensive pipeline modeled after the Redamon reconnaissance architecture.
+### 1. Interactive Recon Pipeline Workflow
+* **Circuit-Bus Node Graph**: High-tech visual representation of the entire offensive pipeline modeled after modern autonomous reconnaissance architectures.
 * **Three Functional Bands**:
   * **Upper Data Band**: Live data entity pills (`Domain`, `Subdomain`, `IP`, `Port`, `Service`, `BaseURL`, `Endpoint`, `CVE`).
   * **Center Tool Band**: 9 sequential stages featuring interactive tool cards (`Target Input` ➔ `Discovery` ➔ `OSINT` ➔ `Port Scanning` ➔ `HTTP Probing` ➔ `Resource Enum` ➔ `JS Recon` ➔ `Vulnerability Scanning` ➔ `Analysis & AI`).
@@ -50,7 +50,7 @@
 ```text
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                    REACT 18 + VITE + TAILWIND FRONTEND                     │
-│  [Redamon Workflow Graph]  [Futuristic Cyber-Deck]  [Live Terminal Console]│
+│  [Recon Workflow Graph]    [Futuristic Cyber-Deck]  [Live Terminal Console]│
 └─────────────────────────────────────┬──────────────────────────────────────┘
                                       │ REST API / Live Polling
 ┌─────────────────────────────────────▼──────────────────────────────────────┐
@@ -135,7 +135,7 @@ The repository includes a standalone Python CLI (`./start.sh` or `cli.py`):
 
 ## Project Documentation
 
-* **[Technical Details & System Architecture](docs/TECHNICAL_DETAILS.md)**: Deep dive into subprocess management, RAG embeddings, and the Redamon graph specification.
+* **[Technical Details & System Architecture](docs/TECHNICAL_DETAILS.md)**: Deep dive into subprocess management, RAG embeddings, and the Circuit-Bus workflow graph specification.
 * **[Agile Backlog](docs/BACKLOG.md)**: User stories, epics, and planned milestones.
 * **[Sprint Tracking](docs/SPRINTS.md)**: Sprint retrospectives and delivery velocity.
 * **[Product Roadmap](docs/ROADMAP.md)**: Multi-semester research phases and capabilities timeline.

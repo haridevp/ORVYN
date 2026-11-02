@@ -26,7 +26,7 @@ import {
   GitBranch,
   List,
 } from "lucide-react";
-import { RedamonWorkflowGraph } from "./RedamonWorkflowGraph";
+import { WorkflowGraph } from "./WorkflowGraph";
 
 interface ScannerProgressListProps {
   scanners: ScannerProgress[];
@@ -201,7 +201,7 @@ export function ScannerProgressList({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* View Mode Toggle: Workflow Node-Graph (Redamon) vs. Phase Telemetry List */}
+          {/* View Mode Toggle: Workflow Node-Graph vs. Phase Telemetry List */}
           <div className="flex items-center gap-1 rounded-xl bg-[#090b14] p-1 border border-cyan-500/30 shadow-inner">
             <button
               type="button"
@@ -211,7 +211,7 @@ export function ScannerProgressList({
                   ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_10px_rgba(0,240,255,0.25)]"
                   : "text-slate-400 hover:text-white"
               }`}
-              title="Workflow View (Redamon Interactive Node Graph)"
+              title="Workflow View (Interactive Pipeline Node Graph)"
             >
               <GitBranch size={13} className="text-cyan-400" />
               <span>Workflow View</span>
@@ -265,7 +265,7 @@ export function ScannerProgressList({
 
       {/* 2. MAIN PIPELINE VIEW: WORKFLOW GRAPH OR STEPPER */}
       {viewMode === "workflow" ? (
-        <RedamonWorkflowGraph
+        <WorkflowGraph
           scanners={scanners}
           target={target}
           isRunning={!isFinished}
@@ -655,16 +655,10 @@ export function ScannerProgressList({
                     )}
 
                     {s.status === "completed" && (
-                      s.simulated ? (
-                        <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">
-                          simulated
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                          <ShieldCheck size={11} />
-                          real engine
-                        </span>
-                      )
+                      <span className="flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
+                        <ShieldCheck size={11} />
+                        completed
+                      </span>
                     )}
                   </div>
 

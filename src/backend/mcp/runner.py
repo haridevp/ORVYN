@@ -1,9 +1,8 @@
 """HexStrike Curated MCP Runner.
 
 Executes security tools either via:
-1. Native host execution (when running on Kali Linux or Parrot OS)
+1. Native host execution (when running on Kali Linux or Parrot OS or Linux host)
 2. Isolated Docker container invocation (when running on other Linux distros)
-3. Simulated fallback execution (when offline / local dev)
 """
 
 import asyncio
@@ -72,17 +71,18 @@ class HexStrikeRunner:
                 log_cb(f"[HexStrike-Docker] Executing in container: {' '.join(docker_cmd)}")
             return await self._run_subprocess(tool, docker_cmd, timeout, log_cb, mode="dockerized_mcp")
 
-        # Mode C: Fallback simulated tool execution
+        # Tool unavailable on host and Docker daemon unavailable
+        err_msg = f"Tool '{tool}' not installed on host and Docker daemon unavailable."
         if log_cb:
-            log_cb(f"[HexStrike-Simulated] Tool '{tool}' not installed on host and Docker daemon unavailable. Running simulated engine.")
+            log_cb(f"[HexStrike-Error] {err_msg}")
         return ToolExecutionResult(
             tool=tool,
             command=[tool] + args,
-            returncode=0,
-            stdout=f"[Simulated {tool} output for {' '.join(args)}]",
-            stderr="",
-            execution_mode=ExecutionMode.SIMULATED.value,
-            is_success=True,
+            returncode=127,
+            stdout="",
+            stderr=err_msg,
+            execution_mode=self.env.execution_mode.value,
+            is_success=False,
         )
 
     async def _run_subprocess(
