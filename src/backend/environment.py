@@ -16,12 +16,18 @@ import sys
 from typing import Optional
 from pydantic import BaseModel, Field
 
-# Ensure local venv and user go/local binary directories are on PATH for tool discovery
+_repo_root = Path(__file__).resolve().parents[2]
 _extra_bins = [
+    str(_repo_root / ".venv" / "bin"),
+    str(_repo_root / ".venv-backend" / "bin"),
+    str(_repo_root / "src" / "backend" / ".venv" / "bin"),
     str(Path(sys.prefix) / "bin"),
     str(Path.home() / "go" / "bin"),
     str(Path.home() / ".local" / "bin"),
     "/usr/local/bin",
+    "/zap",
+    "/opt/nikto/program",
+    "/opt/venv/bin",
 ]
 _current_path = os.environ.get("PATH", "")
 for _bin_path in _extra_bins:
