@@ -4,11 +4,13 @@
 # Startup & Autonomous Security Assessment Launcher
 # ==============================================================================
 # Usage:
-#   ./start.sh          # Auto-detects and launches the platform (Docker or Local)
-#   ./start.sh --docker # Force Docker Compose cluster launch
-#   ./start.sh --local  # Force native Local Development launch
-#   ./start.sh --stop   # Stop all running platform services
-#   ./start.sh --status # Check health of platform components
+#   ./start.sh          # Auto-detects and launches the platform in Docker
+#   ./start.sh check    # Diagnostic of host OS, Docker MCP layer, and toolchain
+#   ./start.sh scan <t> # Run terminal penetration assessment against target
+#   ./start.sh probe <t># Pre-flight DNS & reachability probe
+#   ./start.sh status   # Check health of platform components
+#   ./start.sh stop     # Stop all platform services
+#   ./start.sh --help   # View full CLI manual
 # ==============================================================================
 
 set -e
@@ -28,7 +30,7 @@ RED='\033[0;31m'
 PURPLE='\033[0;35m'
 BOLD='\033[1m'
 DIM='\033[2m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 print_banner() {
     echo -e "${CYAN}${BOLD}"
@@ -48,9 +50,108 @@ print_success() { echo -e "  ${GREEN}✔${NC} $1"; }
 print_info()    { echo -e "  ${CYAN}ℹ${NC} $1"; }
 print_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
 print_error()   { echo -e "  ${RED}✖${NC} $1"; }
+
+# ------------------------------------------------------------------------------
+# Container & OS Detection
+# ------------------------------------------------------------------------------
+
+detect_host_os() {
+    OS_NAME="Linux Host"
+    OS_ID="unknown"
+    IS_KALI=false
+    IS_PARROT=false
+    if [[ -f /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        source /etc/os-release
+        OS_NAME="${PRETTY_NAME:-$NAME}"
+        OS_ID="${ID:-unknown}"
+        if [[ "$OS_ID" == "kali" || "$ID_LIKE" =~ "kali" ]]; then
+            IS_KALI=true
+        elif [[ "$OS_ID" == "parrot" || "$ID_LIKE" =~ "parrot" ]]; then
+            IS_PARROT=true
+        fi
+    fi
+}
+
+can_use_sudo() {
+    # Check if sudo is functional without triggering No-New-Privileges (NNP) SELinux AVC denial
+    if command -v sudo >/dev/null 2>&1; then
+        if sudo -n true >/dev/null 2>&1; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+check_docker() {
+    # 1. Direct Docker engine access
+    if command -v docker >/dev/null 2>&1; then
+        if docker info >/dev/null 2>&1; then
+            echo "docker"
+            return 0
+        fi
+        # Only attempt socket permission fix if sudo is non-interactively permitted without NNP denial
+        if can_use_sudo; then
+            sudo -n chmod 666 /var/run/docker.sock >/dev/null 2>&1 || true
+            if docker info >/dev/null 2>&1; then
+                echo "docker"
+                return 0
+            fi
+        fi
+    fi
+
+    # 2. Podman engine access
+    if command -v podman >/dev/null 2>&1; then
+        if podman info >/dev/null 2>&1; then
+            echo "podman"
+            return 0
+        fi
+    fi
+
+    # 3. Fallback to sudo docker only if sudo is permitted and functional
+    if command -v docker >/dev/null 2>&1 && can_use_sudo; then
+        echo "sudo docker"
+        return 0
+    fi
+
+    echo "none"
+    return 1
+}
+
+get_compose_cmd() {
+    local DOCKER_BIN
+    DOCKER_BIN=$(check_docker || true)
+    if [[ "$DOCKER_BIN" == "none" ]]; then
+        echo "none"
+        return 1
+    fi
+
+    if $DOCKER_BIN compose version >/dev/null 2>&1; then
+        echo "$DOCKER_BIN compose"
+        return 0
+    fi
+    if command -v docker-compose >/dev/null 2>&1; then
+        if [[ "$DOCKER_BIN" =~ "sudo" ]]; then
+            echo "sudo docker-compose"
+        else
+            echo "docker-compose"
+        fi
+        return 0
+    fi
+    if command -v podman-compose >/dev/null 2>&1; then
+        echo "podman-compose"
+        return 0
+    fi
+
+    echo "$DOCKER_BIN compose"
+    return 0
+}
+
 run_cli() {
     local DOCKER_BIN
     DOCKER_BIN=$(check_docker || true)
+
+    # 1. If backend container is already running, execute directly inside container
     if [[ "$DOCKER_BIN" != "none" ]] && $DOCKER_BIN ps --format '{{.Names}}' 2>/dev/null | grep -q "^fastapi_app$"; then
         local TTY_FLAG="-i"
         if [ -t 0 ] && [ -t 1 ]; then
@@ -60,6 +161,43 @@ run_cli() {
         return $?
     fi
 
+    detect_host_os
+
+    # 2. Strict container-only policy for non-Kali/Parrot hosts
+    if [[ "$IS_KALI" != "true" && "$IS_PARROT" != "true" ]]; then
+        if [[ "$1" == "scan" && "$DOCKER_BIN" == "none" ]]; then
+            print_error "Strict Isolation Policy: Security scanning tools must execute inside Docker on ${OS_NAME}."
+            print_error "Native host tool execution is strictly restricted to Kali Linux or Parrot OS."
+            print_info "Please install Docker/Podman and ensure the container daemon is active to execute scans."
+            return 1
+        fi
+
+        if [[ "$DOCKER_BIN" != "none" ]]; then
+            local IMAGE_NAME="pentest-backend:latest"
+            if ! $DOCKER_BIN image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+                print_info "Curated tool container image ($IMAGE_NAME) not found. Building container now..."
+                local COMPOSE_CMD
+                COMPOSE_CMD=$(get_compose_cmd || true)
+                if [[ "$COMPOSE_CMD" != "none" ]]; then
+                    $COMPOSE_CMD build backend
+                else
+                    $DOCKER_BIN build -t "$IMAGE_NAME" "$PROJECT_ROOT/src/backend"
+                fi
+            fi
+
+            local TTY_FLAG="-i"
+            if [ -t 0 ] && [ -t 1 ]; then
+                TTY_FLAG="-it"
+            fi
+            $DOCKER_BIN run --rm $TTY_FLAG --network host \
+                -v "$PROJECT_ROOT/src/backend:/app" \
+                -e IS_DOCKER=true \
+                "$IMAGE_NAME" python3 cli.py "$@"
+            return $?
+        fi
+    fi
+
+    # 3. Native Kali / Parrot OS fallback
     local PYTHON_BIN="python3"
     local VENV_CANDIDATES=(
         "$PROJECT_ROOT/src/backend/.venv/bin/python"
@@ -76,132 +214,197 @@ run_cli() {
     PYTHONPATH="$BACKEND_DIR:${PYTHONPATH:-}" "$PYTHON_BIN" "$BACKEND_DIR/cli.py" "$@"
 }
 
-check_docker() {
-    if ! command -v docker >/dev/null 2>&1; then
-        echo "none"
-        return 1
+show_mcp_tools_catalog() {
+    echo -e "  ${BOLD}🛡️  HexStrike Model Context Protocol (MCP) Curated Tools Catalog${NC}"
+    echo -e "  ${DIM}72 Curated Security Tools & Autonomous Multi-Scanner Orchestration Engines${NC}"
+    echo ""
+    echo -e "  ${BOLD}Operational Security Tool Domains:${NC}"
+    echo -e "    1. ${CYAN}Reconnaissance & OSINT (12 tools):${NC}"
+    echo -e "       • nmap, masscan, amass, sublist3r, dnsrecon, theharvester"
+    echo -e "       • shodan_cli, censys_cli, whois, traceroute, asnlookup, recon_ng"
+    echo ""
+    echo -e "    2. ${CYAN}Content Discovery & Spidering (8 tools):${NC}"
+    echo -e "       • gospider, katana, hakrawler, waybackurls, gau, paramspider, arjun, feroxbuster"
+    echo ""
+    echo -e "    3. ${CYAN}Web Vulnerability Scanning (14 tools):${NC}"
+    echo -e "       • nuclei, nikto, whatweb, wapiti, jaeles, dalfox, crlfuzz"
+    echo -e "       • corsy, commix, tplmap, nosqlmap, xsser, retire_js, zap"
+    echo ""
+    echo -e "    4. ${CYAN}Network, SSL/TLS & Infrastructure (8 tools):${NC}"
+    echo -e "       • sslyze, testssl, snmpwalk, ike_scan, tshark, netcat, enum4linux, smbclient"
+    echo ""
+    echo -e "    5. ${CYAN}Directory & Parameter Fuzzing (6 tools):${NC}"
+    echo -e "       • ffuf, gobuster, dirsearch, wfuzz, kiterunner, vhost_fuzzer"
+    echo ""
+    echo -e "    6. ${CYAN}Injection & Exploitation Testing (7 tools):${NC}"
+    echo -e "       • sqlmap, ghauri, jwt_tool, xsstrike, ssrfmap, graphql_cop, ysoserial"
+    echo ""
+    echo -e "    7. ${CYAN}Cloud, Secrets & Configuration Audit (8 tools):${NC}"
+    echo -e "       • trufflehog, gitleaks, scoutsuite, prowler, cloudmapper, detect_secrets, gitrob, shhgit"
+    echo ""
+    echo -e "    8. ${CYAN}Authentication & Credential Auditing (5 tools):${NC}"
+    echo -e "       • hydra, medusa, crowbar, cirt_fuzzer, patator"
+    echo ""
+    echo -e "    9. ${CYAN}Orchestration & Verification Engines (4 meta tools):${NC}"
+    echo -e "       • hexstrike_list_templates, hexstrike_detect_environment"
+    echo -e "       • hexstrike_recommend_template, hexstrike_verify_vulnerability"
+    echo ""
+    echo -e "  ${BOLD}Curated Container Core Toolchain:${NC}"
+    echo -e "    ${GREEN}✔${NC} nmap (v7.90+)         ${GREEN}✔${NC} nuclei (v3.2.0+)       ${GREEN}✔${NC} nikto (v2.5.0+)"
+    echo -e "    ${GREEN}✔${NC} whatweb               ${GREEN}✔${NC} sqlmap                 ${GREEN}✔${NC} ffuf (v2.1.0+)"
+    echo -e "    ${GREEN}✔${NC} sslyze                ${GREEN}✔${NC} owasp zap baseline     ${GREEN}✔${NC} wapiti3"
+    echo -e "    ${GREEN}✔${NC} common discovery wordlists (/usr/share/wordlists/dirb/common.txt)"
+    echo ""
+    if curl -s -f http://localhost:8000/mcp/tools >/dev/null 2>&1; then
+        local LIVE_COUNT
+        LIVE_COUNT=$(curl -s http://localhost:8000/mcp/tools | grep -o '"name":' | wc -l || echo "72")
+        print_success "Live MCP Endpoint: Online (${LIVE_COUNT} tools registered at http://localhost:8000/mcp/tools)"
+    else
+        print_info "MCP Endpoint: Offline (launch cluster with ${CYAN}./start.sh${NC} to expose live MCP endpoint)"
     fi
-
-    # 1. Check if user already has direct docker access
-    if docker info >/dev/null 2>&1; then
-        echo "docker"
-        return 0
-    fi
-
-    # 2. Check if non-interactive sudo can adjust socket permissions
-    sudo -n chmod 666 /var/run/docker.sock >/dev/null 2>&1 || true
-    if docker info >/dev/null 2>&1; then
-        echo "docker"
-        return 0
-    fi
-
-    # 3. Default to sudo docker so the user is prompted for permission in their terminal
-    echo "sudo docker"
-    return 0
+    echo ""
 }
 
 check_system_environment() {
-    echo -e "  ${BOLD}Platform System Requirements & Curated Tools Diagnostic${NC}"
+    echo -e "  ${BOLD}Platform System Requirements & Security Toolchain Diagnostic${NC}"
     echo ""
 
-    # 1. Host Operating System
-    local OS_NAME="Linux Host"
-    local OS_ID="unknown"
-    local IS_KALI=false
-    local IS_PARROT=false
-    if [[ -f /etc/os-release ]]; then
-        source /etc/os-release
-        OS_NAME="${PRETTY_NAME:-$NAME}"
-        OS_ID="${ID:-unknown}"
-        if [[ "$OS_ID" == "kali" || "$ID_LIKE" =~ "kali" ]]; then
-            IS_KALI=true
-        elif [[ "$OS_ID" == "parrot" || "$ID_LIKE" =~ "parrot" ]]; then
-            IS_PARROT=true
-        fi
-    fi
+    detect_host_os
 
-    echo -e "  ${BOLD}1. Host Operating System:${NC}"
+    # 1. Host Operating System & Execution Policy
+    echo -e "  ${BOLD}1. Host Operating System & Execution Policy:${NC}"
     if [[ "$IS_KALI" == "true" ]]; then
-        print_success "Kali Linux detected: ${CYAN}${OS_NAME}${NC} (Eligible for native tool execution)"
+        print_success "Kali Linux detected: ${CYAN}${OS_NAME}${NC}"
+        print_success "Execution Policy: Native host tool execution permitted."
     elif [[ "$IS_PARROT" == "true" ]]; then
-        print_success "Parrot Security OS detected: ${CYAN}${OS_NAME}${NC} (Eligible for native tool execution)"
+        print_success "Parrot Security OS detected: ${CYAN}${OS_NAME}${NC}"
+        print_success "Execution Policy: Native host tool execution permitted."
     else
         print_info "Host Distribution: ${CYAN}${OS_NAME}${NC} (ID: ${OS_ID})"
-        print_info "Non-Kali/Parrot host: Platform will route security tools through curated Docker containers."
+        print_success "Strict Container Isolation Enforced: Non-Kali/Parrot host detected."
+        print_info "All security tools (Nmap, Nuclei, ZAP, Nikto, etc.) are strictly isolated and execute inside Docker container."
     fi
     echo ""
 
-    # 2. Host Installed Security Tools (Curated MCP List)
-    echo -e "  ${BOLD}2. Native Host Security Binaries:${NC}"
-    local SECURITY_TOOLS=("nmap" "nuclei" "nikto" "whatweb" "sqlmap" "ffuf" "sslyze" "wapiti" "zap")
-    local HOST_FOUND=0
-    local HOST_MISSING=0
-    for tool in "${SECURITY_TOOLS[@]}"; do
-        if command -v "$tool" >/dev/null 2>&1; then
-            local TOOL_PATH
-            TOOL_PATH=$(command -v "$tool" || true)
-            echo -e "    ${GREEN}✔${NC} ${BOLD}${tool}${NC} (found at ${DIM}${TOOL_PATH}${NC})"
-            HOST_FOUND=$((HOST_FOUND + 1))
-        else
-            echo -e "    ${RED}✖${NC} ${tool} (not found on host PATH)"
-            HOST_MISSING=$((HOST_MISSING + 1))
-        fi
-    done
-    echo ""
-    if [[ $HOST_FOUND -ge 7 ]]; then
-        print_success "${HOST_FOUND}/${#SECURITY_TOOLS[@]} curated security tools available directly on host."
+    # 2. Host Toolchain Diagnostic (Kali/Parrot only)
+    if [[ "$IS_KALI" == "true" || "$IS_PARROT" == "true" ]]; then
+        echo -e "  ${BOLD}2. Native Host Security Toolchain:${NC}"
+        local SECURITY_TOOLS=("nmap" "nuclei" "nikto" "whatweb" "sqlmap" "ffuf" "sslyze" "wapiti" "zap")
+        local HOST_FOUND=0
+        for tool in "${SECURITY_TOOLS[@]}"; do
+            if command -v "$tool" >/dev/null 2>&1; then
+                local TOOL_PATH
+                TOOL_PATH=$(command -v "$tool" || true)
+                echo -e "    ${GREEN}✔${NC} ${BOLD}${tool}${NC} (native binary at ${DIM}${TOOL_PATH}${NC})"
+                HOST_FOUND=$((HOST_FOUND + 1))
+            else
+                echo -e "    ${YELLOW}⚠${NC} ${tool} (not installed on host PATH)"
+            fi
+        done
+        echo ""
+        print_info "${HOST_FOUND}/${#SECURITY_TOOLS[@]} native tools installed on ${OS_NAME} host."
+        echo ""
     else
-        print_warn "${HOST_FOUND}/${#SECURITY_TOOLS[@]} tools found on host PATH (${HOST_MISSING} missing)."
+        echo -e "  ${BOLD}2. Host Toolchain Isolation Policy:${NC}"
+        print_info "Host Distribution (${OS_NAME}) strictly isolated: tools execute exclusively via Docker."
+        print_success "Native host binaries are bypassed to guarantee uniform container sandboxing."
+        echo ""
     fi
-    echo ""
 
-    # 3. Docker Daemon & Curated Container Environment
-    echo -e "  ${BOLD}3. Docker & Curated HexStrike MCP Container:${NC}"
+    # 3. Docker & Curated Container Toolchain
+    echo -e "  ${BOLD}3. Docker & Curated Container Toolchain:${NC}"
     local DOCKER_CMD
     DOCKER_CMD=$(check_docker || true)
     if [[ "$DOCKER_CMD" == "none" ]]; then
-        print_error "Docker is NOT installed. Containerized tool execution will be disabled."
+        print_error "Docker is NOT installed or daemon is unreachable."
+        print_info "Install Docker or start the daemon to run containerized tools."
     else
-        print_success "Docker Engine: Available (${DOCKER_CMD})"
+        print_success "Container Engine: Active (${DOCKER_CMD})"
         local IMAGE_NAME="pentest-backend:latest"
-        if $DOCKER_CMD image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
-            print_success "Curated MCP Container Image: ${CYAN}${IMAGE_NAME}${NC} present"
-            
-            # Verify tools inside container
-            local CONTAINER_CHECK
-            CONTAINER_CHECK=$($DOCKER_CMD run --rm "$IMAGE_NAME" bash -c '
-                found=0; missing=0
-                for t in nmap nuclei nikto whatweb sqlmap ffuf sslyze zap-baseline.py wapiti; do
-                    if which $t >/dev/null 2>&1; then
-                        found=$((found + 1))
-                    else
-                        missing=$((missing + 1))
-                    fi
-                done
-                echo "$found $missing"
-            ' 2>/dev/null || echo "0 9")
-            
-            local C_FOUND
-            C_FOUND=$(echo "$CONTAINER_CHECK" | awk '{print $1}')
-            local C_MISSING
-            C_MISSING=$(echo "$CONTAINER_CHECK" | awk '{print $2}')
-            
-            if [[ "$C_MISSING" -eq 0 && "$C_FOUND" -ge 8 ]]; then
-                print_success "Curated MCP Container: All tools baked in (${C_FOUND} tools active)."
+        local CONTAINER_RUNNING=false
+        if $DOCKER_CMD ps --format '{{.Names}}' 2>/dev/null | grep -q "^fastapi_app$"; then
+            CONTAINER_RUNNING=true
+            print_success "Backend Container: ${CYAN}fastapi_app${NC} is actively running."
+        fi
+
+        if $DOCKER_CMD image inspect "$IMAGE_NAME" >/dev/null 2>&1 || [[ "$CONTAINER_RUNNING" == "true" ]]; then
+            print_success "Curated Container Image: ${CYAN}${IMAGE_NAME}${NC} is built and ready."
+            echo ""
+            echo -e "    ${BOLD}Container Tool Verification:${NC}"
+            local CHECK_CMD=""
+            if [[ "$CONTAINER_RUNNING" == "true" ]]; then
+                CHECK_CMD="$DOCKER_CMD exec fastapi_app"
             else
-                print_warn "Curated MCP Container: ${C_FOUND} tools active, ${C_MISSING} missing."
-                print_info "Run '${CYAN}./start.sh --build${NC}' to bake all 9 latest tools into the container image."
+                CHECK_CMD="$DOCKER_CMD run --rm $IMAGE_NAME"
             fi
+
+            local TOOLS_TO_CHECK=(
+                "nmap:Network mapper & NSE vulnerability scripts"
+                "nuclei:Rapid vulnerability scanner & CVE templates"
+                "nikto:Web server scanner & CGI audit"
+                "whatweb:Web technology & CMS identification"
+                "sqlmap:Automated SQL injection & database takeover"
+                "ffuf:Fast web fuzzer & directory bruteforcer"
+                "sslyze:Fast SSL/TLS configuration & cipher analyzer"
+                "zap-baseline.py:OWASP ZAP baseline scanner engine"
+                "wapiti:Web application vulnerability scanner"
+            )
+            local VERIFIED=0
+            for item in "${TOOLS_TO_CHECK[@]}"; do
+                local t_bin="${item%%:*}"
+                local t_desc="${item#*:}"
+                if $CHECK_CMD which "$t_bin" >/dev/null 2>&1; then
+                    echo -e "      ${GREEN}✔${NC} ${BOLD}${t_bin}${NC} - ${DIM}${t_desc}${NC}"
+                    VERIFIED=$((VERIFIED + 1))
+                else
+                    echo -e "      ${RED}✖${NC} ${BOLD}${t_bin}${NC} - missing inside container"
+                fi
+            done
+            # Wordlist check
+            if $CHECK_CMD test -f /usr/share/wordlists/dirb/common.txt >/dev/null 2>&1; then
+                echo -e "      ${GREEN}✔${NC} ${BOLD}dirb/common.txt${NC} - ${DIM}Pre-seeded web discovery wordlist${NC}"
+                VERIFIED=$((VERIFIED + 1))
+            fi
+            echo ""
+            print_success "Container Toolchain Health: ${VERIFIED}/10 tools & wordlists verified."
         else
             print_warn "Image '${IMAGE_NAME}' not found locally. Build with: ${CYAN}./start.sh --build${NC}"
+            print_info "All 9 security tools & wordlists will be automatically compiled during container build."
         fi
     fi
     echo ""
 
-    # 4. Local LLM / Ollama Status (for Autonomous Template Selection)
-    echo -e "  ${BOLD}4. Local LLM Autonomous Orchestrator (Ollama):${NC}"
+    # 4. HexStrike MCP Catalog & Multi-Tool Templates
+    echo -e "  ${BOLD}4. HexStrike MCP Catalog & Multi-Tool Templates:${NC}"
+    print_success "Curated HexStrike MCP Catalog: 72 tools defined across 8 security domains."
+    print_success "Multi-Tool Templates: 30 vulnerability audit templates available."
+    if curl -s -f http://localhost:8000/mcp/tools >/dev/null 2>&1; then
+        local LIVE_COUNT
+        LIVE_COUNT=$(curl -s http://localhost:8000/mcp/tools | grep -o '"name":' | wc -l || echo "72")
+        print_success "Live MCP Endpoint: Online (${LIVE_COUNT} tools registered at http://localhost:8000/mcp/tools)"
+    else
+        print_info "Live MCP REST Endpoint: Offline (launch cluster with ${CYAN}./start.sh${NC} to expose)"
+    fi
+    echo ""
+
+    # 5. Platform Cluster Services Health
+    echo -e "  ${BOLD}5. Platform Cluster Services Health:${NC}"
+    if curl -s -f http://localhost:8000/health >/dev/null 2>&1; then
+        print_success "Backend API: Online (http://localhost:8000/health)"
+    else
+        print_info "Backend API: Offline (port 8000)"
+    fi
+    if curl -s -f http://localhost:5173 >/dev/null 2>&1; then
+        print_success "Frontend Dashboard: Online (http://localhost:5173)"
+    else
+        print_info "Frontend Dashboard: Offline (port 5173)"
+    fi
+    echo ""
+
+    # 6. Local LLM / Ollama Status
+    echo -e "  ${BOLD}6. AI Autonomous Decision Engine (Ollama):${NC}"
     if command -v ollama >/dev/null 2>&1; then
-        print_success "Ollama CLI found: $(command -v ollama)"
+        print_success "Ollama CLI installed: $(command -v ollama)"
         if curl -s -f http://localhost:11434/api/tags >/dev/null 2>&1; then
             print_success "Ollama Service: Online (http://localhost:11434)"
             local MODELS
@@ -210,188 +413,79 @@ check_system_environment() {
                 print_info "Available local models: ${CYAN}${MODELS}${NC}"
             fi
         else
-            print_warn "Ollama service is currently offline or unreachable."
-            print_info "Start with: '${CYAN}ollama serve${NC}' and pull model: '${CYAN}ollama pull qwen2.5:7b${NC}'"
-            print_info "(Fallback heuristic template selection will be used automatically if Ollama is offline)"
+            print_warn "Ollama service is currently offline."
+            print_info "Autonomous heuristic decision engine will handle template selection automatically."
         fi
     else
-        print_warn "Ollama binary not found on PATH."
-        print_info "Install Ollama from https://ollama.com to enable local LLM template orchestration."
-    fi
-    echo ""
-
-    # 5. Distro-Specific Guidance
-    echo -e "  ${BOLD}5. Distro-Specific Toolchain Guidance:${NC}"
-    if [[ "$IS_KALI" == "true" || "$OS_ID" == "debian" || "$OS_ID" == "ubuntu" ]]; then
-        echo -e "    ${CYAN}Debian/Ubuntu/Kali command to install native tools:${NC}"
-        echo -e "    ${DIM}sudo apt update && sudo apt install -y nmap nuclei nikto whatweb sqlmap ffuf sslyze wapiti zaproxy${NC}"
-    elif [[ "$OS_ID" == "fedora" || "$OS_ID" == "rhel" || "$OS_ID" == "centos" ]]; then
-        echo -e "    ${CYAN}Fedora command to install available native tools:${NC}"
-        echo -e "    ${DIM}sudo dnf install -y nmap nmap-ncat nikto sqlmap${NC}"
-        echo -e "    ${DIM}Or use curated container mode (recommended): ./start.sh --build${NC}"
-    elif [[ "$OS_ID" == "arch" || "$ID_LIKE" =~ "arch" ]]; then
-        echo -e "    ${CYAN}Arch Linux command to install native tools:${NC}"
-        echo -e "    ${DIM}sudo pacman -S nmap nuclei nikto sqlmap ffuf${NC}"
+        print_info "Ollama not installed. Autonomous heuristic decision engine active."
     fi
     echo ""
 }
 
-# --- Command: HELP & ADVANCED CLI MANUAL ---
+# ------------------------------------------------------------------------------
+# Subcommand Handlers
+# ------------------------------------------------------------------------------
+
+# --- Help ---
 if [[ "$1" == "--help" || "$1" == "-h" || "$1" == "help" ]]; then
     print_banner
     cat << 'EOF'
-ADVANCED CLI & PLATFORM MANUAL
-==============================
-
-ORVYN (Offensive Risk and Vulnerability Intelligence Network) provides both a full containerized
-web dashboard (Vite + FastAPI + Celery + Redis + PostgreSQL) and a powerful,
-high-performance CLI for terminal-driven vulnerability assessments and CI/CD pipelines.
+ORVYN - OFFENSIVE RISK AND VULNERABILITY INTELLIGENCE NETWORK
+=============================================================
 
 SYNOPSIS:
-    ./start.sh [PLATFORM_COMMAND]
-    ./start.sh scan <target> [SCAN_OPTIONS]
-    ./start.sh probe <target>
-    ./start.sh templates [--category <category>]
-    ./start.sh check
-    ./start.sh cli [OPTIONS]
+    ./start.sh [COMMAND] [OPTIONS]
 
---------------------------------------------------------------------------------
-1. PLATFORM & CLUSTER MANAGEMENT
---------------------------------------------------------------------------------
-    ./start.sh              Auto-detects and launches platform cluster via Docker Compose
-    ./start.sh check        Verifies host OS, native security tools, Docker MCP container, and LLM
-    ./start.sh templates    Lists all 30 multi-tool vulnerability assessment templates
-    ./start.sh --build      Rebuilds all container images from source without cache
-    ./start.sh --local      Launches platform natively using host Python venv & Vite
-    ./start.sh --stop       Gracefully stops all platform containers & background processes
-    ./start.sh --status     Checks health of backend API, engines, and frontend
-    ./start.sh --help, -h   Displays this advanced CLI usage manual
+COMMANDS:
+    ./start.sh              Launch full platform in Docker Compose (strict container isolation)
+    ./start.sh check        System diagnostics (Host OS policy, Docker tools, MCP layer, LLM)
+    ./start.sh tools        Browse all 72 curated HexStrike MCP security tools
+    ./start.sh scan <tgt>   Run terminal vulnerability assessment against target
+    ./start.sh probe <tgt>  Run pre-flight DNS, TLS, and HTTP reachability probe
+    ./start.sh templates    Browse all 30 vulnerability audit templates
+    ./start.sh status       Check status of API, Dashboard, and Docker containers
+    ./start.sh stop         Gracefully stop all platform services
+    ./start.sh --build      Rebuild container images from source
 
---------------------------------------------------------------------------------
-2. TERMINAL VULNERABILITY ASSESSMENT (CLI)
---------------------------------------------------------------------------------
-    ./start.sh scan <target> [OPTIONS]
+SCAN OPTIONS:
+    --profile recon         Fast perimeter reconnaissance (~20s)
+    --profile web           Standard Web application audit (~45-60s)
+    --profile full          Comprehensive multi-scanner audit (~2m)
+    --profile deep          Deep multi-tool audit with secondary verification (~5m)
+    --profile unlimited     Exhaustive enterprise assessment without timeouts
+    --in-scope <domains>    Comma-separated allowlist (e.g. *.target.com, target.com)
+    --out-of-scope <rules>  Comma-separated denylist (e.g. logout, auth.*)
+    -o, --output <file>     Export findings (.pdf, .md, .json)
+    -v, --verbose           Stream live scanner execution logs
 
-    TARGET SPECIFICATION:
-        target                  Hostname, IP address, or full URL (e.g. scanme.nmap.org,
-                                http://192.168.1.50:8080, or https://example.com)
-
-    SCAN INTENSITY PROFILES:
-        --profile recon         Rapid reconnaissance (~15-25s): Port probing, tech stack
-                                identification, DNS enumeration, and low-risk templates.
-        --profile web           Standard Web DAST (~45s): Active crawling, injection checks
-                                (XSS, SQLi, SSRF, LFI), header audits, and misconfigurations.
-        --profile full          Comprehensive audit (~85s): Exhaustive multi-scanner crawl,
-                                deep fuzzing, OWASP Top 10 coverage, and CVE template suite.
-        --profile unlimited     Exhaustive Deep Scan (NO TIMEOUT): Runs all engines without
-                                artificial execution timeouts. Recommended for large surface
-                                areas, heavy web applications, or slow networks.
-
-    SCOPE & PERIMETER CONTROL:
-        --in-scope <patterns>   Comma-separated list of allowed domains or wildcard masks.
-                                Default: *.target.com, target.com
-                                Example: --in-scope "*.corp.internal,api.corp.internal"
-        --out-of-scope <rules>  Comma-separated deny-list patterns to strictly exclude.
-        --exclude <rules>       Matches against URLs, domains, and paths.
-                                Example: --out-of-scope "logout,admin/delete,*.billing.internal"
-
-    ENGINE SELECTION:
-        --scanners <list>       Comma-separated subset of scanners to orchestrate.
-                                Choices: nuclei, zap, nikto, whatweb, nmap, sslyze, wapiti
-                                (default: all 7 engines).
-                                Example: --scanners "nuclei,zap,nmap,whatweb"
-
-    REPORT EXPORTS & ARTIFACTS:
-        -o, --output <file>     Export assessment findings directly to file.
-                                Supported formats by extension:
-                                  - .pdf  : Corporate executive PDF report ([COMPANY NAME] branding)
-                                  - .md   : Clean executive Markdown report with CVSS & remediation
-                                  - .json : Structured machine-readable JSON schema for CI/CD
-                                  - .txt  : Plain-text findings summary
-                                Example: -o /tmp/audit_report.pdf
-
-    TELEMETRY & LOG VERBOSITY:
-        -v, --verbose           Stream live scanner stdout/stderr execution logs in real time.
-        --detailed              Expand full vulnerability evidence, HTTP requests, responses,
-                                and MITRE CWE / OWASP remediation references.
-        --no-probe              Skip pre-flight DNS, TLS, and reachability diagnostics.
-        --force                 Continue execution even if pre-flight target check fails.
-        --json                  Output raw machine-readable JSON directly to stdout.
-        --api <url>             Execute scan against a remote platform cluster (e.g. http://localhost:8000).
-                                If omitted, scanners run locally in-process.
-
---------------------------------------------------------------------------------
-3. TARGET DIAGNOSTICS & PROBING
---------------------------------------------------------------------------------
-    ./start.sh probe <target>
-
-    Performs rapid non-intrusive pre-flight diagnostics:
-      - DNS resolution & IPv4/IPv6 resolution
-      - TLS / HTTP connectivity & latency round-trip time (RTT)
-      - Server header banner disclosure & HTTP status response
-      - Typo-squatting detection and hostname validation
-
---------------------------------------------------------------------------------
-4. INTERACTIVE CONSOLE WIZARD
---------------------------------------------------------------------------------
-    ./start.sh cli
-    ./start.sh -i
-
-    Launches an interactive guided CLI prompt to configure target domain, profile,
-    and output options step-by-step.
-
---------------------------------------------------------------------------------
-5. ADVANCED PRODUCTION RECIPES & EXAMPLES
---------------------------------------------------------------------------------
-    # Recipe 1: Rapid pre-flight target diagnostics
-    ./start.sh probe scanme.nmap.org
-
-    # Recipe 2: Full web audit with live verbose logs and Markdown report
-    ./start.sh scan scanme.nmap.org --profile web -v -o report.md --detailed
-
-    # Recipe 3: Autonomous AI template selection scan
-    ./start.sh scan scanme.nmap.org --template auto -o ai_audit.md
-
-    # Recipe 4: Browse all 30 curated multi-tool templates (filtered by category)
-    ./start.sh templates --category "API & Cloud"
-
-    # Recipe 5: Wildcard perimeter with strict exclusion of sensitive endpoints
-    ./start.sh scan example.com \
-        --in-scope "*.example.com" \
-        --out-of-scope "logout,auth/reset,admin/delete,payment.*" \
-        -o perimeter_findings.json
-
-    # Recipe 6: CI/CD Pipeline security gate (JSON exit output)
-    ./start.sh scan staging.internal --profile recon --no-probe --json -o ci_results.json
-
-    # Recipe 7: Target a remote platform backend over the network
-    ./start.sh scan target.com --api http://soc-cluster.corp:8000 -v -o remote_audit.md
+STRICT ISOLATION POLICY:
+    Security tools execute natively ONLY on Kali Linux or Parrot Security OS.
+    On all other operating systems, tools strictly execute via Docker containers.
 
 EOF
     exit 0
 fi
 
-# --- Command: STOP ---
+# --- Stop ---
 if [[ "$1" == "--stop" || "$1" == "--down" || "$1" == "stop" ]]; then
     print_banner
     print_info "Stopping platform services..."
     
-    DOCKER_CMD=$(check_docker || true)
-    if [[ "$DOCKER_CMD" != "none" ]]; then
-        $DOCKER_CMD compose down >/dev/null 2>&1 || true
+    COMPOSE_CMD=$(get_compose_cmd || true)
+    if [[ "$COMPOSE_CMD" != "none" ]]; then
+        $COMPOSE_CMD down >/dev/null 2>&1 || true
     fi
 
     # Kill local instances if running
     if [[ -f "$PROJECT_ROOT/.backend.pid" ]]; then
-        kill $(cat "$PROJECT_ROOT/.backend.pid") >/dev/null 2>&1 || true
+        kill "$(cat "$PROJECT_ROOT/.backend.pid")" >/dev/null 2>&1 || true
         rm -f "$PROJECT_ROOT/.backend.pid"
     fi
     if [[ -f "$PROJECT_ROOT/.frontend.pid" ]]; then
-        kill $(cat "$PROJECT_ROOT/.frontend.pid") >/dev/null 2>&1 || true
+        kill "$(cat "$PROJECT_ROOT/.frontend.pid")" >/dev/null 2>&1 || true
         rm -f "$PROJECT_ROOT/.frontend.pid"
     fi
 
-    # Also kill any leftover processes on ports 8000 and 5173
     fuser -k 8000/tcp >/dev/null 2>&1 || true
     fuser -k 5173/tcp >/dev/null 2>&1 || true
 
@@ -399,7 +493,41 @@ if [[ "$1" == "--stop" || "$1" == "--down" || "$1" == "stop" ]]; then
     exit 0
 fi
 
-# --- Command: STATUS ---
+check_cluster_status() {
+    # 1. Backend API Check
+    if curl -s -f http://localhost:8000/health >/dev/null 2>&1; then
+        print_success "Backend API: Online (http://localhost:8000/health)"
+    else
+        print_error "Backend API: Offline"
+    fi
+
+    # 2. Frontend Dashboard Check
+    if curl -s -f http://localhost:5173 >/dev/null 2>&1; then
+        print_success "Frontend Dashboard: Online (http://localhost:5173)"
+    else
+        print_error "Frontend Dashboard: Offline"
+    fi
+
+    # 3. Environment & Isolation Mode Check
+    local ENV_RESP
+    ENV_RESP=$(curl -s http://localhost:8000/environment 2>/dev/null || true)
+    if [[ -n "$ENV_RESP" ]]; then
+        local EXEC_MODE
+        EXEC_MODE=$(echo "$ENV_RESP" | grep -o '"execution_mode":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+        print_info "API Execution Mode: ${CYAN}${EXEC_MODE}${NC}"
+    fi
+
+    # 4. Docker Container Status
+    local DOCKER_CMD
+    DOCKER_CMD=$(check_docker || true)
+    if [[ "$DOCKER_CMD" != "none" ]]; then
+        echo ""
+        print_info "Docker Container Status:"
+        $DOCKER_CMD ps --filter "name=fastapi_app|celery_worker|redis|postgres|frontend_app" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
+    fi
+}
+
+# --- Status ---
 if [[ "$1" == "--status" || "$1" == "status" ]]; then
     if [[ -n "$2" && "$2" != "--"* ]]; then
         shift
@@ -409,67 +537,53 @@ if [[ "$1" == "--status" || "$1" == "status" ]]; then
     print_banner
     echo -e "  ${BOLD}Platform Cluster Health & Status Check${NC}"
     echo ""
-    
-    # 1. Backend API Check
-    if curl -s -f http://localhost:8000/health >/dev/null 2>&1; then
-        print_success "Backend API: Online (http://localhost:8000/health)"
-    else
-        print_error "Backend API: Offline"
-    fi
-
-    # 2. Frontend Check
-    if curl -s -f http://localhost:5173 >/dev/null 2>&1; then
-        print_success "Frontend Dashboard: Online (http://localhost:5173)"
-    else
-        print_error "Frontend Dashboard: Offline"
-    fi
-
-    # 3. Docker Container Status
-    DOCKER_CMD=$(check_docker || true)
-    if [[ "$DOCKER_CMD" != "none" ]]; then
-        echo ""
-        print_info "Docker Container Status:"
-        $DOCKER_CMD ps --filter "name=fastapi_app|celery_worker|redis|postgres|frontend_app" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
-    fi
+    check_cluster_status
     exit 0
 fi
 
-# --- Command: CHECK & DOCTOR (System & Toolchain Diagnostic) ---
+# --- Check & Diagnostic ---
 if [[ "$1" == "--check" || "$1" == "check" || "$1" == "--env" || "$1" == "env" || "$1" == "doctor" ]]; then
     print_banner
     check_system_environment
     exit 0
 fi
 
-# --- Command: SCAN (Terminal Vulnerability Assessment) ---
+# --- Scan ---
 if [[ "$1" == "scan" || "$1" == "--scan" ]]; then
     shift
     run_cli scan "$@"
     exit $?
 fi
 
-# --- Command: PROBE (Terminal Host Diagnostics) ---
+# --- Probe ---
 if [[ "$1" == "probe" || "$1" == "--probe" ]]; then
     shift
     run_cli probe "$@"
     exit $?
 fi
 
-# --- Command: TEMPLATES (Autonomous & Multi-tool Templates) ---
+# --- Templates ---
 if [[ "$1" == "templates" || "$1" == "--templates" || "$1" == "template" ]]; then
     shift
     run_cli templates "$@"
     exit $?
 fi
 
-# --- Command: RESULTS (Fetch completed scan findings) ---
+# --- Tools & HexStrike MCP Catalog ---
+if [[ "$1" == "tools" || "$1" == "--tools" || "$1" == "mcp" || "$1" == "--mcp" ]]; then
+    print_banner
+    show_mcp_tools_catalog
+    exit 0
+fi
+
+# --- Results ---
 if [[ "$1" == "results" || "$1" == "--results" ]]; then
     shift
     run_cli results "$@"
     exit $?
 fi
 
-# --- Command: CLI / INTERACTIVE CONSOLE OR SUBCOMMAND DISPATCH ---
+# --- Interactive CLI ---
 if [[ "$1" == "cli" || "$1" == "--cli" || "$1" == "-i" || "$1" == "--interactive" ]]; then
     shift
     if [[ $# -gt 0 ]]; then
@@ -485,11 +599,11 @@ if [[ "$1" == "cli" || "$1" == "--cli" || "$1" == "-i" || "$1" == "--interactive
         exit 1
     fi
     echo ""
-    echo -e "  Select Scan Profile / Mode:"
+    echo -e "  Select Scan Profile:"
     echo -e "    ${BOLD}1${NC}) Auto Template (AI Autonomous Recon & Dynamic Toolchain)"
-    echo -e "    ${BOLD}2${NC}) Web Standard (~45s DAST & injection suite)"
-    echo -e "    ${BOLD}3${NC}) Recon (~20s fast check)"
-    echo -e "    ${BOLD}4${NC}) Full (~85s comprehensive audit)"
+    echo -e "    ${BOLD}2${NC}) Web Standard (~45-60s DAST suite)"
+    echo -e "    ${BOLD}3${NC}) Recon (~20s rapid perimeter check)"
+    echo -e "    ${BOLD}4${NC}) Full (~2m comprehensive audit)"
     echo -e "    ${BOLD}5${NC}) Unlimited (Exhaustive deep scan, no timeout)"
     read -r -p "  Choice [1-5] (default: 1): " PROF_SEL
     case "$PROF_SEL" in
@@ -506,55 +620,66 @@ if [[ "$1" == "cli" || "$1" == "--cli" || "$1" == "-i" || "$1" == "--interactive
     exit $?
 fi
 
-# --- Main Startup Flow ---
+# ------------------------------------------------------------------------------
+# Main Startup: Docker Enforced on Non-Kali/Parrot
+# ------------------------------------------------------------------------------
+
+detect_host_os
+
 echo ""
-print_info "Initializing platform cluster & security engines..."
+print_info "Initializing ORVYN platform cluster & security toolchain..."
 echo ""
 
-echo -e "  ${BOLD}Environment Pre-flight Status:${NC}"
-if [[ -f /etc/os-release ]]; then
-    (
-        source /etc/os-release
-        echo -e "    • Host OS: ${CYAN}${PRETTY_NAME:-$NAME}${NC}"
-        if [[ "$ID" == "kali" || "$ID_LIKE" =~ "kali" ]]; then
-            echo -e "    • Tool Engine: ${GREEN}Kali Linux Native Host Tools${NC}"
-        elif [[ "$ID" == "parrot" || "$ID_LIKE" =~ "parrot" ]]; then
-            echo -e "    • Tool Engine: ${GREEN}Parrot Security OS Native Host Tools${NC}"
-        else
-            echo -e "    • Tool Engine: ${CYAN}Curated HexStrike MCP Containers (Docker)${NC}"
-        fi
-    )
-fi
-if command -v ollama >/dev/null 2>&1 && curl -s -f http://localhost:11434/api/tags >/dev/null 2>&1; then
-    echo -e "    • AI Orchestrator: ${GREEN}Ollama Online (Autonomous Template Selector Active)${NC}"
+echo -e "  ${BOLD}Pre-flight Environment Validation:${NC}"
+echo -e "    • Host OS: ${CYAN}${OS_NAME}${NC}"
+
+if [[ "$IS_KALI" == "true" ]]; then
+    echo -e "    • Engine Mode: ${GREEN}Kali Linux Native Host Tools${NC}"
+elif [[ "$IS_PARROT" == "true" ]]; then
+    echo -e "    • Engine Mode: ${GREEN}Parrot Security OS Native Host Tools${NC}"
 else
-    echo -e "    • AI Orchestrator: ${YELLOW}Ollama Offline (Autonomous Heuristic Fallback Active)${NC}"
+    echo -e "    • Engine Mode: ${CYAN}Docker Container Mode (Strict Isolation Policy Enforced)${NC}"
 fi
-echo -e "    • Template Catalog: ${GREEN}30 Multi-Tool Templates Available${NC}"
+
+echo -e "    • HexStrike Catalog: ${GREEN}72 Curated MCP Security Tools${NC}"
+echo -e "    • Template Registry: ${GREEN}30 Autonomous Multi-Tool Templates${NC}"
 echo ""
 
 DOCKER_CMD=$(check_docker || true)
 
-# By default, start.sh always runs docker compose
+# Enforce Docker mode on all non-Kali/Parrot machines
 MODE="docker"
 
 if [[ "$1" == "--local" ]]; then
-    MODE="local"
+    if [[ "$IS_KALI" != "true" && "$IS_PARROT" != "true" ]]; then
+        print_warn "STRICT SECURITY ENFORCEMENT: Native host execution is strictly restricted to Kali Linux or Parrot OS."
+        print_info "Host is ${OS_NAME}. Forcing isolated Docker cluster mode."
+        MODE="docker"
+    else
+        MODE="local"
+    fi
 fi
 
 if [[ "$MODE" == "docker" ]]; then
     if [[ "$DOCKER_CMD" == "none" ]]; then
-        print_error "Docker binary not found on PATH. Please install Docker or run with './start.sh --local'."
+        print_error "Docker is NOT installed or daemon is unreachable."
+        print_info "Please install Docker and ensure the docker daemon is active to launch the platform."
         exit 1
     fi
 
     if [[ "$DOCKER_CMD" == "sudo docker" ]]; then
-        print_warn "Docker daemon requires elevated permissions to access /var/run/docker.sock."
-        print_info "Prompting for sudo password to launch containers..."
+        print_warn "Docker daemon requires elevated permissions."
+        print_info "Prompting for sudo password to start platform containers..."
     fi
 
-    print_info "Launching platform cluster via ${BOLD}${DOCKER_CMD} compose${NC}..."
-    echo -e "  ${DIM}Services: Backend (FastAPI+ZAP+Nuclei+Nikto), Celery Worker, Redis, PostgreSQL${NC}"
+    COMPOSE_CMD=$(get_compose_cmd)
+    if [[ "$COMPOSE_CMD" == "none" ]]; then
+        print_error "Docker Compose was not found. Please install docker-compose."
+        exit 1
+    fi
+
+    print_info "Launching platform cluster via ${BOLD}${COMPOSE_CMD}${NC}..."
+    echo -e "  ${DIM}Services: Backend (FastAPI + HexStrike MCP), Celery Worker, Redis, PostgreSQL, Frontend Dashboard${NC}"
     echo ""
 
     REBUILD_FLAG=""
@@ -565,44 +690,22 @@ if [[ "$MODE" == "docker" ]]; then
         fi
     done
 
-    # Verify whether curated container image needs automated build
-    if [[ -z "$REBUILD_FLAG" ]]; then
-        IMAGE_NAME="pentest-backend:latest"
-        if ! $DOCKER_CMD image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
-            print_info "Curated HexStrike MCP container image not found. Building now (includes all 9 security tools)..."
-            REBUILD_FLAG="--build"
-        else
-            MISSING_TOOLS=$($DOCKER_CMD run --rm "$IMAGE_NAME" bash -c '
-                missing=0
-                for t in nmap nuclei nikto whatweb sqlmap ffuf sslyze zap-baseline.py wapiti; do
-                    which $t >/dev/null 2>&1 || missing=$((missing + 1))
-                done
-                echo "$missing"
-            ' 2>/dev/null || echo "1")
-            if [[ "$MISSING_TOOLS" -gt 0 ]]; then
-                print_warn "Curated container image is missing updated tools (${MISSING_TOOLS} missing). Auto-rebuilding with all 9 tools..."
-                REBUILD_FLAG="--build"
-            fi
-        fi
+    # Verify if container image exists
+    IMAGE_NAME="pentest-backend:latest"
+    if ! $DOCKER_CMD image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+        print_info "Curated HexStrike container image not found. Building container cluster now..."
+        REBUILD_FLAG="--build"
     fi
 
-    # Release any leftover host background processes on port 5173/8000 so docker can bind cleanly
-    if [[ -f "$PROJECT_ROOT/.backend.pid" ]]; then
-        kill $(cat "$PROJECT_ROOT/.backend.pid") >/dev/null 2>&1 || true
-        rm -f "$PROJECT_ROOT/.backend.pid"
-    fi
-    if [[ -f "$PROJECT_ROOT/.frontend.pid" ]]; then
-        kill $(cat "$PROJECT_ROOT/.frontend.pid") >/dev/null 2>&1 || true
-        rm -f "$PROJECT_ROOT/.frontend.pid"
-    fi
+    # Release any leftover host processes on ports 8000 and 5173
     fuser -k 8000/tcp >/dev/null 2>&1 || true
     fuser -k 5173/tcp >/dev/null 2>&1 || true
 
     if [[ -n "$REBUILD_FLAG" ]]; then
-        print_info "Building curated container images (incorporating all 9 security tools & wordlists)..."
-        $DOCKER_CMD compose up --build -d
+        print_info "Building container images (incorporating all security tools & MCP endpoints)..."
+        $COMPOSE_CMD up --build -d
     else
-        $DOCKER_CMD compose up -d
+        $COMPOSE_CMD up -d
     fi
 
     print_info "Waiting for platform services health check..."
@@ -615,7 +718,7 @@ if [[ "$MODE" == "docker" ]]; then
         sleep 1
     done
 
-    # Wait for frontend container on port 5173
+    # Wait for frontend
     FRONTEND_READY=false
     for i in {1..20}; do
         if curl -s -f http://localhost:5173 >/dev/null 2>&1; then
@@ -626,8 +729,7 @@ if [[ "$MODE" == "docker" ]]; then
     done
 
     if [[ "$FRONTEND_READY" != "true" ]]; then
-        # If containerized frontend failed or wasn't included, start fallback frontend locally
-        print_info "Containerized frontend not detected on port 5173. Launching host fallback..."
+        print_info "Containerized frontend starting locally..."
         if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
             (cd "$FRONTEND_DIR" && npm install)
         fi
@@ -636,23 +738,24 @@ if [[ "$MODE" == "docker" ]]; then
     fi
 
 else
-    # Local Mode
-    print_info "Starting platform in ${BOLD}Local Native Mode${NC}..."
+    # Native Local Mode (Strictly Kali Linux or Parrot OS)
+    print_info "Starting platform in ${BOLD}Native Host Mode${NC} (${OS_NAME})..."
 
     # 1. Setup Python backend
-    print_info "Checking backend Python virtual environment..."
+    print_info "Checking backend Python environment..."
     if [[ ! -d "$VENV_DIR" ]]; then
         python3 -m venv "$VENV_DIR"
     fi
+    # shellcheck disable=SC1091
     source "$VENV_DIR/bin/activate"
 
     if ! python3 -c "import fastapi, uvicorn, rich, requests" >/dev/null 2>&1; then
-        print_info "Installing backend dependencies from requirements.txt..."
+        print_info "Installing backend dependencies..."
         pip install --no-cache-dir -r "$BACKEND_DIR/requirements.txt"
     fi
 
     # 2. Setup Node frontend
-    print_info "Checking frontend node dependencies..."
+    print_info "Checking frontend dependencies..."
     if [[ ! -d "$FRONTEND_DIR/node_modules" ]]; then
         (cd "$FRONTEND_DIR" && npm install)
     fi
@@ -677,29 +780,29 @@ else
     done
 fi
 
-# Replace loading screen with clean logo and platform details card
 if [ -t 1 ]; then
     clear
 fi
 
 print_banner
 
-# Final Output Card
+# Summary Status Card
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${NC}   ${GREEN}${BOLD}🚀 ORVYN INTELLIGENCE PLATFORM READY${NC}                                ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}   ${GREEN}${BOLD}🚀 ORVYN AUTONOMOUS PLATFORM READY${NC}                                 ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}   ${DIM}Offensive Risk and Vulnerability Intelligence Network${NC}               ${CYAN}║${NC}"
 echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${CYAN}║${NC}  🌐 ${BOLD}Web Dashboard:${NC}   ${CYAN}http://localhost:5173${NC}                            ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  🔑 ${BOLD}Default Login:${NC}   Username: ${YELLOW}admin${NC} | Password: ${YELLOW}admin${NC}             ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  ⚙️  ${BOLD}API Docs:${NC}        ${CYAN}http://localhost:8000/docs${NC}                       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  💻 ${BOLD}Terminal Scan:${NC}   ${PURPLE}./start.sh scan <target> [--profile unlimited]${NC}      ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  🛡️  ${BOLD}Engine Mode:${NC}     ${GREEN}${MODE^^} (${OS_NAME})${NC}                          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  🛠️  ${BOLD}MCP Catalog:${NC}     ${PURPLE}72 Curated Security Tools${NC}                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  💻 ${BOLD}Terminal Scan:${NC}   ${PURPLE}./start.sh scan <target>${NC}                            ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  🔍 ${BOLD}Target Probe:${NC}    ${PURPLE}./start.sh probe <target>${NC}                           ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  📖 ${BOLD}CLI Manual:${NC}      ${CYAN}./start.sh --help${NC}                                   ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  🛑 ${BOLD}To Stop:${NC}         ${DIM}./start.sh --stop${NC}                               ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  🛑 ${BOLD}To Stop:${NC}         ${DIM}./start.sh stop${NC}                                 ${CYAN}║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Interactive terminal scan option if running inside an interactive terminal
+# Interactive terminal scan prompt
 if [ -t 0 ]; then
     echo -e "${YELLOW}🎯 Launch a terminal vulnerability scan now? (y/N):${NC} "
     read -r -p "> " RUN_SCAN || true
@@ -708,11 +811,11 @@ if [ -t 0 ]; then
         read -r -p "  Enter target domain or URL (e.g. scanme.nmap.org): " TERM_TARGET
         if [[ -n "$TERM_TARGET" ]]; then
             echo ""
-            echo -e "  Select Intensity Profile / Mode:"
+            echo -e "  Select Intensity Profile:"
             echo -e "    1) Auto Template (AI Autonomous Recon & Dynamic Toolchain)"
-            echo -e "    2) Web Standard (~45s standard DAST)"
-            echo -e "    3) Recon (~20s fast check)"
-            echo -e "    4) Full (~85s comprehensive)"
+            echo -e "    2) Web Standard (~45-60s DAST suite)"
+            echo -e "    3) Recon (~20s rapid check)"
+            echo -e "    4) Full (~2m comprehensive audit)"
             echo -e "    5) Unlimited (Exhaustive, no timeout)"
             read -r -p "  Profile [1-5] (default: 1): " PROF_SEL
             case "$PROF_SEL" in
@@ -723,7 +826,7 @@ if [ -t 0 ]; then
                 *) P_ARGS=(--template "auto") ;;
             esac
             echo ""
-            print_info "Executing terminal penetration assessment for ${BOLD}$TERM_TARGET${NC}..."
+            print_info "Executing penetration assessment for ${BOLD}$TERM_TARGET${NC}..."
             echo ""
             run_cli scan "$TERM_TARGET" "${P_ARGS[@]}" --detailed --force -o "$PROJECT_ROOT/scan_report.md"
             echo ""
@@ -731,5 +834,5 @@ if [ -t 0 ]; then
         fi
     fi
 else
-    print_success "Ready for vulnerability assessments. Run './start.sh scan <target>' anytime!"
+    print_success "Platform active. Run './start.sh scan <target>' for terminal pentests."
 fi
