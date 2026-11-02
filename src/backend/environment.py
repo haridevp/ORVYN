@@ -106,25 +106,59 @@ def _is_inside_docker() -> bool:
     return False
 
 
+def get_container_cli() -> Optional[str]:
+    """Get the functional container CLI binary ('docker' or 'podman')."""
+    # Test which container engine actually has active daemon/socket access
+    for cli in ("docker", "podman"):
+        bin_path = shutil.which(cli)
+        if not bin_path:
+            continue
+        try:
+            res = subprocess.run(
+                [bin_path, "info"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=2,
+            )
+            if res.returncode == 0:
+                return cli
+        except Exception:
+            pass
+
+    # Fallback to whichever is installed on PATH
+    for cli in ("podman", "docker"):
+        if shutil.which(cli):
+            return cli
+    return None
+
+
 def _is_docker_available() -> bool:
-    """Check if docker binary and daemon are accessible on host."""
-    docker_bin = shutil.which("docker")
-    if not docker_bin:
-        return False
-    try:
-        res = subprocess.run(
-            [docker_bin, "info"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        return res.returncode == 0
-    except Exception:
-        return False
+    """Check if docker or podman binary and daemon are accessible on host."""
+    for cli in ("docker", "podman"):
+        bin_path = shutil.which(cli)
+        if not bin_path:
+            continue
+        try:
+            res = subprocess.run(
+                [bin_path, "info"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=2,
+            )
+            if res.returncode == 0:
+                return True
+        except Exception:
+            pass
+    return False
 
 
 def detect_environment() -> EnvironmentInfo:
-    """Detect host OS, installed security binaries, and execution mode."""
+    """Detect host OS, installed security binaries, and execution mode.
+    
+    STRICT POLICY: Native host execution is strictly restricted to Kali Linux
+    and Parrot Security OS. On all other operating systems, tools are strictly
+    isolated and executed via Docker/Podman container mode.
+    """
     os_data = _parse_os_release()
     os_id = os_data.get("ID", "").lower()
     id_like = os_data.get("ID_LIKE", "").lower()
@@ -144,22 +178,21 @@ def detect_environment() -> EnvironmentInfo:
         else:
             missing_tools.append(tool)
 
-    # Determine execution mode
-    if is_kali and len(available_tools) >= 2:
+    # Determine execution mode (STRICT: Docker only unless Kali or Parrot)
+    if is_kali and len(available_tools) >= 1:
         mode = ExecutionMode.NATIVE_KALI
         desc = f"Kali Linux detected ({len(available_tools)}/{len(SECURITY_TOOLS)} security tools available natively on host)"
-    elif is_parrot and len(available_tools) >= 2:
+    elif is_parrot and len(available_tools) >= 1:
         mode = ExecutionMode.NATIVE_PARROT
         desc = f"Parrot Security OS detected ({len(available_tools)}/{len(SECURITY_TOOLS)} security tools available natively on host)"
-    elif len(available_tools) >= 1:
-        mode = ExecutionMode.NATIVE_LINUX
-        desc = f"Host Linux detected with native tools: {', '.join(available_tools)}"
-    elif docker_available or is_docker:
+    elif is_docker:
         mode = ExecutionMode.DOCKERIZED_MCP
-        desc = "Curated HexStrike MCP container mode (tools executed via isolated Docker containers)"
+        desc = "Running inside isolated container environment"
     else:
-        mode = ExecutionMode.NATIVE_LINUX
-        desc = "Host Linux environment with standalone tool discovery"
+        # Strict isolation: Any other host OS (Fedora, Ubuntu, Debian, macOS, etc.)
+        mode = ExecutionMode.DOCKERIZED_MCP
+        container_cli = get_container_cli() or "docker"
+        desc = f"{pretty_name} detected. Strict isolation enforced: tools execute exclusively via {container_cli.capitalize()} container."
 
     return EnvironmentInfo(
         os_id=os_id or "generic",

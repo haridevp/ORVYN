@@ -39,6 +39,7 @@ def _normalize_raw_line(raw: dict, target: str) -> ScannerFinding | None:
 
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     timeout: Optional[int] = None,
     in_scope: Optional[list[str]] = None,
@@ -78,8 +79,7 @@ async def _run_real_scan(
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "nuclei_output.json")
-        command = [
-            BINARY,
+        nuclei_args = [
             "-u", target_url,
             "-duc",  # disable update check to prevent waiting on github api
             "-j",    # jsonl format
@@ -88,6 +88,7 @@ async def _run_real_scan(
             "-v",
             *extra_args,
         ]
+        command = wrapper.build_execution_command(nuclei_args)
         timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED"
         if log_cb:
             log_cb(f"Executing: {' '.join(command)} (timeout: {timeout_label}, tags: {tags})")
@@ -196,13 +197,14 @@ class NucleiWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+            log_cb(f"Executing Nuclei scanner for target: {target}")
         return await _run_real_scan(
             target,
+            wrapper=self,
             profile=profile,
             in_scope=in_scope,
             out_of_scope=out_of_scope,

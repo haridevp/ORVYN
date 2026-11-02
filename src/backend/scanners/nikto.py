@@ -33,6 +33,7 @@ def _normalize_item(item: dict, target: str) -> ScannerFinding:
 
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     timeout: Optional[int] = None,
     in_scope: Optional[list[str]] = None,
@@ -63,8 +64,7 @@ async def _run_real_scan(
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "nikto_output.json")
-        command = [
-            BINARY,
+        nikto_args = [
             "-h", clean_host,
             "-nocheck",
             "-Format", "json",
@@ -72,9 +72,11 @@ async def _run_real_scan(
             "-Tuning", tuning,
         ]
         if target.startswith("https://") or ":443" in target:
-            command.append("-ssl")
+            nikto_args.append("-ssl")
         if max_time:
-            command.extend(["-maxtime", max_time])
+            nikto_args.extend(["-maxtime", max_time])
+
+        command = wrapper.build_execution_command(nikto_args)
 
         timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED (no timeout)"
         if log_cb:
@@ -228,13 +230,14 @@ class NiktoWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+            log_cb(f"Executing Nikto scanner for target: {target}")
         return await _run_real_scan(
             target,
+            wrapper=self,
             profile=profile,
             in_scope=in_scope,
             out_of_scope=out_of_scope,

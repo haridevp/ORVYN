@@ -17,11 +17,7 @@ from templates.registry import template_registry
 mcp_router = APIRouter(prefix="/mcp", tags=["HexStrike MCP Engine"])
 
 
-# MCP Schema Specifications
-class MCPToolDefinition(BaseModel):
-    name: str
-    description: str
-    parameters: dict[str, Any]
+from mcp.tools_catalog import HEXSTRIKE_TOOLS_CATALOG, MCPToolDefinition
 
 
 class VulnerabilityVerificationRequest(BaseModel):
@@ -40,20 +36,29 @@ class VulnerabilityVerificationResult(BaseModel):
     notes: str
 
 
-CURATED_MCP_TOOLS: list[MCPToolDefinition] = [
+META_MCP_TOOLS: list[MCPToolDefinition] = [
     MCPToolDefinition(
         name="hexstrike_list_templates",
+        display_name="HexStrike List Templates",
+        category="Orchestration & Templates",
         description="Returns all curated multi-tool vulnerability assessment templates, their chained tools, and targeted vulnerability classes.",
+        binary="python",
         parameters={"type": "object", "properties": {}},
     ),
     MCPToolDefinition(
         name="hexstrike_detect_environment",
-        description="Detects whether the platform is running on Kali Linux, Parrot OS, Docker container, or fallback mode, and lists available tools.",
+        display_name="HexStrike Environment Detector",
+        category="Orchestration & Templates",
+        description="Detects whether the platform is running on Kali Linux, Parrot OS, or Docker container mode, and lists available tools.",
+        binary="python",
         parameters={"type": "object", "properties": {}},
     ),
     MCPToolDefinition(
         name="hexstrike_recommend_template",
+        display_name="HexStrike Template Recommender",
+        category="Orchestration & Templates",
         description="Analyzes discovered technology stack and recommends the optimal multi-tool audit template for maximum vulnerability discovery.",
+        binary="python",
         parameters={
             "type": "object",
             "properties": {
@@ -73,7 +78,10 @@ CURATED_MCP_TOOLS: list[MCPToolDefinition] = [
     ),
     MCPToolDefinition(
         name="hexstrike_verify_vulnerability",
+        display_name="HexStrike Vulnerability Verifier",
+        category="Verification & False Positives",
         description="Executes a safe, targeted verification check on an endpoint to confirm a suspected vulnerability and eliminate false positives.",
+        binary="httpx",
         parameters={
             "type": "object",
             "properties": {
@@ -87,11 +95,13 @@ CURATED_MCP_TOOLS: list[MCPToolDefinition] = [
     ),
 ]
 
+ALL_HEXSTRIKE_MCP_TOOLS: list[MCPToolDefinition] = META_MCP_TOOLS + HEXSTRIKE_TOOLS_CATALOG
+
 
 @mcp_router.get("/tools", response_model=list[MCPToolDefinition])
 def list_mcp_tools() -> list[MCPToolDefinition]:
-    """List all available curated tools exposed by the HexStrike MCP server."""
-    return CURATED_MCP_TOOLS
+    """List all available curated tools (68 tools + 4 orchestration tools) exposed by the HexStrike MCP server."""
+    return ALL_HEXSTRIKE_MCP_TOOLS
 
 
 @mcp_router.get("/environment", response_model=EnvironmentInfo)

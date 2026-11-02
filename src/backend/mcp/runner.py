@@ -49,17 +49,21 @@ class HexStrikeRunner:
         """Run a security tool respecting Kali/Parrot native execution or Docker containerization."""
         self.refresh_environment()
 
-        # Mode A: Native execution (Kali, Parrot, or host binary available)
-        if tool in self.env.available_tools:
+        from environment import get_container_cli
+
+        # Mode A: Native execution - strictly permitted ONLY on Kali Linux, Parrot OS, or inside a container
+        is_kali_or_parrot = self.env.execution_mode in (ExecutionMode.NATIVE_KALI, ExecutionMode.NATIVE_PARROT)
+        if (is_kali_or_parrot or self.env.is_docker) and tool in self.env.available_tools:
             cmd = [tool] + args
             if log_cb:
                 log_cb(f"[HexStrike-Native] Executing on host: {' '.join(cmd)}")
             return await self._run_subprocess(tool, cmd, timeout, log_cb, mode=self.env.execution_mode.value)
 
-        # Mode B: Dockerized tool execution
-        if self.env.docker_available:
-            docker_cmd = [
-                "docker",
+        # Mode B: Containerized tool execution (Strict isolation on all other OSes)
+        container_cli = get_container_cli() or "docker"
+        if self.env.docker_available or shutil.which(container_cli):
+            container_cmd = [
+                container_cli,
                 "run",
                 "--rm",
                 "--network",
@@ -68,11 +72,14 @@ class HexStrikeRunner:
                 tool,
             ] + args
             if log_cb:
-                log_cb(f"[HexStrike-Docker] Executing in container: {' '.join(docker_cmd)}")
-            return await self._run_subprocess(tool, docker_cmd, timeout, log_cb, mode="dockerized_mcp")
+                log_cb(f"[HexStrike-{container_cli.capitalize()}] Executing in container: {' '.join(container_cmd)}")
+            return await self._run_subprocess(tool, container_cmd, timeout, log_cb, mode="dockerized_mcp")
 
-        # Tool unavailable on host and Docker daemon unavailable
-        err_msg = f"Tool '{tool}' not installed on host and Docker daemon unavailable."
+        # Container engine unavailable on non-Kali/non-Parrot host
+        err_msg = (
+            f"Tool '{tool}' requires {container_cli.capitalize()} container execution on {self.env.os_name}. "
+            "Native host execution is restricted strictly to Kali Linux or Parrot OS."
+        )
         if log_cb:
             log_cb(f"[HexStrike-Error] {err_msg}")
         return ToolExecutionResult(

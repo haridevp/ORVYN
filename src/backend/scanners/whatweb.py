@@ -19,8 +19,12 @@ def _clean_host(target: str) -> str:
     return cleaned.split("/")[0].split(":")[0]
 
 
+from scanners.cpe_knowledge import match_service_cves
+
+
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
@@ -30,12 +34,11 @@ async def _run_real_scan(
     target_url = target if target.startswith(("http://", "https://")) else f"http://{target}"
     clean_host = _clean_host(target)
 
-    command = [
-        BINARY,
+    command = wrapper.build_execution_command([
         "--color=never",
         "-a", "1",
         target_url,
-    ]
+    ])
 
     if log_cb:
         log_cb(f"Executing: {' '.join(command)}")
@@ -114,8 +117,21 @@ async def _run_real_scan(
                 severity=Severity.info,
                 description=f"WhatWeb fingerprinting detected active technologies: {tech_summary}",
                 evidence=f"Host: {clean_host} ({tech_summary})",
-                reference=enrich_reference("Fingerprint Web Server", "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Server"),
             ))
+        # Enrich with CVEs for detected server versions
+        for p in plugins:
+            matched_cves = match_service_cves(p)
+            for c in matched_cves:
+                cve_id = c["cve"]
+                findings.append(ScannerFinding(
+                    tool=ScannerName.whatweb,
+                    target=target,
+                    vulnerability=f"{cve_id} ({p}){' [VERIFIED EXPLOIT AVAILABLE]' if c.get('exploit') else ''}",
+                    severity=c["severity"],
+                    description=c["summary"],
+                    evidence=f"WhatWeb fingerprinted banner: '{p}' matching {cve_id} (CVSS: {c['cvss']})",
+                    reference=enrich_reference(cve_id, f"https://nvd.nist.gov/vuln/detail/{cve_id}"),
+                ))
 
     for f in findings:
         if finding_cb:
@@ -139,13 +155,14 @@ class WhatWebWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+            log_cb(f"Executing WhatWeb scanner for target: {target}")
         return await _run_real_scan(
             target,
+            wrapper=self,
             profile=profile,
             in_scope=in_scope,
             out_of_scope=out_of_scope,

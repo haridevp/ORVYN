@@ -626,9 +626,16 @@ class JobManager:
                     in_scope=job.in_scope,
                     out_of_scope=job.out_of_scope,
                     log_cb=log_callback,
-                    finding_cb=live_finding_callback,
                 )
-            findings = await asyncio.wait_for(scan_coro, timeout=55.0)
+            # Profile-aware scanner timeout to permit full CVE and protocol inspection
+            if job.profile == "recon":
+                coro_timeout = 90.0
+            elif job.profile in ("full", "unlimited"):
+                coro_timeout = 360.0
+            else:
+                coro_timeout = 180.0
+
+            findings = await asyncio.wait_for(scan_coro, timeout=coro_timeout)
 
             # Strict perimeter enforcement & reconciliation: ensure any batch findings are captured
             excluded_count = 0

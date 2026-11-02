@@ -21,6 +21,7 @@ def _clean_host(target: str) -> str:
 
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
@@ -28,11 +29,10 @@ async def _run_real_scan(
     finding_cb: Optional[Callable[[ScannerFinding], None]] = None,
 ) -> list[ScannerFinding]:
     clean_host = _clean_host(target)
-    command = [
-        BINARY,
+    command = wrapper.build_execution_command([
         "--json_out=-",
         f"{clean_host}:443",
-    ]
+    ])
 
     if log_cb:
         log_cb(f"Executing: {' '.join(command)}")
@@ -147,13 +147,14 @@ class SSLyzeWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+            log_cb(f"Executing SSLyze scanner for target: {target}")
         return await _run_real_scan(
             target,
+            wrapper=self,
             profile=profile,
             in_scope=in_scope,
             out_of_scope=out_of_scope,

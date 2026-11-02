@@ -23,6 +23,7 @@ def _clean_host(target: str) -> str:
 
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
@@ -33,8 +34,7 @@ async def _run_real_scan(
     clean_host = _clean_host(target)
 
     # Fast non-destructive parameter and injection heuristic check
-    command = [
-        BINARY,
+    sqlmap_args = [
         "-u", target_url,
         "--batch",
         "--random-agent",
@@ -47,7 +47,9 @@ async def _run_real_scan(
     ]
 
     if profile in ("full", "unlimited"):
-        command.extend(["--forms", "--crawl=2"])
+        sqlmap_args.extend(["--forms", "--crawl=2"])
+
+    command = wrapper.build_execution_command(sqlmap_args)
 
     if log_cb:
         log_cb(f"Executing: {' '.join(command)}")
@@ -104,12 +106,8 @@ async def _run_real_scan(
 
 
 class SqlmapWrapper(ScannerWrapper):
-    @property
-    def name(self) -> ScannerName:
-        return ScannerName.sqlmap
-
-    def is_available(self) -> bool:
-        return shutil.which(BINARY) is not None
+    name = ScannerName.sqlmap
+    binary = BINARY
 
     async def run(
         self,
@@ -122,9 +120,9 @@ class SqlmapWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Binary '{BINARY}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(BINARY)}")
-        return await _run_real_scan(target, profile, in_scope, out_of_scope, log_cb, finding_cb)
+            log_cb(f"Executing SQLMap scanner for target: {target}")
+        return await _run_real_scan(target, self, profile, in_scope, out_of_scope, log_cb, finding_cb)

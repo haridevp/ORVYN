@@ -41,11 +41,15 @@ def test_mcp_tools_endpoint():
     response = client.get("/mcp/tools")
     assert response.status_code == 200
     tools = response.json()
-    assert len(tools) >= 4
+    assert len(tools) >= 50, f"Expected at least 50 tools, got {len(tools)}"
     tool_names = [t["name"] for t in tools]
     assert "hexstrike_list_templates" in tool_names
     assert "hexstrike_detect_environment" in tool_names
     assert "hexstrike_verify_vulnerability" in tool_names
+    assert "nmap" in tool_names
+    assert "nuclei" in tool_names
+    assert "sqlmap" in tool_names
+    assert "ffuf" in tool_names
 
 
 def test_mcp_templates_and_recommendation():

@@ -37,6 +37,7 @@ def _get_wordlist() -> Optional[str]:
 
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
@@ -60,8 +61,7 @@ async def _run_real_scan(
         wordlist = temp_wordlist
 
     output_json = tempfile.mktemp(prefix="ffuf_out_", suffix=".json")
-    command = [
-        BINARY,
+    ffuf_args = [
         "-u", f"{target_url.rstrip('/')}/FUZZ",
         "-w", wordlist,
         "-mc", "200,204,301,302,307,401,403",
@@ -70,6 +70,7 @@ async def _run_real_scan(
         "-s",
         "-t", "10",
     ]
+    command = wrapper.build_execution_command(ffuf_args)
 
     if log_cb:
         log_cb(f"Executing: {' '.join(command)}")
@@ -138,12 +139,8 @@ async def _run_real_scan(
 
 
 class FfufWrapper(ScannerWrapper):
-    @property
-    def name(self) -> ScannerName:
-        return ScannerName.ffuf
-
-    def is_available(self) -> bool:
-        return shutil.which(BINARY) is not None
+    name = ScannerName.ffuf
+    binary = BINARY
 
     async def run(
         self,
@@ -156,9 +153,9 @@ class FfufWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Binary '{BINARY}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(BINARY)}")
-        return await _run_real_scan(target, profile, in_scope, out_of_scope, log_cb, finding_cb)
+            log_cb(f"Executing FFuF scanner for target: {target}")
+        return await _run_real_scan(target, self, profile, in_scope, out_of_scope, log_cb, finding_cb)

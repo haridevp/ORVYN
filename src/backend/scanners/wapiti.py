@@ -20,6 +20,7 @@ SEVERITY_MAP = {
 
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     in_scope: Optional[list[str]] = None,
     out_of_scope: Optional[list[str]] = None,
@@ -30,9 +31,7 @@ async def _run_real_scan(
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_file = os.path.join(tmp_dir, "wapiti_results.json")
-        # Use exact Wapiti lowercase module names including http_headers and csp
-        command = [
-            BINARY,
+        wapiti_args = [
             "-u", target_url,
             "-f", "json",
             "-o", output_file,
@@ -40,6 +39,7 @@ async def _run_real_scan(
             "--max-scan-time", "40",
             "--flush-session",
         ]
+        command = wrapper.build_execution_command(wapiti_args)
 
         if log_cb:
             log_cb(f"Executing: {' '.join(command)}")
@@ -148,13 +148,14 @@ class WapitiWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Binary '{self.binary}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+            log_cb(f"Executing Wapiti scanner for target: {target}")
         return await _run_real_scan(
             target,
+            wrapper=self,
             profile=profile,
             in_scope=in_scope,
             out_of_scope=out_of_scope,

@@ -45,6 +45,7 @@ def _normalize_target(target: str) -> str:
 
 async def _run_real_scan(
     target: str,
+    wrapper: ScannerWrapper,
     profile: str = "web",
     timeout: Optional[int] = None,
     in_scope: Optional[list[str]] = None,
@@ -80,9 +81,11 @@ async def _run_real_scan(
                 os.makedirs("/zap/wrk", exist_ok=True)
             except Exception:
                 pass
-            command = [BINARY, "-t", normalized_target, "-J", report_filename, "-m", spider_minutes, "-I"]
+            zap_args = ["-t", normalized_target, "-J", report_filename, "-m", spider_minutes, "-I"]
         else:
-            command = [BINARY, "-t", normalized_target, "-J", tmp_report_path, "-m", spider_minutes, "-I"]
+            zap_args = ["-t", normalized_target, "-J", tmp_report_path, "-m", spider_minutes, "-I"]
+
+        command = wrapper.build_execution_command(zap_args)
 
         timeout_label = f"{scan_timeout}s" if scan_timeout is not None else "UNLIMITED (no timeout)"
         if log_cb:
@@ -185,13 +188,14 @@ class ZapWrapper(ScannerWrapper):
     ) -> list[ScannerFinding]:
         if not self.is_available():
             if log_cb:
-                log_cb(f"Script '{self.binary}' not found on PATH. Scanner unavailable.")
+                log_cb(f"Binary '{self.binary}' not found and container execution unavailable.")
             return []
 
         if log_cb:
-            log_cb(f"Executing live binary: {shutil.which(self.binary)}")
+            log_cb(f"Executing ZAP scanner for target: {target}")
         return await _run_real_scan(
             target,
+            wrapper=self,
             profile=profile,
             in_scope=in_scope,
             out_of_scope=out_of_scope,

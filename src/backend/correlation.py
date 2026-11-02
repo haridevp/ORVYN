@@ -8,6 +8,7 @@ multiple independent tools corroborate a finding.
 
 import re
 from difflib import SequenceMatcher
+from typing import Optional
 from uuid import uuid4
 
 from schemas import SEVERITY_ORDER, CorrelatedFinding, ScannerFinding, SeverityDistribution
@@ -18,16 +19,40 @@ CONFIDENCE_PER_EXTRA_TOOL = 25
 MAX_CONFIDENCE = 97
 
 
+def _extract_vuln_id(title: str) -> Optional[str]:
+    """Extract standard CVE ID or security advisory/exploit identifier if present."""
+    cve = re.search(r"\b(CVE-\d{4}-\d+)\b", title, re.IGNORECASE)
+    if cve:
+        return cve.group(1).upper()
+    m = re.match(r"^([A-Za-z0-9\-_:]{5,64})\s*\(", title)
+    if m:
+        candidate = m.group(1).strip()
+        if candidate.lower() not in ("exposed", "service", "missing", "security", "http", "https"):
+            return candidate.upper()
+    return None
+
+
 def _normalize_title(title: str) -> str:
-    title = title.lower()
-    title = re.sub(r"\(cve-[\w.-]+\)", "", title)
-    title = re.sub(r"[^a-z0-9 ]", " ", title)
-    title = re.sub(r"\s+", " ", title).strip()
-    return title
+    cleaned = re.sub(r"[^a-z0-9\s]", " ", title.lower())
+    return " ".join(cleaned.split())
 
 
 def _similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, _normalize_title(a), _normalize_title(b)).ratio()
+
+
+def _is_same_vulnerability(a: str, b: str) -> bool:
+    """Determine if two vulnerability titles describe the exact same finding."""
+    id_a = _extract_vuln_id(a)
+    id_b = _extract_vuln_id(b)
+    # If both have explicit advisory/CVE IDs, they match if and only if the IDs match
+    if id_a and id_b:
+        return id_a == id_b
+    if (id_a is None) != (id_b is None):
+        # One has a specific advisory/CVE and the other does not -> keep distinct
+        return False
+    # Neither has an advisory/CVE ID: use title similarity
+    return _similarity(a, b) >= SIMILARITY_THRESHOLD
 
 
 def _group_findings(findings: list[ScannerFinding]) -> list[list[ScannerFinding]]:
@@ -38,7 +63,7 @@ def _group_findings(findings: list[ScannerFinding]) -> list[list[ScannerFinding]
             representative = group[0]
             if representative.target != finding.target:
                 continue
-            if _similarity(representative.vulnerability, finding.vulnerability) >= SIMILARITY_THRESHOLD:
+            if _is_same_vulnerability(representative.vulnerability, finding.vulnerability):
                 group.append(finding)
                 placed = True
                 break
